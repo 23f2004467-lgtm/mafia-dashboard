@@ -1,0 +1,85 @@
+{
+  "MIT2025001": {
+    "name": "Rachel Rose",
+    "regNo": "MIT2025001",
+    "year": "3rd",
+    "preferences": [],
+    "verdict": {
+      "talentComm": [
+        "Dance",
+        "Music"
+      ],
+      "workComm": [
+        "Photography and Videography",
+        "Public Relations"
+      ]
+    },
+    "comments": "Strong performance in music and visual presentation.",
+    "paid": true
+  },
+  "MIT2025002": {
+    "name": "Ronald Ross",
+    "regNo": "MIT2025002",
+    "year": "2nd",
+    "preferences": [],
+    "verdict": {
+      "talentComm": [
+        "Art"
+      ],
+      "workComm": [
+        "Human Resources"
+      ]
+    },
+    "comments": "Excellent coordination skills.",
+    "paid": false
+  },
+  "MIT2025003": {
+    "name": "Maya Nair",
+    "regNo": "MIT2025003",
+    "year": "1st",
+    "preferences": [],
+    "verdict": {
+      "talentComm": [
+        "Dance"
+      ],
+      "workComm": [
+        "Social Media and Graphic Design"
+      ]
+    },
+    "comments": "Great visual aesthetics and stage confidence.",
+    "paid": true
+  },
+  "MIT2025004": {
+    "name": "Arjun Das",
+    "regNo": "MIT2025004",
+    "year": "4th",
+    "preferences": [],
+    "verdict": {
+      "talentComm": [
+        "Music",
+        "Art"
+      ],
+      "workComm": [
+        "Public Relations",
+        "Photography and Videography"
+      ]
+    },
+    "comments": "Well-rounded and technically skilled.",
+    "paid": true
+  },
+  "MIT2025005": {
+    "name": "Sneha Iyer",
+    "regNo": "MIT2025005",
+    "year": "3rd",
+    "preferences": [],
+    "verdict": {
+      "talentComm": [],
+      "workComm": [
+        "Human Resources",
+        "Social Media and Graphic Design"
+      ]
+    },
+    "comments": "Professional and detail-oriented.",
+    "paid": false
+  }
+}
