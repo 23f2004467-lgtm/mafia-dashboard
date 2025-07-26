@@ -3,7 +3,6 @@ import { auth, provider, db } from "./firebaseConfig";
 import { signInWithPopup } from "firebase/auth";
 import {
   doc,
-  getDoc,
   setDoc,
   collection,
   onSnapshot
@@ -11,22 +10,33 @@ import {
 
 function App() {
   const [user, setUser] = useState(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    regNo: "",
-    year: "",
-    preferences: [],
-    verdict: {
-      talentComm: [],
-      workComm: [],
-    },
-    comments: "",
-    paid: false,
+  const [formData, setFormData] = useState(() => {
+    const saved = localStorage.getItem("formData");
+    return saved
+      ? JSON.parse(saved)
+      : {
+          name: "",
+          regNo: "",
+          year: "",
+          preferences: [],
+          verdict: {
+            talentComm: [],
+            workComm: [],
+          },
+          comments: "",
+          paid: false,
+          lastUpdatedBy: "",
+          lastUpdatedAt: ""
+        };
   });
 
   const [searchName, setSearchName] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [visibleCount, setVisibleCount] = useState(3);
+
+  useEffect(() => {
+    localStorage.setItem("formData", JSON.stringify(formData));
+  }, [formData]);
 
   const login = async () => {
     try {
@@ -52,30 +62,6 @@ function App() {
     });
   };
 
-  const fetchCandidate = async () => {
-    if (!formData.regNo) {
-      alert("Please enter a registration number to fetch.");
-      return;
-    }
-
-    try {
-      const ref = doc(db, "candidates", formData.regNo);
-      const snapshot = await getDoc(ref);
-
-      if (snapshot.exists()) {
-        const data = snapshot.data();
-        if (!Array.isArray(data.verdict?.talentComm)) data.verdict.talentComm = [];
-        if (!Array.isArray(data.verdict?.workComm)) data.verdict.workComm = [];
-        setFormData(data);
-        alert("Candidate data loaded.");
-      } else {
-        alert("No candidate found with that Reg No. Please fill details manually.");
-      }
-    } catch (err) {
-      alert("Error fetching candidate: " + err.message);
-    }
-  };
-
   const handleSearch = () => {
     if (!searchName) return;
 
@@ -94,30 +80,36 @@ function App() {
     return () => unsubscribe();
   };
 
-  const resetForm = () => {
-    setFormData({
-      name: "",
-      regNo: "",
-      year: "",
-      preferences: [],
-      verdict: {
-        talentComm: [],
-        workComm: [],
-      },
-      comments: "",
-      paid: false,
-    });
-    setSearchName("");
+  const clearSearch = () => {
     setSearchResults([]);
-    setVisibleCount(3);
+    setSearchName("");
   };
 
   const handleSubmit = async () => {
     try {
       const ref = doc(db, "candidates", formData.regNo);
-      await setDoc(ref, formData);
+      const payload = {
+        ...formData,
+        lastUpdatedBy: user?.email || "",
+        lastUpdatedAt: new Date().toISOString(),
+      };
+      await setDoc(ref, payload);
       alert("✅ Data saved successfully!");
-      resetForm();
+      setFormData({
+        name: "",
+        regNo: "",
+        year: "",
+        preferences: [],
+        verdict: {
+          talentComm: [],
+          workComm: [],
+        },
+        comments: "",
+        paid: false,
+        lastUpdatedBy: "",
+        lastUpdatedAt: ""
+      });
+      localStorage.removeItem("formData");
     } catch (err) {
       alert("Error saving data: " + err.message);
     }
@@ -143,18 +135,20 @@ function App() {
             value={searchName}
             onChange={(e) => setSearchName(e.target.value)}
           />
-          <button
-            style={{ ...styles.button, backgroundColor: "#444" }}
-            onClick={handleSearch}
-          >
-            Search
-          </button>
-          <button
-            style={{ ...styles.button, backgroundColor: "#800000", marginLeft: "0.5rem" }}
-            onClick={resetForm}
-          >
-            Cancel
-          </button>
+          <div style={{ display: "flex", gap: "1rem" }}>
+            <button
+              style={{ ...styles.button, backgroundColor: "#444" }}
+              onClick={handleSearch}
+            >
+              Search
+            </button>
+            <button
+              style={{ ...styles.button, backgroundColor: "#222" }}
+              onClick={clearSearch}
+            >
+              Cancel
+            </button>
+          </div>
 
           {searchResults.length > 0 && (
             <div style={{ marginTop: "1rem" }}>
@@ -174,7 +168,9 @@ function App() {
                   <div style={{ marginTop: "0.25rem" }}>
                     <strong>TalentComm:</strong> {Array.isArray(cand.verdict?.talentComm) ? cand.verdict.talentComm.join(", ") : ""}<br />
                     <strong>WorkComm:</strong> {Array.isArray(cand.verdict?.workComm) ? cand.verdict.workComm.join(", ") : ""}<br />
-                    <strong>Paid:</strong> {cand.paid ? "✅" : "❌"}
+                    <strong>Paid:</strong> {cand.paid ? "✅" : "❌"}<br />
+                    <strong>Last Updated By:</strong> {cand.lastUpdatedBy || "N/A"}<br />
+                    <strong>Last Updated At:</strong> {cand.lastUpdatedAt ? new Date(cand.lastUpdatedAt).toLocaleString() : "N/A"}
                   </div>
                   <button
                     style={{ ...styles.button, backgroundColor: "#cc0066", marginTop: "0.5rem" }}
@@ -210,12 +206,6 @@ function App() {
             value={formData.regNo}
             onChange={(e) => setFormData({ ...formData, regNo: e.target.value })}
           />
-          <button
-            onClick={fetchCandidate}
-            style={{ ...styles.button, backgroundColor: "#333", marginBottom: "1rem" }}
-          >
-            Fetch Candidate
-          </button>
 
           <label>Year</label>
           <input
