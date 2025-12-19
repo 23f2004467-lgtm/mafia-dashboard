@@ -1,0 +1,165 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+             isEmailVerified() &&
+             request.auth.token.email in ['dheera1312@gmail.com'] &&
+             request.auth.token.email_verified == true;
+    }
+    
+    function isInterviewer() {
+      return isAuthenticated() && 
+             isEmailVerified() &&
+             request.auth.token.email_verified == true;
+    }
+    
+    function isValidEmail(email) {
+      return email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+    }
+    
+    function isValidRegNo(regNo) {
+      return regNo.matches('^[A-Z0-9]{5,20}$');
+    }
+    
+    function isValidPhone(phone) {
+      return phone.matches('^[6-9]\\d{9}$');
+    }
+    
+    function isValidAmount(amount) {
+      return amount is number && amount >= 100 && amount <= 10000;
+    }
+    
+    function isValidYear(year) {
+      return year in ['1st Year', '2nd Year', '1st year', '2nd year'];
+    }
+    
+    function isValidVerdict(verdict) {
+      return verdict in ['Selected', 'Rejected', 'Waitlisted', 'Not Interviewed'];
+    }
+    
+    function isValidCandidateData(data) {
+      return data.keys().hasAll(['name', 'regNo', 'year']) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             isValidRegNo(data.regNo) &&
+             isValidYear(data.year) &&
+             (data.whatsappNumber == null || isValidPhone(data.whatsappNumber)) &&
+             (data.college == null || data.college is string && data.college.size() <= 200) &&
+             (data.branch == null || data.branch is string && data.branch.size() <= 100) &&
+             (data.comments == null || data.comments is string && data.comments.size() <= 500);
+    }
+    
+    function isValidPaymentSession(data) {
+      return data.keys().hasAll(['paymentId', 'candidateId', 'amount', 'status']) &&
+             isValidAmount(data.amount) &&
+             data.status in ['pending', 'completed', 'cancelled'] &&
+             data.paymentId is string && data.paymentId.size() > 0 &&
+             data.candidateId is string && data.candidateId.size() > 0;
+    }
+    
+    function isValidInterviewerSession(data) {
+      return data.keys().hasAll(['email', 'lastActive']) &&
+             isValidEmail(data.email) &&
+             data.lastActive is timestamp;
+    }
+    
+    // Candidates collection - Interviewer and Admin access with strict validation
+    match /candidates/{candidateId} {
+      allow read: if isInterviewer() || isAdmin();
+      allow create: if isInterviewer() && 
+                       isValidCandidateData(request.resource.data) &&
+                       request.resource.data.regNo == candidateId;
+      allow update: if isInterviewer() && 
+                       (isValidCandidateData(request.resource.data) || 
+                        (request.resource.data.keys().hasAll(['paid', 'paymentDetails', 'lastUpdatedBy', 'lastUpdatedAt']) &&
+                         isValidAmount(request.resource.data.paymentDetails.amount)));
+      allow delete: if isAdmin();
+    }
+    
+    // Payment sessions collection - Restricted access
+    match /paymentSessions/{sessionId} {
+      allow read: if isInterviewer() && 
+                     resource.data.interviewerId == request.auth.token.email;
+      allow create: if isInterviewer() && 
+                       isValidPaymentSession(request.resource.data) &&
+                       request.resource.data.interviewerId == request.auth.token.email;
+      allow update: if isInterviewer() && 
+                       resource.data.interviewerId == request.auth.token.email &&
+                       (resource.data.status in ['completed', 'cancelled'] ||
+                        resource.data.keys().hasAll(['lastChecked']));
+      allow delete: if isAdmin();
+    }
+    
+    // Interviewers collection - Admin read/write, Interviewer can update their own session
+    match /interviewers/{interviewerId} {
+      allow read, write: if isAdmin();
+      allow read, write: if isInterviewer() && 
+                           interviewerId == request.auth.token.email &&
+                           isValidInterviewerSession(request.resource.data);
+    }
+    
+    // Audit logs collection - Admin only
+    match /auditLogs/{logId} {
+      allow read, write: if isAdmin();
+    }
+    
+    // Admin settings collection - Admin only
+    match /adminSettings/{settingId} {
+      allow read, write: if isAdmin();
+    }
+    
+    // Admin logs collection - Admin only
+    match /adminLogs/{logId} {
+      allow read, write: if isAdmin();
+    }
+    
+    // Admins collection - Allow creation and reading during setup, then admin only
+    match /admins/{adminId} {
+      allow create: if isAuthenticated() && 
+                       request.auth.token.email == adminId &&
+                       request.resource.data.keys().hasAll(['email', 'role', 'isActive']) &&
+                       request.resource.data.role == 'admin' &&
+                       request.resource.data.isActive == true;
+      allow read: if isAuthenticated() && request.auth.token.email == adminId;
+      allow write: if isAdmin();
+    }
+    
+
+    
+    // Rate limiting and abuse prevention
+    match /rateLimits/{userId} {
+      allow read, write: if isAuthenticated() && 
+                           request.auth.uid == userId;
+    }
+    
+    // Security logs collection - Admin only
+    match /securityLogs/{logId} {
+      allow read, write: if isAdmin();
+    }
+    
+    // Failed login attempts collection - Admin only
+    match /failedLogins/{attemptId} {
+      allow read, write: if isAdmin();
+    }
+    
+    // IP blocking collection - Admin only
+    match /blockedIPs/{ipAddress} {
+      allow read, write: if isAdmin();
+    }
+    
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+} 
