@@ -26,8 +26,8 @@ import {
 } from './performanceOptimizations';
 import PerformanceDashboard from './PerformanceDashboard';
 
-// UPI config - using Bhuta's and Dheera's UPI IDs
-// TODO: might need to add more UPI IDs later if we get more payment handlers
+// UPI Payment Configuration
+// Supports multiple UPI IDs for payment verification
 const UPI_CONFIG = {
   upiIds: [
     {
@@ -46,7 +46,8 @@ const UPI_CONFIG = {
 };
 
 function App() {
-  // Performance stuff - added this because the site was getting slow with multiple users
+  // Performance optimizations: caching, connection pooling, rate limiting
+  // Implemented to handle high concurrency and improve response times
   const performanceMonitor = useMemo(() => new PerformanceMonitor(), []);
   const dataCache = useMemo(() => new DataCache(50), []);
   const connectionPool = useMemo(() => new ConnectionPool(), []);
@@ -92,7 +93,8 @@ function App() {
   const [searchResults, setSearchResults] = useState([]);
   const [visibleCount, setVisibleCount] = useState(3);
   
-  // Search with debouncing - prevents too many API calls
+  // Optimized search with debouncing and caching
+  // Reduces API calls and improves response time
   const debouncedSearch = useCallback(
     debounce(async (searchTerm) => {
       if (!searchTerm.trim()) {
@@ -100,7 +102,7 @@ function App() {
         return;
       }
       
-      // Check cache first
+      // Check cache first to avoid unnecessary API calls
       const cacheKey = `search_${searchTerm}`;
       const cachedResults = dataCache.get(cacheKey);
       
@@ -234,19 +236,8 @@ function App() {
         throw new Error('Please fill in candidate details before generating QR code');
       }
 
-      // Debug - checking which UPI was selected
-      console.log('Selected UPI ID:', selectedUpiId);
-      console.log('Selected UPI:', UPI_CONFIG.upiIds[selectedUpiId]);
-
-      // Create unique payment session for this candidate
-      const sessionData = await connectionPool.execute(() => 
-        createPaymentSession(formData.regNo, formData.name)
-      );
-
-      // Generate proper UPI payment URL using selected UPI ID
+      // Get and validate selected UPI ID
       const selectedUpi = UPI_CONFIG.upiIds[selectedUpiId];
-      
-      // Validate UPI ID
       if (!selectedUpi || !selectedUpi.id) {
         throw new Error(`Invalid UPI ID selected: ${selectedUpiId}`);
       }
@@ -255,6 +246,11 @@ function App() {
       if (!selectedUpi.id.includes('@')) {
         throw new Error(`Invalid UPI ID format: ${selectedUpi.id}`);
       }
+
+      // Create unique payment session for this candidate
+      const sessionData = await connectionPool.execute(() => 
+        createPaymentSession(formData.regNo, formData.name)
+      );
       
       const qrString = `upi://pay?pa=${selectedUpi.id}&pn=${encodeURIComponent(UPI_CONFIG.merchantName)}&am=${paymentAmount}&tn=MAFIA_${formData.regNo}_${sessionData.verificationCode}&cu=INR`;
       

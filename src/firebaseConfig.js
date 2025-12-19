@@ -1,9 +1,10 @@
-// Firebase config
+// Firebase Configuration
+// Initializes Firebase services for authentication and database
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
-// Firebase project config
+// Firebase project configuration
 const firebaseConfig = {
   apiKey: "AIzaSyDb6LRxf9RDfQIa9l6ge5ZWl5ITTPjs4dk",
   authDomain: "mafia-recruitments.firebaseapp.com",
@@ -13,10 +14,10 @@ const firebaseConfig = {
   appId: "1:316736328372:web:ab968ccc772dc74018fde1"
 };
 
-// Initialize Firebase
+// Initialize Firebase app
 const app = initializeApp(firebaseConfig);
 
-// Export what we need
+// Export Firebase services
 export const auth = getAuth(app);
 export const provider = new GoogleAuthProvider();
 export const db = getFirestore(app);
