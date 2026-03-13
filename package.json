@@ -1,6 +1,8 @@
 {
-  "name": "mafia-dashboard",
-  "version": "0.1.0",
+  "name": "mafia-recruitment-dashboard",
+  "version": "1.0.0",
+  "description": "Full-stack recruitment management system for MAFIA - Music and Arts Association. Handles 500+ candidates, 30+ concurrent interviewers, and real-time payment tracking.",
+  "author": "Dheeraj <dheera1312@gmail.com>",
   "private": true,
   "dependencies": {
     "@testing-library/dom": "^10.4.0",
@@ -45,5 +47,16 @@
       "last 1 safari version"
     ]
   },
-  "homepage": "."
+  "homepage": ".",
+  "keywords": [
+    "recruitment",
+    "dashboard",
+    "react",
+    "firebase",
+    "real-time",
+    "interview-management",
+    "payment-tracking",
+    "admin-portal",
+    "student-club"
+  ]
 }
