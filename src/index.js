@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import './theme/styles.css';  // Design system styles
 import './styles/globals.css';
 import './index.css';
 import MainRouter from './MainRouter';

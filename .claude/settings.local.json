@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm start)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(python3:*)",
+      "Read(//Users/dheeraj/**)",
+      "Bash(ls:*)",
+      "Bash(unzip:*)",
+      "Bash(git clone:*)",
+      "Bash(./setup:*)",
+      "Bash(~/.bun/bin/bun install:*)",
+      "Bash(~/.bun/bin/bun run:*)",
+      "Bash(export:*)",
+      "Skill(autoplan)",
+      "Bash(~/.claude/skills/gstack/bin/gstack-config set:*)",
+      "Bash(find:*)",
+      "Bash(git ls-files:*)",
+      "Bash(xargs:*)",
+      "Bash($B goto \"https://mafia-recruitments.web.app\")",
+      "Bash($B:*)",
+      "Bash(/Users/dheeraj/.claude/skills/gstack/browse/dist/browse goto:*)",
+      "Bash(/Users/dheeraj/.claude/skills/gstack/browse/dist/browse:*)"
+    ],
+    "additionalDirectories": [
+      "/Users/dheeraj/.claude/skills"
+    ]
+  }
+}

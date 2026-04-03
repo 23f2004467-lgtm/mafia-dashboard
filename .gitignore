@@ -39,3 +39,4 @@ serviceAccountKey.json
 *.tmp
 secrets/
 keys/
+.gstack/
