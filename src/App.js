@@ -1023,11 +1023,11 @@ function App() {
   };
 
   return (
-    <div style={{ 
-      background: "linear-gradient(135deg, #0d0d0d 0%, #1a1a2e 50%, #16213e 100%)", 
-      color: "white", 
-      minHeight: "100vh", 
-      padding: window.innerWidth <= 768 ? "1rem" : "2rem" 
+    <div style={{
+      background: "var(--color-surface)",
+      color: "var(--color-text-primary)",
+      minHeight: "100vh",
+      padding: window.innerWidth <= 768 ? "1rem" : "2rem"
     }}>
       {!user ? (
         <div style={styles.loginContainer}>
@@ -1065,9 +1065,11 @@ function App() {
                 className="login-button"
                 style={{
                   ...styles.loginButton,
-                  backgroundColor: isLoggingIn ? "#666" : "#cc0066",
+                  backgroundColor: isLoggingIn ? "#666" : "var(--color-primary)",
                   cursor: isLoggingIn ? "not-allowed" : "pointer",
-                  opacity: isLoggingIn ? 0.7 : 1
+                  opacity: isLoggingIn ? 0.7 : 1,
+                  transition: "all var(--transition-base)",
+                  boxShadow: "var(--shadow-glow-sm)"
                 }}
               >
                 <span style={styles.googleIcon}>
@@ -1155,7 +1157,7 @@ function App() {
                 }}>{user.email}</span>
                 <span style={{
                   display: window.innerWidth <= 768 ? "inline" : "none",
-                  color: "#ccc",
+                  color: "var(--color-text-secondary)",
                   fontSize: "0.8rem"
                 }}>{user.email.split('@')[0]}</span>
               </div>
@@ -1204,7 +1206,7 @@ function App() {
                 className="mobile-btn mobile-btn-primary"
                 style={{ 
                   ...styles.button, 
-                  backgroundColor: "#444",
+                  backgroundColor: "var(--color-surface-elevated)",
                   width: window.innerWidth <= 768 ? "100%" : "auto"
                 }}
                 onClick={handleSearch}
@@ -1215,7 +1217,7 @@ function App() {
                 className="mobile-btn mobile-btn-secondary"
                 style={{ 
                   ...styles.button, 
-                  backgroundColor: "#222",
+                  backgroundColor: "var(--color-surface-input)",
                   width: window.innerWidth <= 768 ? "100%" : "auto"
                 }}
                 onClick={clearSearch}
@@ -1237,7 +1239,7 @@ function App() {
                   style={{
                     padding: window.innerWidth <= 768 ? "1rem" : "0.5rem",
                     marginBottom: "0.5rem",
-                    backgroundColor: "#1a1a1a",
+                    backgroundColor: "var(--color-surface-card)",
                     border: "1px solid #333",
                     borderRadius: "8px",
                   }}
@@ -1322,7 +1324,7 @@ function App() {
                     className="mobile-btn mobile-btn-primary"
                     style={{ 
                       ...styles.button, 
-                      backgroundColor: "#cc0066", 
+                      backgroundColor: "var(--color-primary)", 
                       marginTop: "0.5rem",
                       width: window.innerWidth <= 768 ? "100%" : "auto"
                     }}
@@ -1401,7 +1403,7 @@ function App() {
               ...styles.sectionTitle,
               fontSize: window.innerWidth <= 768 ? "1.3rem" : "1.5rem"
             }}>📝 Manual Entry (Walk-ins)</h2>
-            <p style={{ color: "#ccc", marginBottom: "1rem" }}>
+            <p style={{ color: "var(--color-text-secondary)", marginBottom: "1rem" }}>
               Use this option for walk-in candidates or when information isn't available in the system.
             </p>
             
@@ -1484,7 +1486,7 @@ function App() {
             {isManualEntry && (
               <div style={{ 
                 padding: "1rem", 
-                backgroundColor: "#2a2a2a", 
+                backgroundColor: "var(--color-surface-elevated)", 
                 borderRadius: "8px",
                 border: "2px solid #cc0066"
               }}>
@@ -1495,7 +1497,7 @@ function App() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
                   <div>
                     <label style={{ color: "#ff0080", fontWeight: "bold" }}>Required Fields:</label>
-                    <ul style={{ color: "#ccc", margin: "0.5rem 0", paddingLeft: "1.5rem" }}>
+                    <ul style={{ color: "var(--color-text-secondary)", margin: "0.5rem 0", paddingLeft: "1.5rem" }}>
                       <li>Name</li>
                       <li>Registration Number</li>
                       <li>Academic Year</li>
@@ -1507,7 +1509,7 @@ function App() {
                   </div>
                   <div>
                     <label style={{ color: "#ff0080", fontWeight: "bold" }}>Year-Specific Requirements:</label>
-                    <ul style={{ color: "#ccc", margin: "0.5rem 0", paddingLeft: "1.5rem" }}>
+                    <ul style={{ color: "var(--color-text-secondary)", margin: "0.5rem 0", paddingLeft: "1.5rem" }}>
                       <li><strong>1st Year:</strong> TalentComm + WorkComm preferences</li>
                       <li><strong>2nd Year:</strong> TalentComm preferences only</li>
                     </ul>
@@ -1666,7 +1668,7 @@ function App() {
             <div className="mobile-card" style={{ 
               marginTop: "2rem", 
               padding: window.innerWidth <= 768 ? "1rem" : "1rem", 
-              backgroundColor: "#1a1a1a", 
+              backgroundColor: "var(--color-surface-card)", 
               borderRadius: "8px", 
               border: isManualEntry ? "2px solid #ff0080" : "1px solid #333" 
             }}>
@@ -1875,12 +1877,12 @@ function App() {
           <div className="mobile-payment-section" style={{ 
             marginTop: "2rem", 
             padding: window.innerWidth <= 768 ? "1rem" : "1rem", 
-            backgroundColor: "#1a1a1a", 
+            backgroundColor: "var(--color-surface-card)", 
             borderRadius: "8px", 
             border: "1px solid #333" 
           }}>
             <h3 style={{ 
-              color: "#cc0066", 
+              color: "var(--color-primary)", 
               marginBottom: "1rem",
               fontSize: window.innerWidth <= 768 ? "1.2rem" : "1.5rem"
             }}>Payment</h3>
@@ -1904,7 +1906,7 @@ function App() {
                 <label>Payment Amount (₹)</label>
                 <div style={{
                   ...styles.input,
-                  backgroundColor: "#1a1a1a",
+                  backgroundColor: "var(--color-surface-card)",
                   color: "#00ff88",
                   fontWeight: "bold",
                   display: "flex",
@@ -1917,7 +1919,7 @@ function App() {
 
                 {/* QR Code Payment Section */}
                 {!showQRCode ? (
-                  <div style={{ backgroundColor: "#2a2a2a", padding: "1rem", borderRadius: "8px", marginBottom: "1rem" }}>
+                  <div style={{ backgroundColor: "var(--color-surface-elevated)", padding: "1rem", borderRadius: "8px", marginBottom: "1rem" }}>
                     <h4 style={{ color: "#00ff88", marginBottom: "0.5rem" }}>📱 UPI Payment QR Code</h4>
                     
                     {/* UPI ID Selection */}
@@ -1986,7 +1988,7 @@ function App() {
                     )}
                   </div>
                 ) : (
-                  <div style={{ backgroundColor: "#2a2a2a", padding: "1rem", borderRadius: "8px", marginBottom: "1rem", textAlign: "center" }}>
+                  <div style={{ backgroundColor: "var(--color-surface-elevated)", padding: "1rem", borderRadius: "8px", marginBottom: "1rem", textAlign: "center" }}>
                     <h4 style={{ color: "#00ff88", marginBottom: "1rem" }}>📱 Scan QR Code</h4>
                     <div style={{ fontSize: "0.8rem", color: "#00ff88", marginBottom: "0.5rem" }}>
                       Using: {UPI_CONFIG.upiIds[selectedUpiId].name} ({UPI_CONFIG.upiIds[selectedUpiId].type})
@@ -2093,9 +2095,9 @@ function App() {
                 
                 {/* Show QR Code Again Option */}
                 {!showQRCode && verificationCode && (paymentStatus === "pending" || paymentStatus === "timeout") && (
-                  <div style={{ marginTop: "1rem", padding: "1rem", backgroundColor: "#2a2a2a", borderRadius: "8px" }}>
+                  <div style={{ marginTop: "1rem", padding: "1rem", backgroundColor: "var(--color-surface-elevated)", borderRadius: "8px" }}>
                     <h4 style={{ color: "#00ff88", marginBottom: "0.5rem" }}>📱 Payment Still Active</h4>
-                    <p style={{ color: "#ccc", fontSize: "0.9rem", marginBottom: "1rem" }}>
+                    <p style={{ color: "var(--color-text-secondary)", fontSize: "0.9rem", marginBottom: "1rem" }}>
                       Payment verification is still active. You can show the QR code again if needed.
                     </p>
                     <button
@@ -2216,7 +2218,7 @@ const styles = {
     margin: "0.5rem 0 1rem 0",
     borderRadius: "8px",
     border: "1px solid #333",
-    backgroundColor: "#1a1a1a",
+    backgroundColor: "var(--color-surface-card)",
     color: "white",
   },
   button: {
@@ -2272,7 +2274,7 @@ const styles = {
   },
   logoSubtitle: {
     fontSize: "1rem",
-    color: "#cc0066",
+    color: "var(--color-primary)",
     fontWeight: "500",
     letterSpacing: "2px",
     textTransform: "uppercase",
@@ -2292,7 +2294,7 @@ const styles = {
   },
   loginTitle: {
     fontSize: "3.5rem",
-    color: "#cc0066",
+    color: "var(--color-primary)",
     margin: "0 0 0.5rem 0",
     fontWeight: "bold",
     textShadow: "0 0 20px rgba(204, 0, 102, 0.5)",
@@ -2302,7 +2304,7 @@ const styles = {
   },
   loginSubtitle: {
     fontSize: "1.3rem",
-    color: "#999",
+    color: "var(--color-text-tertiary)",
     margin: 0,
     fontWeight: "300",
     letterSpacing: "1px",
@@ -2311,7 +2313,7 @@ const styles = {
     marginBottom: "2rem",
   },
   loginDescription: {
-    color: "#ccc",
+    color: "var(--color-text-secondary)",
     marginBottom: "2.5rem",
     lineHeight: "1.7",
     fontSize: "1rem",
@@ -2374,21 +2376,21 @@ const styles = {
   },
   contactIcon: {
     fontSize: "1.2rem",
-    color: "#cc0066",
+    color: "var(--color-primary)",
   },
   contactTitle: {
-    color: "#cc0066",
+    color: "var(--color-primary)",
     fontWeight: "bold",
     fontSize: "1rem",
   },
   contactText: {
-    color: "#999",
+    color: "var(--color-text-tertiary)",
     fontSize: "0.9rem",
     margin: 0,
     lineHeight: "1.5",
   },
   contactNumber: {
-    color: "#cc0066",
+    color: "var(--color-primary)",
     fontWeight: "bold",
     fontSize: "1.1rem",
     textShadow: "0 0 10px rgba(204, 0, 102, 0.3)",
@@ -2424,7 +2426,7 @@ const styles = {
     filter: "drop-shadow(0 0 15px rgba(204, 0, 102, 0.5))",
   },
   dashboardTitle: {
-    color: "#cc0066",
+    color: "var(--color-primary)",
     margin: 0,
     fontSize: "2.5rem",
     fontWeight: "bold",
@@ -2432,20 +2434,20 @@ const styles = {
     letterSpacing: "2px",
   },
   dashboardSubtitle: {
-    color: "#999",
+    color: "var(--color-text-tertiary)",
     margin: 0,
     fontSize: "1.1rem",
     fontWeight: "300",
     letterSpacing: "1px",
   },
   welcomeText: {
-    color: "#999",
+    color: "var(--color-text-tertiary)",
     margin: "0.5rem 0 0 0",
     fontSize: "1.1rem",
     fontWeight: "300",
   },
   userName: {
-    color: "#cc0066",
+    color: "var(--color-primary)",
     fontWeight: "bold",
   },
   headerActions: {
@@ -2465,10 +2467,10 @@ const styles = {
   },
   userIcon: {
     fontSize: "1rem",
-    color: "#cc0066",
+    color: "var(--color-primary)",
   },
   userEmail: {
-    color: "#ccc",
+    color: "var(--color-text-secondary)",
     fontSize: "0.9rem",
     fontWeight: "500",
   },
@@ -2480,7 +2482,7 @@ const styles = {
     border: "1px solid rgba(255, 255, 255, 0.1)",
   },
   sectionTitle: {
-    color: "#cc0066",
+    color: "var(--color-primary)",
     fontSize: "1.5rem",
     fontWeight: "bold",
     marginBottom: "1rem",
@@ -2513,7 +2515,7 @@ const styles = {
     filter: "drop-shadow(0 0 10px rgba(204, 0, 102, 0.5))",
   },
   footerTitle: {
-    color: "#cc0066",
+    color: "var(--color-primary)",
     fontSize: "1.2rem",
     fontWeight: "bold",
     letterSpacing: "1px",
@@ -2525,11 +2527,11 @@ const styles = {
     gap: "0.25rem",
   },
   footerText: {
-    color: "#999",
+    color: "var(--color-text-tertiary)",
     fontSize: "0.9rem",
   },
   footerContact: {
-    color: "#cc0066",
+    color: "var(--color-primary)",
     fontSize: "0.9rem",
     fontWeight: "bold",
   },
