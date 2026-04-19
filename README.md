@@ -8,7 +8,7 @@
 
 A web-based recruitment management platform I built to transform how my university's largest student-led club — the Music and Arts Association (MAFIA) — conducts annual recruitments.
 
-As Vice President and acting President of the club, I built this system to solve a real operational problem: managing 500–600 interviews across 30+ concurrent interviewers over three days, while maintaining data integrity, real-time coordination, and payment transparency.
+As Vice President and acting President of the club, I built this system to solve a real operational problem: managing 1000+ interviews across 50+ concurrent interviewers over three days, while maintaining data integrity, real-time coordination, and payment transparency.
 
 ---
 
