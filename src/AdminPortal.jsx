@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import { db } from "./firebaseConfig";
 import { FirebaseSecurity } from './security';
 import { SecureAdminAuth } from './secureAdminAuth';
-import { Button, Card, Input, Select, Badge, StatusBadge, Modal, ConfirmDialog } from './components/common';
+import { ConfirmDialog } from './components/common';
 import {
   collection,
   onSnapshot,
@@ -16,13 +16,24 @@ import {
 } from "firebase/firestore";
 import * as ExcelJS from "exceljs";
 import { DataCache, PerformanceMonitor } from './performanceOptimizations';
+import {
+  VaultTokens as T,
+  VaultMark,
+  VaultWordmark,
+  VaultStat,
+  VaultPill,
+  VaultSidebar,
+  VaultTopbar,
+  VaultCard,
+  VaultSectionHeader,
+  VaultFunnel,
+} from './components/admin/VaultChrome';
 
 /**
- * MAFIA Recruitment Admin Portal
- * Professional dashboard for managing recruitment process
+ * MAFIA Recruitment Admin Portal — Vault direction
+ * Sidebar + topbar + dashboard grid. Functionality preserved from prior version.
  */
 function AdminPortal() {
-  // Performance optimizations
   const performanceMonitor = useMemo(() => new PerformanceMonitor(), []);
   const dataCache = useMemo(() => new DataCache(100), []);
 
@@ -39,10 +50,8 @@ function AdminPortal() {
   const [isClearDataLoading, setIsClearDataLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(new Date());
 
-  // Modal states
   const [showClearDataModal, setShowClearDataModal] = useState(false);
   const [showDeleteDataModal, setShowDeleteDataModal] = useState(false);
-  const [selectedCandidate, setSelectedCandidate] = useState(null);
 
   // Payment analytics
   const total = candidates.length;
@@ -59,7 +68,7 @@ function AdminPortal() {
     return sum;
   }, 0);
 
-  // Handlers
+  // Handlers — unchanged
   const handleLogin = async () => {
     if (isLoggingIn) return;
     if (!email || !password) {
@@ -142,11 +151,11 @@ function AdminPortal() {
         candidatesCleared: snapshot.docs.length
       });
 
-      alert(`✅ Successfully cleared all interviewer data for ${snapshot.docs.length} candidates!`);
+      alert(`Successfully cleared all interviewer data for ${snapshot.docs.length} candidates.`);
       setShowClearDataModal(false);
     } catch (error) {
       console.error('Error clearing interviewer data:', error);
-      alert('❌ Failed to clear interviewer data: ' + error.message);
+      alert('Failed to clear interviewer data: ' + error.message);
     } finally {
       setIsClearDataLoading(false);
     }
@@ -159,10 +168,10 @@ function AdminPortal() {
       const snapshot = await getDocs(interviewersRef);
       const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
       await Promise.all(deletePromises);
-      alert("✅ All interviewers have been force logged out successfully!");
+      alert("All interviewers have been force logged out successfully.");
     } catch (error) {
       console.error("Error force logging out interviewers:", error);
-      alert("❌ Error force logging out interviewers: " + error.message);
+      alert("Error force logging out interviewers: " + error.message);
     } finally {
       setIsForceLogoutLoading(false);
     }
@@ -174,7 +183,7 @@ function AdminPortal() {
       const snapshot = await getDocs(candidatesRef);
 
       if (snapshot.empty) {
-        alert("ℹ️ No candidate data found to delete.");
+        alert("No candidate data found to delete.");
         return;
       }
 
@@ -186,7 +195,7 @@ function AdminPortal() {
       const paymentDeletePromises = paymentSnapshot.docs.map(doc => deleteDoc(doc.ref));
       await Promise.all(paymentDeletePromises);
 
-      alert(`✅ Successfully deleted ${snapshot.docs.length} candidate records and ${paymentSnapshot.docs.length} payment sessions!`);
+      alert(`Successfully deleted ${snapshot.docs.length} candidate records and ${paymentSnapshot.docs.length} payment sessions.`);
 
       FirebaseSecurity.auditLogger.logEvent('admin_cleared_all_data', {
         timestamp: new Date().toISOString(),
@@ -198,7 +207,7 @@ function AdminPortal() {
       setShowDeleteDataModal(false);
     } catch (error) {
       console.error("Error clearing candidate data:", error);
-      alert("❌ Error clearing candidate data: " + error.message);
+      alert("Error clearing candidate data: " + error.message);
     }
   };
 
@@ -226,7 +235,7 @@ function AdminPortal() {
       ));
     } catch (error) {
       console.error('Error manually verifying payment:', error);
-      alert('❌ Failed to manually verify payment: ' + error.message);
+      alert('Failed to manually verify payment: ' + error.message);
     }
   };
 
@@ -275,7 +284,7 @@ function AdminPortal() {
     window.URL.revokeObjectURL(url);
   };
 
-  // Effects
+  // Effects — unchanged
   useEffect(() => {
     if (!authenticated) return;
 
@@ -364,439 +373,318 @@ function AdminPortal() {
     return result;
   }, [candidates, search, filterPaid, dataCache]);
 
-  // Styles
-  const styles = {
-    container: {
-      padding: "2rem",
-      background: "linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 50%, #16213e 100%)",
-      minHeight: "100vh",
-    },
-    header: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: "2rem",
-      paddingBottom: "1rem",
-      borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
-    },
-    headerLeft: {
-      display: "flex",
-      alignItems: "center",
-      gap: "1rem",
-    },
-    logo: {
-      width: "50px",
-      height: "50px",
-      objectFit: "contain",
-      filter: "drop-shadow(0 0 15px rgba(204, 0, 204, 0.5))",
-    },
-    title: {
-      color: "#cc00cc",
-      fontSize: "2rem",
-      fontWeight: "bold",
-      margin: 0,
-      textShadow: "0 0 20px rgba(204, 0, 204, 0.3)",
-    },
-    subtitle: {
-      color: "#999",
-      fontSize: "0.9rem",
-      margin: "0.25rem 0 0 0",
-    },
-    statusIndicator: {
-      display: "flex",
-      alignItems: "center",
-      gap: "0.5rem",
-      color: "#00ff88",
-      fontSize: "0.9rem",
-    },
-    statusDot: {
-      width: "8px",
-      height: "8px",
-      backgroundColor: "#00ff88",
-      borderRadius: "50%",
-      animation: "pulse 2s infinite",
-    },
-    filtersRow: {
-      display: "flex",
-      gap: "1rem",
-      marginBottom: "1.5rem",
-      flexWrap: "wrap",
-    },
-    statsGrid: {
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-      gap: "1.5rem",
-      marginBottom: "2rem",
-    },
-    section: {
-      marginBottom: "2rem",
-    },
-    sectionHeader: {
-      display: "flex",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: "1rem",
-    },
-    sectionTitle: {
-      color: "#cc00cc",
-      fontSize: "1.5rem",
-      fontWeight: "bold",
-      margin: 0,
-    },
-    actionsRow: {
-      display: "flex",
-      gap: "1rem",
-      flexWrap: "wrap",
-    },
-    interviewersGrid: {
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-      gap: "1rem",
-    },
-    interviewerCard: {
-      background: "rgba(255, 255, 255, 0.05)",
-      padding: "1rem",
-      borderRadius: "12px",
-      border: "1px solid rgba(255, 255, 255, 0.1)",
-    },
-  };
-
-  // Login View
+  // ---------- Login screen ----------
   if (!authenticated) {
     return (
       <div style={{
         minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "2rem",
-        background: "linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 50%, #16213e 100%)",
+        background: T.bg,
+        color: T.text,
+        fontFamily: T.fontSans,
+        display: "grid",
+        placeItems: "center",
+        padding: 24,
       }}>
-        <Card variant="elevated" padding="xl" style={{ maxWidth: "450px", width: "100%" }}>
-          <div style={{ textAlign: "center", marginBottom: "2rem" }}>
-            <img
-              src="/mafia-logo.png"
-              alt="MAFIA Logo"
-              style={{ width: "70px", height: "70px", objectFit: "contain", marginBottom: "1rem" }}
-            />
-            <h1 style={{ color: "#cc00cc", fontSize: "2.5rem", fontWeight: "bold", margin: 0 }}>
-              MAFIA
-            </h1>
-            <div style={{ color: "#cc00cc", fontSize: "0.9rem", fontWeight: "500", letterSpacing: "2px", textTransform: "uppercase" }}>
-              ADMIN PORTAL
-            </div>
-            <p style={{ color: "#999", fontSize: "1rem", marginTop: "1rem", margin: 0 }}>
-              Secure Administrative Access
-            </p>
+        <div style={{
+          width: "100%", maxWidth: 380,
+          background: T.surface,
+          border: `1px solid ${T.border}`,
+          borderRadius: 14,
+          padding: 32,
+        }}>
+          <div style={{
+            display: "flex", flexDirection: "column",
+            alignItems: "center", marginBottom: 28,
+          }}>
+            <VaultMark size={64} />
+            <div style={{ marginTop: 18 }}><VaultWordmark size={34} /></div>
+            <div style={{
+              fontSize: 11, color: T.textMute, marginTop: 10,
+              letterSpacing: 1.4, textTransform: "uppercase", fontWeight: 500,
+            }}>Admin · Recruitment 25–26</div>
           </div>
 
-          <Input
-            label="Email Address"
-            type="email"
-            placeholder="admin@mafia.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            fullWidth
-            required
-          />
-
-          <Input
-            label="Password"
-            type="password"
-            placeholder="Enter your password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            fullWidth
-            required
-            onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-          />
-
-          <Button
-            variant="primary"
-            size="lg"
-            fullWidth
-            onClick={handleLogin}
-            loading={isLoggingIn}
-            style={{ marginTop: "1rem" }}
-          >
-            Access Admin Panel
-          </Button>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <input
+              type="email"
+              placeholder="admin@mafia.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              style={inputStyle}
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+              style={inputStyle}
+            />
+            <button
+              onClick={handleLogin}
+              disabled={isLoggingIn}
+              style={{
+                marginTop: 6, padding: "12px 16px", borderRadius: 9,
+                background: T.purple, color: "white", border: "none",
+                fontWeight: 600, fontSize: 13,
+                cursor: isLoggingIn ? "not-allowed" : "pointer",
+                opacity: isLoggingIn ? 0.6 : 1,
+              }}
+            >{isLoggingIn ? "Signing in…" : "Sign in as admin"}</button>
+          </div>
 
           <div style={{
-            marginTop: "2rem",
-            padding: "1rem",
-            background: "rgba(255, 255, 255, 0.03)",
-            borderRadius: "12px",
-            textAlign: "center",
-            border: "1px solid rgba(255, 255, 255, 0.05)"
+            marginTop: 20, paddingTop: 16,
+            borderTop: `1px solid ${T.border}`,
+            fontSize: 11, color: T.textMute, textAlign: "center",
           }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
-              <span>📞</span>
-              <span style={{ color: "#cc00cc", fontWeight: "bold" }}>Need Help?</span>
-            </div>
-            <p style={{ color: "#999", fontSize: "0.9rem", margin: 0 }}>
-              Contact: <span style={{ color: "#cc00cc", fontWeight: "bold" }}>📱 9591185310</span>
-            </p>
+            Need help? <span style={{ color: T.textDim, fontFamily: T.fontMono }}>9591185310</span>
           </div>
-        </Card>
+        </div>
       </div>
     );
   }
 
-  // Dashboard View
+  // ---------- Dashboard ----------
+  const lastUpdateLabel = `synced ${formatRelativeTime(lastUpdate)}`;
+  const funnelSteps = [
+    { label: "Checked in", value: total,             color: T.text },
+    { label: "Paid",       value: paid,              color: T.green },
+    { label: "Verified",   value: manuallyVerified,  color: T.purple },
+    { label: "Unpaid",     value: unpaid,            color: T.red },
+  ];
+
   return (
-    <div style={styles.container}>
-      {/* Header */}
-      <div style={styles.header}>
-        <div style={styles.headerLeft}>
-          <img src="/mafia-logo.png" alt="MAFIA Logo" style={styles.logo} />
-          <div>
-            <h1 style={styles.title}>MAFIA</h1>
-            <div style={styles.subtitle}>Recruitment Admin Portal</div>
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "1.5rem" }}>
-          <div style={styles.statusIndicator}>
-            <span style={styles.statusDot}></span>
-            Live • Last updated: {lastUpdate.toLocaleTimeString()}
-          </div>
-          <Button variant="secondary" onClick={handleLogout} size="sm">
-            🚪 Logout
-          </Button>
-        </div>
-      </div>
+    <div style={{
+      display: "flex", height: "100vh",
+      background: T.bg, color: T.text,
+      fontFamily: T.fontSans,
+    }}>
+      <VaultSidebar
+        active="Dashboard"
+        user={{ initials: "AD", name: "Admin", role: email || "Admin · Board" }}
+        onLogout={handleLogout}
+      />
 
-      {/* Stats Cards */}
-      <div style={styles.statsGrid}>
-        <Card
-          variant="gradient"
-          gradient="primary"
-          padding="lg"
-          style={{ position: "relative", overflow: "hidden" }}
-        >
-          <div style={{ fontSize: "0.9rem", opacity: 0.9, marginBottom: "0.5rem" }}>
-            Total Candidates
-          </div>
-          <div style={{ fontSize: "2.5rem", fontWeight: "bold" }}>{total}</div>
-          <div style={{ fontSize: "0.8rem", opacity: 0.8 }}>Registered Students</div>
-        </Card>
-
-        <Card
-          variant="gradient"
-          gradient="success"
-          padding="lg"
-        >
-          <div style={{ fontSize: "0.9rem", opacity: 0.9, marginBottom: "0.5rem" }}>
-            Paid
-          </div>
-          <div style={{ fontSize: "2.5rem", fontWeight: "bold" }}>
-            {paid} <span style={{ fontSize: "1rem", opacity: 0.9 }}>({percentPaid}%)</span>
-          </div>
-          <div style={{ fontSize: "0.8rem", opacity: 0.8 }}>Payment Confirmed</div>
-        </Card>
-
-        <Card
-          variant="gradient"
-          gradient="warning"
-          padding="lg"
-        >
-          <div style={{ fontSize: "0.9rem", opacity: 0.9, marginBottom: "0.5rem" }}>
-            Unpaid
-          </div>
-          <div style={{ fontSize: "2.5rem", fontWeight: "bold" }}>{unpaid}</div>
-          <div style={{ fontSize: "0.8rem", opacity: 0.8 }}>Pending Payment</div>
-        </Card>
-
-        <Card
-          variant="gradient"
-          gradient="info"
-          padding="lg"
-        >
-          <div style={{ fontSize: "0.9rem", opacity: 0.9, marginBottom: "0.5rem" }}>
-            Total Collected
-          </div>
-          <div style={{ fontSize: "2.5rem", fontWeight: "bold" }}>₹{totalAmount.toLocaleString()}</div>
-          <div style={{ fontSize: "0.8rem", opacity: 0.8 }}>Revenue Generated</div>
-        </Card>
-
-        <Card
-          variant="gradient"
-          gradient="primary"
-          padding="lg"
-        >
-          <div style={{ fontSize: "0.9rem", opacity: 0.9, marginBottom: "0.5rem" }}>
-            Manually Verified
-          </div>
-          <div style={{ fontSize: "2.5rem", fontWeight: "bold" }}>
-            {manuallyVerified} <span style={{ fontSize: "1rem", opacity: 0.9 }}>({paid > 0 ? Math.round((manuallyVerified / paid) * 100) : 0}%)</span>
-          </div>
-          <div style={{ fontSize: "0.8rem", opacity: 0.8 }}>Payment Verified</div>
-        </Card>
-      </div>
-
-      {/* Admin Actions */}
-      <Card variant="glass" padding="lg" style={{ marginBottom: "2rem" }}>
-        <h3 style={{ color: "#cc00cc", fontSize: "1.3rem", fontWeight: "bold", marginBottom: "1rem", margin: 0 }}>
-          🔧 Administrative Actions
-        </h3>
-        <div style={styles.actionsRow}>
-          <Button variant="success" onClick={exportToExcel}>
-            📥 Export to Excel
-          </Button>
-          <Button
-            variant="danger"
-            onClick={() => setShowClearDataModal(true)}
-            loading={isClearDataLoading}
-          >
-            🗑️ Clear Interviewer Data
-          </Button>
-          <Button
-            variant="danger"
-            onClick={() => setShowDeleteDataModal(true)}
-          >
-            🗑️ Clear All Data
-          </Button>
-        </div>
-      </Card>
-
-      {/* Filters */}
-      <div style={styles.filtersRow}>
-        <Input
-          placeholder="Search by name or reg no"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ flex: 1, minWidth: "200px" }}
+      <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <VaultTopbar
+          title="Dashboard"
+          sub={`${total} candidates · ${paid} paid (${percentPaid}%) · ${manuallyVerified} verified`}
+          lastUpdate={lastUpdateLabel}
+          onExport={exportToExcel}
         />
-        <Select
-          value={filterPaid}
-          onChange={(e) => setFilterPaid(e.target.value)}
-          style={{ minWidth: "150px" }}
-        >
-          <option value="all">All Candidates</option>
-          <option value="paid">Paid Only</option>
-          <option value="unpaid">Unpaid Only</option>
-        </Select>
-      </div>
 
-      {/* Active Interviewers */}
-      <Card variant="glass" padding="lg" style={{ marginBottom: "2rem" }}>
-        <div style={styles.sectionHeader}>
-          <h3 style={styles.sectionTitle}>
-            👥 Active Interviewers ({interviewers.length})
-          </h3>
-          <Button
-            variant="danger"
-            size="sm"
-            onClick={forceLogoutAllInterviewers}
-            loading={isForceLogoutLoading}
-          >
-            🚫 Force Logout All
-          </Button>
-        </div>
+        <div style={{
+          padding: 28, overflow: "auto",
+          display: "flex", flexDirection: "column", gap: 24,
+        }}>
+          {/* Stats row */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
+            <VaultStat
+              label="Checked-in"
+              value={total}
+              sub="registered candidates"
+            />
+            <VaultStat
+              label="Paid"
+              value={`${paid}/${total || 0}`}
+              sub={`${percentPaid}% conversion`}
+              accent={T.green}
+            />
+            <VaultStat
+              label="Verified"
+              value={manuallyVerified}
+              sub={`${Math.max(0, paid - manuallyVerified)} awaiting review`}
+              accent={T.purple}
+            />
+            <VaultStat
+              label="Revenue"
+              value={`₹${(totalAmount / 1000).toFixed(1)}k`}
+              sub={`${paid} payments collected`}
+            />
+          </div>
 
-        {interviewers.length > 0 ? (
-          <div style={styles.interviewersGrid}>
-            {interviewers.map((interviewer, idx) => (
-              <div key={idx} style={styles.interviewerCard}>
-                <div style={{ fontWeight: "bold", color: "#00ff88", marginBottom: "0.5rem" }}>
-                  {interviewer.email}
-                </div>
-                <div style={{ fontSize: "0.9rem", color: "#999" }}>
-                  Last Active: {interviewer.lastActive ? new Date(interviewer.lastActive.seconds * 1000).toLocaleString() : "Unknown"}
-                </div>
+          {/* Funnel + Active interviewers */}
+          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 14 }}>
+            <VaultCard>
+              <VaultSectionHeader title="Payment funnel" meta="live" />
+              <VaultFunnel steps={funnelSteps} />
+            </VaultCard>
+
+            <VaultCard>
+              <VaultSectionHeader
+                title="Active interviewers"
+                meta={`${interviewers.length} online`}
+                actions={
+                  <button
+                    onClick={forceLogoutAllInterviewers}
+                    disabled={isForceLogoutLoading}
+                    style={ghostBtnStyle(T.red)}
+                  >
+                    {isForceLogoutLoading ? "…" : "Force logout"}
+                  </button>
+                }
+              />
+              <div style={{
+                display: "flex", flexDirection: "column", gap: 8,
+                maxHeight: 240, overflow: "auto",
+              }}>
+                {interviewers.length === 0 ? (
+                  <div style={{
+                    padding: 16, fontSize: 12, color: T.textMute,
+                    fontStyle: "italic", textAlign: "center",
+                  }}>No active interviewers</div>
+                ) : interviewers.map((iv, idx) => (
+                  <div key={idx} style={{
+                    padding: "10px 12px", borderRadius: 8,
+                    background: T.surface2,
+                    border: `1px solid ${T.border}`,
+                    display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10,
+                  }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{
+                        fontSize: 12, color: T.text, fontWeight: 600,
+                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                      }}>{iv.email}</div>
+                      <div style={{
+                        fontSize: 10, color: T.textMute,
+                        fontFamily: T.fontMono, marginTop: 2,
+                      }}>
+                        {iv.lastActive ? `active ${formatRelativeTime(toDate(iv.lastActive))}` : "—"}
+                      </div>
+                    </div>
+                    <span style={{
+                      width: 6, height: 6, borderRadius: "50%",
+                      background: T.green, flexShrink: 0,
+                    }} />
+                  </div>
+                ))}
               </div>
-            ))}
+            </VaultCard>
           </div>
-        ) : (
-          <div style={{ textAlign: "center", color: "#666", padding: "2rem" }}>
-            No active interviewers
-          </div>
-        )}
-      </Card>
 
-      {/* Candidates Table */}
-      <Card variant="glass" padding="lg">
-        <div style={styles.sectionHeader}>
-          <h3 style={styles.sectionTitle}>
-            📋 Candidates ({filteredCandidates.length})
-          </h3>
-        </div>
-
-        <div style={{ overflowX: "auto" }}>
-          <table style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            fontSize: "0.9rem",
-          }}>
-            <thead>
-              <tr style={{ borderBottom: "2px solid rgba(255, 255, 255, 0.1)" }}>
-                <th style={{ padding: "1rem", textAlign: "left", color: "#999", fontWeight: "600", textTransform: "uppercase", fontSize: "0.75rem" }}>Name</th>
-                <th style={{ padding: "1rem", textAlign: "left", color: "#999", fontWeight: "600", textTransform: "uppercase", fontSize: "0.75rem" }}>Reg No</th>
-                <th style={{ padding: "1rem", textAlign: "left", color: "#999", fontWeight: "600", textTransform: "uppercase", fontSize: "0.75rem" }}>Year</th>
-                <th style={{ padding: "1rem", textAlign: "left", color: "#999", fontWeight: "600", textTransform: "uppercase", fontSize: "0.75rem" }}>Paid</th>
-                <th style={{ padding: "1rem", textAlign: "left", color: "#999", fontWeight: "600", textTransform: "uppercase", fontSize: "0.75rem" }}>Status</th>
-                <th style={{ padding: "1rem", textAlign: "left", color: "#999", fontWeight: "600", textTransform: "uppercase", fontSize: "0.75rem" }}>Verdict</th>
-                <th style={{ padding: "1rem", textAlign: "left", color: "#999", fontWeight: "600", textTransform: "uppercase", fontSize: "0.75rem" }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredCandidates.map((cand, index) => (
-                <tr
-                  key={index}
-                  style={{
-                    borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
-                    backgroundColor: cand.paid ? "rgba(76, 175, 80, 0.1)" : "transparent",
-                  }}
+          {/* Candidates table */}
+          <VaultCard padding={0}>
+            <div style={{
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              padding: "16px 22px", borderBottom: `1px solid ${T.border}`,
+            }}>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>
+                Candidates{" "}
+                <span style={{ color: T.textMute, fontFamily: T.fontMono, fontSize: 12 }}>
+                  · {filteredCandidates.length}/{total}
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input
+                  placeholder="Search reg no or name…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  style={{ ...inputStyle, padding: "7px 12px", width: 220, fontSize: 12 }}
+                />
+                <select
+                  value={filterPaid}
+                  onChange={(e) => setFilterPaid(e.target.value)}
+                  style={{ ...inputStyle, padding: "7px 12px", fontSize: 12 }}
                 >
-                  <td style={{ padding: "1rem" }}>{cand.name}</td>
-                  <td style={{ padding: "1rem" }}>{cand.regNo}</td>
-                  <td style={{ padding: "1rem" }}>
-                    <Badge variant={cand.year === "1st year" ? "success" : "info"} size="sm">
-                      {cand.year || "N/A"}
-                    </Badge>
-                  </td>
-                  <td style={{ padding: "1rem" }}>
-                    {cand.paid ? <StatusBadge status="paid" /> : <StatusBadge status="unpaid" />}
-                  </td>
-                  <td style={{ padding: "1rem" }}>
-                    {cand.paid ? (
-                      cand.manuallyVerified ? (
-                        <StatusBadge status="verified" />
-                      ) : (
-                        <StatusBadge status="pending" />
-                      )
-                    ) : (
-                      <span style={{ color: "#666" }}>—</span>
-                    )}
-                  </td>
-                  <td style={{ padding: "1rem" }}>
-                    {Array.isArray(cand.verdict?.talentComm) && cand.verdict.talentComm.length > 0 ? (
-                      <Badge variant="success" size="sm">
-                        {cand.verdict.talentComm.join(", ")}
-                      </Badge>
-                    ) : (
-                      <span style={{ color: "#666" }}>—</span>
-                    )}
-                  </td>
-                  <td style={{ padding: "1rem" }}>
-                    {cand.paid && !cand.manuallyVerified && (
-                      <Button
-                        variant="success"
-                        size="sm"
-                        onClick={() => manuallyVerifyPayment(cand)}
-                      >
-                        ✅ Verify
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+                  <option value="all">All status</option>
+                  <option value="paid">Paid</option>
+                  <option value="unpaid">Unpaid</option>
+                </select>
+              </div>
+            </div>
 
-      {/* Confirmation Modals */}
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: T.surface2 }}>
+                    {["Reg No", "Name", "Branch", "Preference", "Verdict", "Payment", "Updated", ""].map((h) => (
+                      <th key={h} style={{
+                        padding: "10px 16px", textAlign: "left",
+                        fontWeight: 600, color: T.textMute,
+                        fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase",
+                      }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredCandidates.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} style={{
+                        padding: 32, textAlign: "center",
+                        color: T.textMute, fontSize: 12,
+                      }}>No candidates match your filters.</td>
+                    </tr>
+                  ) : filteredCandidates.map((c, idx) => (
+                    <tr key={c.regNo || idx} style={{ borderTop: `1px solid ${T.borderSoft}` }}>
+                      <td style={{ padding: "12px 16px", fontFamily: T.fontMono, color: T.textDim }}>
+                        {c.regNo}
+                      </td>
+                      <td style={{ padding: "12px 16px", fontWeight: 500 }}>{c.name}</td>
+                      <td style={{ padding: "12px 16px", color: T.textDim }}>{c.branch || "—"}</td>
+                      <td style={{ padding: "12px 16px", color: T.textDim }}>
+                        {c.preferences?.talentComm?.pref1 || "—"}
+                      </td>
+                      <td style={{ padding: "12px 16px" }}>
+                        {Array.isArray(c.verdict?.talentComm) && c.verdict.talentComm.length > 0
+                          ? <VaultPill variant="info">{c.verdict.talentComm[0]}</VaultPill>
+                          : <span style={{ color: T.textMute }}>—</span>}
+                      </td>
+                      <td style={{ padding: "12px 16px" }}>
+                        {c.manuallyVerified
+                          ? <VaultPill variant="verified">verified</VaultPill>
+                          : c.paid
+                            ? <VaultPill variant="paid">paid</VaultPill>
+                            : <VaultPill variant="unpaid">unpaid</VaultPill>}
+                      </td>
+                      <td style={{
+                        padding: "12px 16px", fontFamily: T.fontMono,
+                        color: T.textMute, fontSize: 11,
+                      }}>{c.lastUpdatedBy || "—"}</td>
+                      <td style={{ padding: "12px 16px", textAlign: "right" }}>
+                        {c.paid && !c.manuallyVerified && (
+                          <button
+                            onClick={() => manuallyVerifyPayment(c)}
+                            style={ghostBtnStyle(T.purple)}
+                          >Verify</button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </VaultCard>
+
+          {/* Admin actions */}
+          <VaultCard>
+            <VaultSectionHeader
+              title="Administrative actions"
+              meta="destructive · audited"
+            />
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button onClick={exportToExcel} style={primaryBtnStyle()}>
+                Export to Excel
+              </button>
+              <button
+                onClick={() => setShowClearDataModal(true)}
+                disabled={isClearDataLoading}
+                style={dangerBtnStyle()}
+              >
+                {isClearDataLoading ? "Clearing…" : "Clear interviewer data"}
+              </button>
+              <button
+                onClick={() => setShowDeleteDataModal(true)}
+                style={dangerBtnStyle()}
+              >
+                Clear all candidate data
+              </button>
+            </div>
+          </VaultCard>
+        </div>
+      </main>
+
+      {/* Confirmation modals — keep existing components */}
       <ConfirmDialog
         isOpen={showClearDataModal}
         onClose={() => setShowClearDataModal(false)}
@@ -816,15 +704,68 @@ function AdminPortal() {
         confirmText="Delete All"
         variant="danger"
       />
-
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.5; }
-        }
-      `}</style>
     </div>
   );
+}
+
+// ---------- Local style helpers ----------
+const inputStyle = {
+  padding: "10px 14px",
+  borderRadius: 8,
+  border: `1px solid ${T.border}`,
+  background: T.surface2,
+  color: T.text,
+  fontFamily: T.fontSans,
+  fontSize: 13,
+  outline: "none",
+  boxSizing: "border-box",
+  width: "100%",
+};
+
+function primaryBtnStyle() {
+  return {
+    padding: "9px 14px", borderRadius: 8,
+    background: T.purple, color: "white", border: "none",
+    fontWeight: 600, fontSize: 12, cursor: "pointer",
+    fontFamily: T.fontSans,
+  };
+}
+
+function dangerBtnStyle() {
+  return {
+    padding: "9px 14px", borderRadius: 8,
+    background: T.redSoft, color: T.red,
+    border: `1px solid rgba(239,68,68,0.3)`,
+    fontWeight: 600, fontSize: 12, cursor: "pointer",
+    fontFamily: T.fontSans,
+  };
+}
+
+function ghostBtnStyle(color) {
+  return {
+    padding: "5px 10px", borderRadius: 6,
+    background: "transparent", color: color || T.textDim,
+    border: `1px solid ${color === T.red ? "rgba(239,68,68,0.3)" : T.border}`,
+    fontWeight: 600, fontSize: 11, cursor: "pointer",
+    fontFamily: T.fontSans,
+  };
+}
+
+// Small util — relative time without pulling a date library
+function toDate(stamp) {
+  if (!stamp) return null;
+  if (stamp.seconds) return new Date(stamp.seconds * 1000);
+  return new Date(stamp);
+}
+function formatRelativeTime(date) {
+  if (!date) return "—";
+  const d = date instanceof Date ? date : new Date(date);
+  const diff = Math.max(0, (Date.now() - d.getTime()) / 1000);
+  if (diff < 5) return "just now";
+  if (diff < 60) return `${Math.floor(diff)}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
 }
 
 export default AdminPortal;

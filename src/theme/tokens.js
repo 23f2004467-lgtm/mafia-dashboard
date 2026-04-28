@@ -64,22 +64,23 @@ export const colors = {
     950: '#030712',
   },
 
-  // Dark Theme Surfaces
+  // Dark Theme Surfaces — Vault direction
   surface: {
-    DEFAULT: '#1a1a2e',
-    elevated: '#16213e',
-    card: '#0f0f1a',
-    input: '#252540',
-    border: '#2a2a4a',
+    DEFAULT: '#0b0b14',     // page bg
+    elevated: '#13131f',    // primary card surface
+    card: '#1b1b2b',        // nested cards
+    input: '#22223a',       // form inputs
+    border: '#2a2a42',
+    borderSoft: 'rgba(255, 255, 255, 0.06)',
   },
 
   // Text Colors
   text: {
-    primary: '#ffffff',
-    secondary: 'rgba(255, 255, 255, 0.8)',
-    tertiary: 'rgba(255, 255, 255, 0.6)',
-    disabled: 'rgba(255, 255, 255, 0.4)',
-    inverse: '#0f0f1a',
+    primary: '#f5f5fa',
+    secondary: 'rgba(245, 245, 250, 0.66)',
+    tertiary: 'rgba(245, 245, 250, 0.42)',
+    disabled: 'rgba(245, 245, 250, 0.3)',
+    inverse: '#1b1b2b',
   },
 };
 
@@ -90,8 +91,9 @@ export const typography = {
   // Font Families
   fontFamily: {
     sans: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    mono: '"JetBrains Mono", "Fira Code", monospace',
+    mono: '"JetBrains Mono", "SF Mono", ui-monospace, monospace',
     display: '"Outfit", "Inter", sans-serif',
+    wordmark: '"Space Grotesk", "Outfit", "Inter", sans-serif',
   },
 
   // Font Sizes (major third scale: 1.25)
@@ -258,6 +260,7 @@ export const cssVars = {
   '--font-sans': typography.fontFamily.sans,
   '--font-mono': typography.fontFamily.mono,
   '--font-display': typography.fontFamily.display,
+  '--font-wordmark': typography.fontFamily.wordmark,
 
   // Spacing
   '--spacing-xs': spacing[1],
