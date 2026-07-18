@@ -19,6 +19,22 @@
   gap: var(--space-6);
 }
 
+/* §7.6/§7.7 — interviewers panel + live activity right column at ≥ 1280;
+   stacked single column below. */
+.admin-panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 380px);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+@media (max-width: 1279px) {
+  .admin-panels {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-4);
+  }
+}
+
 @media (max-width: 1024px) {
   .admin-main {
     padding: var(--space-4);

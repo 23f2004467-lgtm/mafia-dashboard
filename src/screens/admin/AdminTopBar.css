@@ -129,6 +129,17 @@
   padding-left: var(--space-6);
 }
 
+/* §2 #27 export scope popover — reuses the .admin-menu dropdown chrome */
+.admin-export-menu {
+  min-width: 200px;
+}
+
+.admin-menu__count {
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+  font-variant-numeric: tabular-nums;
+}
+
 .admin-menu__divider {
   height: 1px;
   margin: var(--space-1) var(--space-2);

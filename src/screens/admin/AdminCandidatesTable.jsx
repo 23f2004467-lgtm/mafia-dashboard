@@ -56,8 +56,9 @@ const SKELETON_ROWS = 8;
 const paymentState = (c) =>
   c.paid ? (c.manuallyVerified ? "verified" : "paid_unverified") : "unpaid";
 
-/** ALL selected domains joined from BOTH arrays (§7.4 — display only). */
-const verdictDomains = (c) => {
+/** ALL selected domains joined from BOTH arrays (§7.4 — display only).
+ *  Exported for the §7.7 activity card's verdict summary (same mapping). */
+export const verdictDomains = (c) => {
   const talent = Array.isArray(c.verdict?.talentComm) ? c.verdict.talentComm : [];
   const work = Array.isArray(c.verdict?.workComm) ? c.verdict.workComm : [];
   return [...talent, ...work.map((d) => WORK_DOMAIN_LABELS[d] || d)];

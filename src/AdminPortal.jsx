@@ -7,8 +7,10 @@ import { ToastHost, toast } from './ui';
 import AdminLogin from './screens/admin/AdminLogin';
 import AdminTopBar from './screens/admin/AdminTopBar';
 import AdminStats from './screens/admin/AdminStats';
-import AdminCandidatesTable from './screens/admin/AdminCandidatesTable';
+import AdminCandidatesTable, { verdictDomains } from './screens/admin/AdminCandidatesTable';
 import AdminCandidateDrawer from './screens/admin/AdminCandidateDrawer';
+import AdminInterviewers from './screens/admin/AdminInterviewers';
+import AdminActivity from './screens/admin/AdminActivity';
 import { canUndo } from './undoGuard';
 import './AdminPortal.css';
 import {
@@ -26,11 +28,6 @@ import {
 import * as ExcelJS from "exceljs";
 import { buildExportRows } from "./exportRows";
 import { PerformanceMonitor } from './performanceOptimizations';
-import {
-  VaultTokens as T,
-  VaultCard,
-  VaultSectionHeader,
-} from './components/admin/VaultChrome';
 
 /**
  * MAFIA Recruitment Admin Portal — House Lights dark stage (§7).
@@ -39,10 +36,13 @@ import {
  * deleted, §2 #25/#27). Phase 5c: §7.5 candidate drawer — row click opens
  * the full record; verify moves next to the evidence (confirm popover →
  * existing write → Undo toast) and the §2 #26 reverse/undo-verify revert
- * (the ONE sanctioned net-new admin mutation) lands here.
+ * (the ONE sanctioned net-new admin mutation) lands here. Phase 5d:
+ * §7.6 interviewers panel (honest presence + "N today" + per-row End
+ * session, all off the ONE existing interviewers listener — landmine #13),
+ * §7.7 live activity card (client-side over the candidates snapshot, no
+ * new listeners), and the §2 #27 export scope popover + progress + toast.
  * All Firestore logic/writes/listeners live here; rendering moves to
  * src/ui/ + src/screens/admin/ presentational pieces.
- * The interviewers card stays Vault-styled until its §7.6 sub-step.
  */
 
 // ---------- §7.4 filter model (search + one state filter) ----------
@@ -116,6 +116,10 @@ function AdminPortal() {
   const [isForceLogoutLoading, setIsForceLogoutLoading] = useState(false);
   const [isClearDataLoading, setIsClearDataLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(new Date());
+  // §2 #27: export progress state (button spinner + re-entry guard).
+  const [isExporting, setIsExporting] = useState(false);
+  // §7.6: email of the session currently being ended (popover busy state).
+  const [endingSessionEmail, setEndingSessionEmail] = useState(null);
 
   // §7.4 optimistic row feedback: regNo currently flashing green.
   const [flashRegNo, setFlashRegNo] = useState(null);
@@ -286,12 +290,27 @@ function AdminPortal() {
       const snapshot = await getDocs(interviewersRef);
       const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
       await Promise.all(deletePromises);
-      alert("All interviewers have been force logged out successfully.");
+      toast({ tone: 'success', message: `Ended ${snapshot.docs.length} interviewer ${snapshot.docs.length === 1 ? 'session' : 'sessions'}` });
     } catch (error) {
       console.error("Error force logging out interviewers:", error);
-      alert("Error force logging out interviewers: " + error.message);
+      toast({ tone: 'error', message: "Error force logging out interviewers: " + error.message });
     } finally {
       setIsForceLogoutLoading(false);
+    }
+  };
+
+  // §7.6 per-row "End session" — the existing single-doc delete (the same
+  // deleteDoc path force-logout applies in bulk), scoped to one email.
+  const endInterviewerSession = async (interviewerEmail) => {
+    setEndingSessionEmail(interviewerEmail);
+    try {
+      await deleteDoc(doc(db, "interviewers", interviewerEmail));
+      toast({ tone: 'success', message: `Session ended · ${interviewerEmail}` });
+    } catch (error) {
+      console.error("Error ending interviewer session:", error);
+      toast({ tone: 'error', message: 'Failed to end session: ' + error.message });
+    } finally {
+      setEndingSessionEmail(null);
     }
   };
 
@@ -464,28 +483,43 @@ function AdminPortal() {
     }
   };
 
-  const exportToExcel = async () => {
-    // Scope = exactly what the table shows (same shared predicates the
-    // §7.4 memo uses). ExcelJS internals + buildExportRows below stay
-    // byte-identical (landmines #9/#10).
-    const filteredCandidates = candidates.filter(
-      (cand) => matchesSearch(cand, search) && matchesStateFilter(cand, filterPaid)
-    );
+  const exportToExcel = async (scope = "all") => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      // Scope (§2 #27): "filtered" = exactly what the table shows (same
+      // shared predicates the §7.4 memo uses); "all" = every candidate.
+      // ExcelJS internals + buildExportRows below stay byte-identical
+      // (landmines #9/#10).
+      const scopedCandidates =
+        scope === "filtered"
+          ? candidates.filter(
+              (cand) => matchesSearch(cand, search) && matchesStateFilter(cand, filterPaid)
+            )
+          : candidates;
 
-    const rows = buildExportRows(filteredCandidates);
+      const rows = buildExportRows(scopedCandidates);
 
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet("Candidates");
-    rows.forEach(row => worksheet.addRow(row));
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Candidates");
+      rows.forEach(row => worksheet.addRow(row));
 
-    const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = "mafia_recruitments.xlsx";
-    a.click();
-    window.URL.revokeObjectURL(url);
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = "mafia_recruitments.xlsx";
+      a.click();
+      window.URL.revokeObjectURL(url);
+
+      toast({ tone: 'success', message: `Exported ${scopedCandidates.length} rows · mafia_recruitments.xlsx` });
+    } catch (error) {
+      console.error('Export failed:', error);
+      toast({ tone: 'error', message: 'Export failed: ' + error.message });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   // Effects — unchanged
@@ -584,6 +618,64 @@ function AdminPortal() {
     [searchedCandidates, filterPaid]
   );
 
+  // §2 #27: any active search/filter routes Export through the scope popover.
+  const filtersActive = Boolean(search) || filterPaid !== "all";
+
+  // §7.6 interviewers panel rows — the ONE existing interviewers listener's
+  // data (landmine #13) joined client-side against the candidates snapshot:
+  // "N today" = candidates this email last touched today (§2 #34, admin-side
+  // counts sanctioned); "last touched" = most recent such candidate. NOTE:
+  // interviewer writes stamp lastUpdatedBy with displayName || email, so
+  // the email join undercounts when a Google displayName is set — honest
+  // limitation of the existing data, reported, not papered over.
+  const interviewerRows = useMemo(() => {
+    const todayKey = new Date().toDateString();
+    return interviewers.map((iv) => {
+      const email = (iv.email || "").toLowerCase();
+      let todayCount = 0;
+      let last = null;
+      for (const c of candidates) {
+        if ((c.lastUpdatedBy || "").toLowerCase() !== email) continue;
+        const at = toDate(c.lastUpdatedAt);
+        if (!at) continue;
+        if (at.toDateString() === todayKey) todayCount += 1;
+        if (!last || at > last.at) last = { name: c.name || c.regNo, at };
+      }
+      const lastActiveDate = toDate(iv.lastActive);
+      return {
+        email: iv.email,
+        lastActiveMs: lastActiveDate ? lastActiveDate.getTime() : null,
+        todayCount,
+        lastTouchedName: last ? last.name : null,
+      };
+    });
+  }, [interviewers, candidates]);
+
+  // §7.7 activity items — last 15 candidate writes, derived CLIENT-SIDE
+  // from the existing candidates snapshot sorted by lastUpdatedAt. No new
+  // listeners; verdict summary reuses the §7.4 display-only domain join.
+  const activityItems = useMemo(
+    () =>
+      candidates
+        .filter((c) => c.lastUpdatedAt)
+        .map((c) => {
+          const domains = verdictDomains(c);
+          const at = toDate(c.lastUpdatedAt);
+          return {
+            regNo: c.regNo,
+            name: c.name || c.regNo,
+            summary:
+              domains.length > 0 ? `Selected · ${domains.join(" + ")}` : "updated",
+            by: c.lastUpdatedBy || "",
+            at: c.lastUpdatedAt,
+            sortMs: at ? at.getTime() : 0,
+          };
+        })
+        .sort((a, b) => b.sortMs - a.sortMs)
+        .slice(0, 15),
+    [candidates]
+  );
+
   // §7.3 tile 3 (Awaiting verification) is actionable: apply the
   // Paid·unverified filter and scroll to the table card.
   const jumpToAwaiting = useCallback(() => {
@@ -655,6 +747,10 @@ function AdminPortal() {
       <AdminTopBar
         lastSyncAt={lastUpdate}
         onExport={exportToExcel}
+        exportBusy={isExporting}
+        filtersActive={filtersActive}
+        totalCount={total}
+        filteredCount={filteredCandidates.length}
         onForceLogout={() => setShowForceLogoutModal(true)}
         forceLogoutBusy={isForceLogoutLoading}
         onDangerReset={() => setShowClearDataModal(true)}
@@ -699,48 +795,21 @@ function AdminPortal() {
           formatWhen={(stamp) => formatRelativeTime(toDate(stamp))}
         />
 
-        {/* Active interviewers — still Vault-styled until its §7.6 sub-step */}
-        <VaultCard>
-          <VaultSectionHeader
-            title="Active interviewers"
-            meta={`${interviewers.length} online`}
+        {/* §7.6 interviewers panel + §7.7 live activity — two columns ≥ 1280,
+            stacked below (the always-green Vault presence card dies here) */}
+        <div className="admin-panels">
+          <AdminInterviewers
+            rows={interviewerRows}
+            ready={candidatesReady}
+            onEndSession={endInterviewerSession}
+            endingEmail={endingSessionEmail}
           />
-          <div style={{
-            display: "flex", flexDirection: "column", gap: 8,
-            maxHeight: 240, overflow: "auto",
-          }}>
-            {interviewers.length === 0 ? (
-              <div style={{
-                padding: 16, fontSize: 12, color: T.textMute,
-                fontStyle: "italic", textAlign: "center",
-              }}>No active interviewers</div>
-            ) : interviewers.map((iv, idx) => (
-              <div key={idx} style={{
-                padding: "10px 12px", borderRadius: 8,
-                background: T.surface2,
-                border: `1px solid ${T.border}`,
-                display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10,
-              }}>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{
-                    fontSize: 12, color: T.text, fontWeight: 600,
-                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                  }}>{iv.email}</div>
-                  <div style={{
-                    fontSize: 10, color: T.textMute,
-                    fontFamily: T.fontMono, marginTop: 2,
-                  }}>
-                    {iv.lastActive ? `active ${formatRelativeTime(toDate(iv.lastActive))}` : "—"}
-                  </div>
-                </div>
-                <span style={{
-                  width: 6, height: 6, borderRadius: "50%",
-                  background: T.green, flexShrink: 0,
-                }} />
-              </div>
-            ))}
-          </div>
-        </VaultCard>
+          <AdminActivity
+            items={activityItems}
+            ready={candidatesReady}
+            formatWhen={(stamp) => formatRelativeTime(toDate(stamp))}
+          />
+        </div>
       </main>
 
       {/* §7.5 candidate drawer — verify next to the evidence + reverse */}
@@ -785,13 +854,15 @@ function AdminPortal() {
         variant="danger"
       />
 
+      {/* §7.6 / §2 #38: plain confirm (recoverable — no typed confirm),
+          stating the count; old ConfirmDialog until 5e (landmine #8) */}
       <ConfirmDialog
         isOpen={showForceLogoutModal}
         onClose={() => setShowForceLogoutModal(false)}
         onConfirm={forceLogoutAllInterviewers}
-        title="Force Logout All Interviewers"
-        message={`This will end all ${interviewers.length} active interviewer sessions. Interviewers will need to sign in again.`}
-        confirmText="Force Logout All"
+        title="Force logout all"
+        message={`End all ${interviewers.length} interviewer sessions? Interviewers will need to sign in again.`}
+        confirmText="End sessions"
         variant="danger"
       />
 

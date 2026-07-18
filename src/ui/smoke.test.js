@@ -145,6 +145,10 @@ describe("src/ui smoke", () => {
     expect(derivePresence(now - 2 * 60000, now).status).toBe("active");
     expect(derivePresence(now - 10 * 60000, now).status).toBe("idle");
     expect(derivePresence(now - 40 * 60000, now).status).toBe("away");
+    // §14 Phase 5: correct mono ages at the 2m/10m/40m fixtures
+    expect(derivePresence(now - 2 * 60000, now).ageLabel).toBe("2m");
+    expect(derivePresence(now - 10 * 60000, now).ageLabel).toBe("10m");
+    expect(derivePresence(now - 40 * 60000, now).ageLabel).toBe("40m");
     expect(derivePresence(undefined, now).ageLabel).toBe("—");
   });
 

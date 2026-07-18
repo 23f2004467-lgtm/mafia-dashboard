@@ -10,15 +10,21 @@ import "./AdminTopBar.css";
  * - lockup 20px + "ADMIN" micro-label
  * - live sync pill: green dot + "Synced 3s ago" (mono tabular), ticking
  *   every 1 s off the latest candidates-snapshot receipt timestamp
- * - Export Button (existing export handler; 5d adds the scope popover)
+ * - Export Button (§2 #27): no filters active → onExport("all") directly;
+ *   filters active → scope popover "Export {M} filtered" / "Export all {N}".
+ *   `exportBusy` shows the width-locked progress spinner on the button.
  * - overflow "⋯" menu: Force logout all… · Danger zone… · Sign out
  *   (the destructive items stub to the EXISTING ConfirmDialog flows
- *   until 5d/5e)
+ *   until 5e)
  * - user chip: Avatar initials + email
  */
 export default function AdminTopBar({
   lastSyncAt,
   onExport,
+  exportBusy = false,
+  filtersActive = false,
+  totalCount = 0,
+  filteredCount = 0,
   onForceLogout,
   forceLogoutBusy = false,
   onDangerReset,
@@ -30,6 +36,10 @@ export default function AdminTopBar({
   const [menuOpen, setMenuOpen] = useState(false);
   const [dangerOpen, setDangerOpen] = useState(false);
   const menuRef = useRef(null);
+
+  // §2 #27 export scope popover (only reachable when filters are active).
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportRef = useRef(null);
 
   // 1 s tick drives the "Synced Ns ago" pill.
   const [, setTick] = useState(0);
@@ -60,9 +70,42 @@ export default function AdminTopBar({
     };
   }, [menuOpen]);
 
+  // Outside click + Esc close the export scope popover.
+  useEffect(() => {
+    if (!exportOpen) return undefined;
+    const onDown = (e) => {
+      if (exportRef.current && !exportRef.current.contains(e.target)) {
+        setExportOpen(false);
+      }
+    };
+    const onKey = (e) => {
+      if (e.key === "Escape") setExportOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [exportOpen]);
+
   const pick = (fn) => () => {
     setMenuOpen(false);
     if (fn) fn();
+  };
+
+  const handleExportClick = () => {
+    if (exportBusy) return;
+    if (filtersActive) {
+      setExportOpen((o) => !o);
+    } else {
+      onExport("all");
+    }
+  };
+
+  const pickScope = (scope) => () => {
+    setExportOpen(false);
+    onExport(scope);
   };
 
   let syncLabel;
@@ -99,9 +142,45 @@ export default function AdminTopBar({
             <span className="admin-sync__dot" aria-hidden="true" />
             <span className="admin-sync__label">{syncLabel}</span>
           </span>
-          <Button size="sm" variant="secondary" onClick={onExport}>
-            Export
-          </Button>
+          <span className="admin-topbar__menuwrap" ref={exportRef}>
+            <Button
+              size="sm"
+              variant="secondary"
+              loading={exportBusy}
+              onClick={handleExportClick}
+              aria-haspopup={filtersActive ? "menu" : undefined}
+              aria-expanded={filtersActive ? exportOpen : undefined}
+            >
+              Export
+            </Button>
+            {exportOpen ? (
+              <div
+                className="admin-menu admin-export-menu"
+                role="menu"
+                aria-label="Export scope"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="admin-menu__item"
+                  onClick={pickScope("filtered")}
+                >
+                  Export{" "}
+                  <span className="admin-menu__count">{filteredCount}</span>{" "}
+                  filtered
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="admin-menu__item"
+                  onClick={pickScope("all")}
+                >
+                  Export all{" "}
+                  <span className="admin-menu__count">{totalCount}</span>
+                </button>
+              </div>
+            ) : null}
+          </span>
           <span className="admin-topbar__menuwrap" ref={menuRef}>
             <button
               type="button"

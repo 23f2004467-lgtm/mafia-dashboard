@@ -1,0 +1,91 @@
+/* AdminInterviewers (§7.6) — interviewers panel card. Tokens only. */
+
+.admin-ivs {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  min-width: 0;
+}
+
+.admin-ivs__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-ivs__title {
+  font-size: var(--text-12);
+  font-weight: 600;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.admin-ivs__meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.admin-ivs__list {
+  list-style: none;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.admin-ivs__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) auto auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--touch-min);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--text-14);
+}
+
+.admin-ivs__row:last-child {
+  border-bottom: 0;
+}
+
+.admin-ivs__email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--text-1);
+}
+
+.admin-ivs__today {
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.admin-ivs__last {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-2);
+}
+
+.admin-ivs__end {
+  display: inline-flex;
+  justify-content: flex-end;
+}
+
+/* Skeleton rows while the first snapshot loads */
+.admin-ivs__row--skeleton {
+  display: block;
+}
+
+.admin-ivs__row--skeleton .ui-skeleton {
+  max-width: 260px;
+}

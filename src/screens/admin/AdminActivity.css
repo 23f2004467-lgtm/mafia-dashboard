@@ -1,0 +1,113 @@
+/* AdminActivity (§7.7) — live activity card, right column ≥ 1280. Tokens only. */
+
+.admin-act {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  min-width: 0;
+}
+
+.admin-act__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+
+.admin-act__title {
+  font-size: var(--text-12);
+  font-weight: 600;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.admin-act__meta-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.admin-act__list {
+  list-style: none;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.admin-act__row {
+  padding: var(--space-2) var(--space-4);
+  min-height: var(--touch-min);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-act__row:last-child {
+  border-bottom: 0;
+}
+
+.admin-act__line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-14);
+}
+
+.admin-act__name {
+  font-weight: 500;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 0;
+  max-width: 55%;
+}
+
+.admin-act__what {
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.admin-act__sep {
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+
+.admin-act__meta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  font-size: var(--text-13);
+  color: var(--text-3);
+}
+
+.admin-act__by {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.admin-act__age {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Skeleton rows while the first snapshot loads */
+.admin-act__row--skeleton .ui-skeleton {
+  max-width: 220px;
+}
