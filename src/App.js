@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { auth, provider, db } from "./firebaseConfig";
-import { signInWithPopup } from "firebase/auth";
+import { signInWithPopup, onAuthStateChanged } from "firebase/auth";
 import {
   doc,
   setDoc,
@@ -162,6 +162,63 @@ function App() {
     FirebaseSecurity.auditLogger.logEvent('app_initialized', {
       timestamp: new Date().toISOString()
     });
+  }, []);
+
+  // Tracks whether the post-login session registration has run for the
+  // current signed-in session (popup OR restored). Check-and-set is atomic
+  // within a synchronous block, so whichever path claims it first wins and
+  // the other skips — setup runs exactly once per session. Reset when auth
+  // state goes null so the next sign-in re-runs setup.
+  const postLoginSetupDoneRef = useRef(false);
+
+  // Auth hydration (sanctioned exception a): restore signed-in sessions
+  // across reloads. A restored session runs the SAME post-login setup as the
+  // popup path — interviewer session registration here, and the 10-min
+  // lastActive heartbeat via the user-keyed effect below (it starts whenever
+  // `user` becomes set, from either path). Rate-limit/lockout checks stay on
+  // the popup path only: they gate attempts, not restores.
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser) {
+        // Signed out (logout here or revoked elsewhere): allow the next
+        // sign-in to re-run setup. The heartbeat interval is cleared by its
+        // own effect cleanup when `user` becomes null. The listener itself
+        // stays registered for future sign-ins.
+        postLoginSetupDoneRef.current = false;
+        setUser(null);
+        return;
+      }
+
+      // Mirror the popup path's email validation; never hydrate a session
+      // whose email fails it.
+      if (!FirebaseSecurity.utils.validateEmail(firebaseUser.email)) {
+        return;
+      }
+
+      setUser(firebaseUser);
+
+      // Once-per-session guard: skip if the popup path already ran (or has
+      // claimed) session registration.
+      if (postLoginSetupDoneRef.current) return;
+      postLoginSetupDoneRef.current = true;
+
+      try {
+        // Same interviewer session registration the popup path performs.
+        const interviewerRef = doc(db, "interviewers", firebaseUser.email);
+        await setDoc(interviewerRef, {
+          email: firebaseUser.email,
+          loginTime: serverTimestamp(),
+          lastActive: serverTimestamp(),
+          displayName: firebaseUser.displayName || firebaseUser.email
+        });
+      } catch (error) {
+        // Non-fatal: the heartbeat effect writes lastActive with merge, so
+        // presence still surfaces even if this registration write fails.
+        console.error("Error registering restored session:", error);
+      }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   // Optimized form data saving with throttling
@@ -689,8 +746,10 @@ function App() {
             throw new Error('Invalid email format');
           }
           
-          // Track interviewer session
-          if (user && user.email) {
+          // Track interviewer session — once per session: the auth-hydration
+          // listener may have already registered it if it fired first.
+          if (user && user.email && !postLoginSetupDoneRef.current) {
+            postLoginSetupDoneRef.current = true;
             const interviewerRef = doc(db, "interviewers", user.email);
             await setDoc(interviewerRef, {
               email: user.email,
