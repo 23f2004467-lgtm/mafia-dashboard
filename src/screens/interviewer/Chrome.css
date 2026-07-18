@@ -12,6 +12,12 @@
 .ui-result-row {
   min-height: 72px !important;
 }
+.pay-upi__card {
+  min-height: var(--touch-primary) !important;
+}
+.iv-pending-chip {
+  font-size: var(--text-12) !important;
+}
 
 /* ---------- Connection dot ---------- */
 
@@ -48,6 +54,46 @@
 
 .iv-conn--offline .iv-conn__label {
   color: var(--warning-ink);
+}
+
+/* ---------- Pending-payment chip (§6.4: amber "₹ pending · name") ----------
+   Transparent 44px-tall button (full touch target inside the 48px bar)
+   wrapping the 28px visual amber pill. Amber = claim, §5. */
+
+.iv-pending-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-min);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.iv-pending-chip__pill {
+  display: inline-block;
+  max-width: 140px;
+  padding: var(--space-1) var(--space-3);
+  background: var(--state-claim-tint);
+  border: 1px solid var(--state-claim-ink);
+  border-radius: var(--radius-pill);
+  color: var(--state-claim-ink);
+  font-size: var(--text-12);
+  font-weight: 600;
+  letter-spacing: var(--tracking-caps);
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.iv-pending-chip:active .iv-pending-chip__pill {
+  transform: scale(0.97);
+}
+
+.iv-pending-chip:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 /* ---------- Avatar button (44px target around the 32px disc) ---------- */

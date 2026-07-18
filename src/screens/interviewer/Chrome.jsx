@@ -8,8 +8,10 @@ import "./Chrome.css";
  * candidate/payment, a back chevron + condensed ticket; right: connection
  * dot (navigator.onLine → green "Synced" / amber "Offline") + 32 px
  * initials Avatar opening the account bottom Sheet (email, mono tel: help,
- * Sign out — NO counters, §2 #34). Presentational: auth/session logic stays
- * in App.js.
+ * Sign out — NO counters, §2 #34). `pendingPayment` ({name, onOpen}) renders
+ * the amber "₹ pending · {name}" chip when a payment session is live away
+ * from the Payment screen (§6.4 — tap returns to it). Presentational:
+ * auth/session logic stays in App.js.
  */
 export default function InterviewerChrome({
   user,
@@ -17,6 +19,7 @@ export default function InterviewerChrome({
   onSignOut,
   onBack,
   ticket = null,
+  pendingPayment = null,
 }) {
   const [accountOpen, setAccountOpen] = useState(false);
 
@@ -32,6 +35,17 @@ export default function InterviewerChrome({
         }
         right={
           <>
+            {pendingPayment ? (
+              <button
+                type="button"
+                className="iv-pending-chip"
+                onClick={pendingPayment.onOpen}
+              >
+                <span className="iv-pending-chip__pill">
+                  ₹ pending · {pendingPayment.name}
+                </span>
+              </button>
+            ) : null}
             <span
               className={
                 "iv-conn " + (isOnline ? "iv-conn--online" : "iv-conn--offline")

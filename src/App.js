@@ -17,6 +17,7 @@ import { ConfirmSheet, ToastHost, toast } from './ui';
 import Login from './screens/interviewer/Login';
 import Search from './screens/interviewer/Search';
 import Candidate from './screens/interviewer/Candidate';
+import Payment from './screens/interviewer/Payment';
 import InterviewerChrome, { ScreenEnter } from './screens/interviewer/Chrome';
 import {
   throttle,
@@ -81,6 +82,36 @@ const readRecents = () => {
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
+  }
+};
+
+// §2 #20: last-used UPI account per interviewer (both cards stay visible).
+const LAST_UPI_KEY = "mafia.lastUpiAccount";
+
+const readLastUpiAccount = (count) => {
+  try {
+    const stored = parseInt(localStorage.getItem(LAST_UPI_KEY), 10);
+    return Number.isInteger(stored) && stored >= 0 && stored < count
+      ? stored
+      : 0;
+  } catch {
+    return 0;
+  }
+};
+
+// Landmine #5 (§2 #17): the live QR payment session is persisted (state +
+// sessionStorage) so "Show QR" is idempotent per candidate — re-entering
+// the screen (or reloading) reuses the same session/verification code
+// without burning a generation attempt.
+const PAYMENT_SESSION_KEY = "mafia.paymentSession";
+
+const readStoredPaymentSession = () => {
+  try {
+    const raw = sessionStorage.getItem(PAYMENT_SESSION_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && parsed.paymentId && parsed.regNo ? parsed : null;
+  } catch {
+    return null;
   }
 };
 
@@ -181,8 +212,35 @@ function App() {
   // §6.6 / sanctioned exception (e): the walk-in window.confirm guard
   // becomes a ConfirmSheet — same condition, same write.
   const [walkInConfirmOpen, setWalkInConfirmOpen] = useState(false);
-  const [selectedUpiId, setSelectedUpiId] = useState(0); // Index of selected UPI ID
-  const [paymentTimeLeft, setPaymentTimeLeft] = useState(0); // Time left for payment
+  // §2 #20: index of selected UPI ID, last-used preselected per device.
+  const [selectedUpiId, setSelectedUpiId] = useState(() =>
+    readLastUpiAccount(UPI_CONFIG.upiIds.length)
+  );
+  // Landmine #5: the ONE live QR payment session
+  // ({regNo, name, docKey, paymentId, verificationCode, createdAt,
+  // qrString, upiId}), mirrored to sessionStorage.
+  const [paymentSession, setPaymentSession] = useState(readStoredPaymentSession);
+  // Which candidate the Payment screen is currently about (regNo): set on
+  // submit-routing and on pending-chip taps. Normally === formData.regNo;
+  // it differs only when the chip re-enters a live session after another
+  // candidate was opened (the form draft is then left untouched).
+  const [paymentFor, setPaymentFor] = useState(null);
+  // §6.4 green room takeover payload ({name, regNo, txn, manual}); null idle.
+  const [greenRoom, setGreenRoom] = useState(null);
+  const [isCancellingPayment, setIsCancellingPayment] = useState(false);
+  // Poll intervals already started this app session — the idempotent
+  // "Show QR" never double-polls; a reload clears this so a restored
+  // session restarts its 30 s poll.
+  const pollStartedRef = useRef(new Set());
+  // Fresh values for the poll-interval closures (they would otherwise
+  // capture render-time state from when the QR was generated).
+  const liveRef = useRef({
+    screen: "login",
+    formData: null,
+    candidates: [],
+    paymentFor: null,
+    paymentSession: null,
+  });
 
   // Initialize security system
   useEffect(() => {
@@ -268,6 +326,28 @@ function App() {
       window.removeEventListener("offline", goOffline);
     };
   }, []);
+
+  // Mirror the states the payment poll's interval closures need fresh
+  // (no dep array: runs after every render; refs never re-trigger renders).
+  useEffect(() => {
+    liveRef.current = {
+      screen,
+      formData,
+      candidates,
+      paymentFor,
+      paymentSession,
+    };
+  });
+
+  // §2 #20: selecting a UPI account persists it as the device's last-used.
+  const selectUpiAccount = (index) => {
+    setSelectedUpiId(index);
+    try {
+      localStorage.setItem(LAST_UPI_KEY, String(index));
+    } catch (error) {
+      console.warn("Failed to save UPI preference:", error);
+    }
+  };
 
   // Optimized form data saving with throttling
   const throttledSaveFormData = useCallback(
@@ -415,27 +495,31 @@ function App() {
       setVerificationCode(sessionData.verificationCode);
       setShowQRCode(true);
       setPaymentStatus("pending");
-      
+
+      // Landmine #5: persist the live session (state + sessionStorage) so
+      // "Show QR" stays idempotent for this candidate — reuse never burns
+      // a generation attempt. (§2 #19: the old 20-min countdown headline
+      // and its timer are deleted; the timeout banner carries tries left.)
+      const sessionRecord = {
+        regNo: formData.regNo,
+        name: formData.name,
+        docKey: candidateDocKeyRef.current || formData.regNo,
+        paymentId: sessionData.paymentId,
+        verificationCode: sessionData.verificationCode,
+        createdAt: sessionData.createdAt,
+        qrString,
+        upiId: selectedUpi.id,
+      };
+      setPaymentSession(sessionRecord);
+      try {
+        sessionStorage.setItem(PAYMENT_SESSION_KEY, JSON.stringify(sessionRecord));
+      } catch (storageError) {
+        console.warn('Failed to persist payment session:', storageError);
+      }
+
       // Start automatic verification
       startPaymentVerification(sessionData.paymentId);
-      
-      // Start countdown timer
-      const totalTime = RATE_LIMIT.MAX_CHECK_ATTEMPTS * RATE_LIMIT.PAYMENT_CHECK_INTERVAL;
-      setPaymentTimeLeft(totalTime);
-      
-      console.log('Starting countdown timer for:', totalTime, 'ms');
-      
-      const countdownInterval = setInterval(() => {
-        setPaymentTimeLeft(prev => {
-          if (prev <= 1000) {
-            clearInterval(countdownInterval);
-            console.log('Countdown timer finished');
-            return 0;
-          }
-          return prev - 1000;
-        });
-      }, 1000);
-      
+
       const generationTime = performanceMonitor.endTimer(startTime);
       performanceMonitor.logMetric('qrGenerationTime', generationTime);
       
@@ -448,14 +532,20 @@ function App() {
         formData: { regNo: formData.regNo, name: formData.name },
         user: user?.email
       });
+      // Inline red Banner + Retry on the Payment screen — never alert()
       setErrorMessage(error.message);
-      alert(`Error: ${error.message}`);
     } finally {
       setIsGeneratingQR(false);
     }
   }, [isGeneratingQR, rateLimiter, user, formData, selectedUpiId, paymentAmount, performanceMonitor, connectionPool]);
 
   const startPaymentVerification = (paymentId) => {
+    // Dedupe guard (landmine #5): the poll lives at App level and survives
+    // screen changes — the idempotent "Show QR" must never start a second
+    // interval for a session that is already being checked. After a page
+    // reload the set is empty, so a restored session restarts its poll.
+    if (pollStartedRef.current.has(paymentId)) return;
+    pollStartedRef.current.add(paymentId);
     // Start checking for payment using the unique payment ID
     checkPaymentStatus(paymentId);
   };
@@ -480,36 +570,94 @@ function App() {
           
           // Update last checked time
           await setDoc(ref, { ...data, lastChecked: new Date().toISOString() }, { merge: true });
-          
+          // Feed the §6.4 ticking "last check m:ss" line (§2 #19) — local
+          // display state only, no write change.
+          setLastTransactionCheck(new Date());
+
           if (data.status === 'completed') {
             clearInterval(checkInterval);
             setPaymentStatus("completed");
-            setFormData(prev => ({
-              ...prev,
-              paid: true,
-              paymentDetails: {
-                transactionId: data.transactionId || paymentId,
-                amount: paymentAmount,
-                timestamp: new Date().toISOString(),
-                method: `${UPI_CONFIG.upiIds[selectedUpiId].type} QR (${UPI_CONFIG.upiIds[selectedUpiId].name})`,
-                verificationCode: data.verificationCode,
-                paymentId: paymentId,
-                verified: true,
-                upiId: data.upiId || UPI_CONFIG.upiIds[selectedUpiId].id,
-                upiName: data.upiName || UPI_CONFIG.upiIds[selectedUpiId].name,
-                upiType: data.upiType || UPI_CONFIG.upiIds[selectedUpiId].type
-              }
-            }));
+            const paymentDetails = {
+              transactionId: data.transactionId || paymentId,
+              amount: paymentAmount,
+              timestamp: new Date().toISOString(),
+              method: `${UPI_CONFIG.upiIds[selectedUpiId].type} QR (${UPI_CONFIG.upiIds[selectedUpiId].name})`,
+              verificationCode: data.verificationCode,
+              paymentId: paymentId,
+              verified: true,
+              upiId: data.upiId || UPI_CONFIG.upiIds[selectedUpiId].id,
+              upiName: data.upiName || UPI_CONFIG.upiIds[selectedUpiId].name,
+              upiType: data.upiType || UPI_CONFIG.upiIds[selectedUpiId].type
+            };
+            // Fresh state via liveRef: this interval closure was created at
+            // QR-generation time and its captured state may be stale.
+            const {
+              formData: fdNow,
+              candidates: candsNow,
+              screen: screenNow,
+              paymentFor: payForNow,
+              paymentSession: sessionNow,
+            } = liveRef.current;
+            const isCurrentForm = !!(fdNow && fdNow.regNo === data.candidateId);
+            if (isCurrentForm) {
+              // The existing local mark: the loaded form flips paid.
+              setFormData(prev => ({ ...prev, paid: true, paymentDetails }));
+            }
             setShowQRCode(false);
             setActivePaymentSessions(prev => {
               const newSet = new Set(prev);
               newSet.delete(paymentId);
               return newSet;
             });
-            alert('Payment verified successfully!');
+            if (sessionNow && sessionNow.paymentId === paymentId) {
+              clearPaymentSessionState();
+            }
+            // Persist the confirmed payment onto the candidate doc through
+            // the SAME write path submit uses. The §6.3 submit already wrote
+            // this doc with paid:false before routing here — in the old
+            // single-page flow the interviewer pressed Submit after the QR
+            // confirmed, which is the write this re-issues.
+            let base = null;
+            let baseDocKey = null;
+            if (isCurrentForm) {
+              base = fdNow;
+              baseDocKey = candidateDocKeyRef.current || fdNow.regNo;
+            } else {
+              const liveDoc = (candsNow || []).find(
+                (c) => c.regNo === data.candidateId || c.id === data.candidateId
+              );
+              if (liveDoc) {
+                const { id: _docId, ...rest } = liveDoc;
+                base = rest;
+                baseDocKey = liveDoc.id || liveDoc.regNo;
+              }
+            }
+            if (base) {
+              persistPaymentToCandidate(
+                { ...base, paid: true, paymentDetails },
+                baseDocKey
+              );
+            }
+            const confirmedName =
+              data.candidateName || (base && base.name) || data.candidateId;
+            if (screenNow === "payment" && payForNow === data.candidateId) {
+              // §9 #10: the green room takeover (payment screen only).
+              setGreenRoom({
+                name: confirmedName,
+                regNo: data.candidateId,
+                txn: paymentDetails.transactionId,
+                manual: false,
+              });
+            } else {
+              // Confirmed while on another screen: green toast, chip clears.
+              toast({
+                tone: "success",
+                message: `Payment received — ${confirmedName} ₹300`,
+              });
+            }
             return;
           }
-          
+
           // Check if payment was cancelled
           if (data.status === 'cancelled') {
             clearInterval(checkInterval);
@@ -520,6 +668,10 @@ function App() {
               newSet.delete(paymentId);
               return newSet;
             });
+            const { paymentSession: sessionNow } = liveRef.current;
+            if (sessionNow && sessionNow.paymentId === paymentId) {
+              clearPaymentSessionState();
+            }
             return;
           }
         } else {
@@ -557,81 +709,9 @@ function App() {
     setLastTransactionCheck(new Date());
   };
 
-  const verifyPaymentManually = async () => {
-    if (!verificationCode) {
-      alert('Please generate QR code first');
-      return;
-    }
-
-    setPaymentStatus("processing");
-    
-    try {
-      // Simulate manual verification
-      const paymentResult = await simulateManualVerification(verificationCode);
-      
-      if (paymentResult.success) {
-        setPaymentStatus("completed");
-        setFormData(prev => ({
-          ...prev,
-          paid: true,
-          paymentDetails: {
-            transactionId: paymentResult.transactionId,
-            amount: paymentAmount,
-            timestamp: new Date().toISOString(),
-            method: `${UPI_CONFIG.upiIds[selectedUpiId].type} QR (Manual)`,
-            verificationCode: verificationCode,
-            verified: true,
-            upiId: UPI_CONFIG.upiIds[selectedUpiId].id,
-            upiName: UPI_CONFIG.upiIds[selectedUpiId].name,
-            upiType: UPI_CONFIG.upiIds[selectedUpiId].type
-          }
-        }));
-        setShowQRCode(false);
-        alert('Payment verified successfully!');
-      } else {
-        setPaymentStatus("failed");
-        alert('Payment verification failed: ' + paymentResult.error);
-      }
-    } catch (error) {
-      setPaymentStatus("failed");
-      alert('Payment verification failed: ' + error.message);
-    }
-  };
-
-
-
-  const simulateManualVerification = async (code) => {
-    // This simulates checking your UPI app for the payment
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        // For now, we'll accept any valid verification code
-        // In real usage, you would check your UPI app for the payment
-        const isValidCode = code.length === 6 && code.match(/^[A-Z0-9]+$/);
-        
-        if (isValidCode) {
-          // In production, you would:
-          // 1. Check your UPI app (Google Pay, PhonePe, etc.)
-          // 2. Look for payment of ₹300 from the candidate
-          // 3. Verify the transaction note matches the verification code
-          // 4. Only then return success
-          
-          resolve({
-            success: true,
-            transactionId: 'TXN_' + Date.now(),
-            amount: paymentAmount,
-            error: null
-          });
-        } else {
-          resolve({
-            success: false,
-            transactionId: null,
-            amount: paymentAmount,
-            error: 'Invalid verification code format'
-          });
-        }
-      }, 2000);
-    });
-  };
+  // §2 #14: simulateManualVerification (the accept-any-6-chars fraud stub)
+  // and its verifyPaymentManually UI path are DELETED outright. Manual
+  // mark-paid lives behind "Other options" (§2 #15) below.
 
   // Cleanup function for payment sessions
   const cleanupPaymentSession = async (paymentId) => {
@@ -645,6 +725,47 @@ function App() {
       });
     } catch (error) {
       console.error('Error cleaning up payment session:', error);
+    }
+  };
+
+  // Landmine #5: drop the persisted live-session record (state +
+  // sessionStorage) once its payment completes or is cancelled — the
+  // pending chip clears with it.
+  const clearPaymentSessionState = () => {
+    setPaymentSession(null);
+    try {
+      sessionStorage.removeItem(PAYMENT_SESSION_KEY);
+    } catch (error) {
+      console.warn('Failed to clear payment session:', error);
+    }
+  };
+
+  // Re-issues the candidate setDoc through the SAME write path as submit
+  // (buildCandidatePayload + captured doc key). Required by the §6.3→§6.4
+  // routing: submit writes the doc paid:false BEFORE payment; in the old
+  // single-page flow the payment reached Firestore because the interviewer
+  // pressed Submit after the QR confirmed — this is that same write,
+  // triggered by the confirmation instead.
+  const persistPaymentToCandidate = async (dataWithPayment, docKey) => {
+    try {
+      const key = docKey || candidateDocKeyRef.current || dataWithPayment.regNo;
+      if (!key) return;
+      const ref = doc(db, "candidates", key);
+      const payload = buildCandidatePayload(dataWithPayment, {
+        docKey: key,
+        nowIso: new Date().toISOString(),
+        userEmail: user?.email,
+      });
+      await setDoc(ref, payload);
+      FirebaseSecurity.auditLogger.logEvent('candidate_data_saved', {
+        candidateId: dataWithPayment.regNo,
+        interviewer: user?.email
+      });
+    } catch (error) {
+      toast({
+        tone: "error",
+        message: "Payment recorded but not saved to the candidate: " + error.message,
+      });
     }
   };
 
@@ -1401,7 +1522,7 @@ function App() {
         0;
 
       if (hasDomains && !formData.paid) {
-        setScreen("payment");
+        enterPayment(formData.regNo);
       } else {
         resetAfterSubmit();
         setScreen("done");
@@ -1428,6 +1549,161 @@ function App() {
       return;
     }
     performSubmit();
+  };
+
+  // ---------- Payment screen orchestration (§6.4 / §13 3e) ----------
+  // All handlers live here; Payment.jsx is presentational.
+
+  // The Payment screen's subject: normally the loaded form; when the
+  // pending chip re-enters a live session after another candidate was
+  // opened, the session's candidate resolved from the live snapshot
+  // (fallback stub) — the in-progress form draft is never clobbered.
+  const resolvePaymentSubject = () => {
+    const subjectRegNo = paymentFor || formData.regNo;
+    if (subjectRegNo === formData.regNo) {
+      return {
+        data: formData,
+        docKey: candidateDocKeyRef.current || formData.regNo,
+        isForm: true,
+      };
+    }
+    const liveDoc = candidates.find(
+      (c) => c.regNo === subjectRegNo || c.id === subjectRegNo
+    );
+    if (liveDoc) {
+      const { id: _docId, ...rest } = liveDoc;
+      return { data: rest, docKey: liveDoc.id || liveDoc.regNo, isForm: false };
+    }
+    return {
+      data: {
+        name: (paymentSession && paymentSession.name) || "",
+        regNo: subjectRegNo,
+        paid: false,
+        paymentDetails: null,
+      },
+      docKey: (paymentSession && paymentSession.docKey) || subjectRegNo,
+      isForm: false,
+      stub: true,
+    };
+  };
+
+  const enterPayment = (regNo) => {
+    setPaymentFor(regNo);
+    setErrorMessage("");
+    if (!(paymentSession && paymentSession.regNo === regNo)) {
+      // No live session for this candidate: clear any stale QR/status left
+      // over from a previous candidate's flow.
+      setPaymentStatus("pending");
+      setShowQRCode(false);
+      setQrCodeData("");
+      setVerificationCode("");
+    }
+    setScreen("payment");
+  };
+
+  // The amber "₹ pending · {name}" chip (§2 #18): tap returns to the
+  // Payment screen for the session's candidate.
+  const openPendingPayment = () => {
+    if (!paymentSession) return;
+    enterPayment(paymentSession.regNo);
+  };
+
+  // Landmine #5 (§2 #17): "Show QR" is idempotent — a live session for
+  // this candidate is REUSED (same verification code, no attempt burned);
+  // generation happens only when no session exists. "Regenerate" (timeout/
+  // error banners only) calls generateQRCode directly, which respects the
+  // existing MAX_ATTEMPTS cap.
+  const showPaymentQR = () => {
+    const subjectRegNo = paymentFor || formData.regNo;
+    if (paymentSession && paymentSession.regNo === subjectRegNo) {
+      setQrCodeData(paymentSession.qrString);
+      setVerificationCode(paymentSession.verificationCode);
+      setShowQRCode(true);
+      if (!pollStartedRef.current.has(paymentSession.paymentId)) {
+        // Restored after a reload: restart the 30 s poll for this session.
+        setPaymentStatus("pending");
+        setErrorMessage("");
+        startPaymentVerification(paymentSession.paymentId);
+      }
+      return;
+    }
+    generateQRCode();
+  };
+
+  // Route out of a finished payment flow. Subject === the loaded form →
+  // the interview is done: routed transition (clearForm) → Done. Chip
+  // re-entry for a different candidate → back to Search with the current
+  // draft untouched.
+  const leavePaymentFinished = (subjectRegNo) => {
+    setPaymentFor(null);
+    if (subjectRegNo === formData.regNo) {
+      resetAfterSubmit();
+      setScreen("done");
+    } else {
+      setScreen("search");
+    }
+  };
+
+  // §2 #18 / landmine #6 / sanctioned exception (b): Cancel payment passes
+  // the PAYMENT ID to cleanup — the old "Close QR" passed verificationCode
+  // (the wrong-ID bug at old App.js:2057–2059).
+  const cancelPayment = async () => {
+    setIsCancellingPayment(true);
+    try {
+      const subjectRegNo = paymentFor || formData.regNo;
+      if (paymentSession && paymentSession.regNo === subjectRegNo) {
+        await cleanupPaymentSession(paymentSession.paymentId);
+        clearPaymentSessionState();
+      }
+      setShowQRCode(false);
+      setPaymentStatus("pending");
+      setErrorMessage("");
+      setQrCodeData("");
+      setVerificationCode("");
+      leavePaymentFinished(subjectRegNo);
+    } finally {
+      setIsCancellingPayment(false);
+    }
+  };
+
+  // §2 #15: the manual mark-paid confirm (after the 600 ms hold). The
+  // mark-paid write itself is the EXISTING one (§12, byte-identical shape):
+  // paid: true + paymentDetails { method: 'Manual', timestamp }.
+  const confirmManualPaid = () => {
+    const paymentDetails = { method: 'Manual', timestamp: new Date().toISOString() };
+    const subject = resolvePaymentSubject();
+    if (subject.isForm) {
+      setFormData({ ...formData, paid: true, paymentDetails });
+    }
+    // A live QR session for this candidate is now moot — cancel it with
+    // the correct paymentId so the poll stops and the chip clears.
+    if (paymentSession && paymentSession.regNo === subject.data.regNo) {
+      cleanupPaymentSession(paymentSession.paymentId);
+      clearPaymentSessionState();
+    }
+    setShowQRCode(false);
+    if (!subject.stub) {
+      // Same re-issue as the auto-confirm path (never from a stub — a
+      // partial object through setDoc would wipe the doc's other fields).
+      persistPaymentToCandidate(
+        { ...subject.data, paid: true, paymentDetails },
+        subject.docKey
+      );
+    }
+    setGreenRoom({
+      name: subject.data.name,
+      regNo: subject.data.regNo,
+      txn: "Manual",
+      manual: true,
+    });
+  };
+
+  // Green room done (tap or the 2.5 s auto-advance in Payment.jsx).
+  const finishGreenRoom = () => {
+    if (!greenRoom) return;
+    const subjectRegNo = greenRoom.regNo;
+    setGreenRoom(null);
+    leavePaymentFinished(subjectRegNo);
   };
 
   // ---------- Render: the §6 screen state machine ----------
@@ -1463,6 +1739,24 @@ function App() {
   const recentRows = recents.map(
     (r) => candidates.find((c) => c.id === r.id) || r
   );
+  // §6.4 derivations: the payment subject, whether the live session belongs
+  // to it (QR/status render only for matching sessions), and the pending
+  // chip (live session + not on the Payment screen).
+  const paymentSubject = screen === "payment" ? resolvePaymentSubject() : null;
+  const sessionMatchesSubject = !!(
+    paymentSubject &&
+    paymentSession &&
+    paymentSession.regNo === paymentSubject.data.regNo
+  );
+  const qrVisible = !!(showQRCode && sessionMatchesSubject && qrCodeData);
+  const pendingChip =
+    paymentSession && screen !== "payment"
+      ? { name: paymentSession.name || paymentSession.regNo }
+      : null;
+  const paymentTriesLeft = Math.max(
+    0,
+    RATE_LIMIT.MAX_ATTEMPTS - rateLimitCount
+  );
 
   return (
     <div className="iv-app">
@@ -1473,7 +1767,17 @@ function App() {
         onBack={onWorkScreen ? () => setScreen("search") : undefined}
         ticket={
           onWorkScreen
-            ? { name: formData.name, regNo: formData.regNo }
+            ? screen === "payment" && paymentSubject
+              ? {
+                  name: paymentSubject.data.name,
+                  regNo: paymentSubject.data.regNo,
+                }
+              : { name: formData.name, regNo: formData.regNo }
+            : null
+        }
+        pendingPayment={
+          pendingChip
+            ? { name: pendingChip.name, onOpen: openPendingPayment }
             : null
         }
       />
@@ -1519,796 +1823,35 @@ function App() {
         </ScreenEnter>
       ) : (
         <ScreenEnter id="payment">
-        {/* OLD mega-page JSX — payment only now; replaced whole by 3e */}
-        <div style={{
-          background: "var(--color-surface)",
-          color: "var(--color-text-primary)",
-          minHeight: "100vh",
-          padding: window.innerWidth <= 768 ? "1rem" : "2rem"
-        }}>
-        <div style={{
-          maxWidth: window.innerWidth <= 768 ? "100%" : "800px",
-          margin: "auto",
-          padding: window.innerWidth <= 768 ? "0" : "0 1rem"
-        }}>
-          {/* Manual Entry Section */}
-          <div className="mobile-card" style={{ 
-            marginTop: "2rem", 
-            padding: window.innerWidth <= 768 ? "1rem" : "1rem", 
-            border: "1px solid #444", 
-            borderRadius: "8px", 
-            backgroundColor: "#1a1a1a" 
-          }}>
-            <h2 style={{
-              ...styles.sectionTitle,
-              fontSize: window.innerWidth <= 768 ? "1.3rem" : "1.5rem"
-            }}>📝 Manual Entry (Walk-ins)</h2>
-            <p style={{ color: "var(--color-text-secondary)", marginBottom: "1rem" }}>
-              Use this option for walk-in candidates or when information isn't available in the system.
-            </p>
-            
-            <div style={{ 
-              display: "flex", 
-              gap: "1rem", 
-              marginBottom: "1rem",
-              flexDirection: window.innerWidth <= 768 ? "column" : "row"
-            }}>
-              <button
-                className="mobile-btn"
-                style={{ 
-                  ...styles.button, 
-                  backgroundColor: isManualEntry ? "#cc0066" : "#444",
-                  border: isManualEntry ? "2px solid #ff0080" : "1px solid #666",
-                  width: window.innerWidth <= 768 ? "100%" : "auto"
-                }}
-                onClick={() => {
-                  setIsManualEntry(!isManualEntry);
-                  if (!isManualEntry) {
-                    // Clear form for manual entry
-                    setFormData({
-                      name: "",
-                      regNo: "",
-                      year: "",
-                      college: "",
-                      branch: "",
-                      whatsappNumber: "",
-                      preferences: {
-                        talentComm: {
-                          pref1: "",
-                          pref2: ""
-                        },
-                        workComm: {
-                          pref1: "",
-                          pref2: "",
-                          pref3: ""
-                        }
-                      },
-                      verdict: {
-                        talentComm: [],
-                        workComm: [],
-                      },
-                      comments: "",
-                      paid: false,
-                      paymentDetails: null,
-                      lastUpdatedBy: user?.displayName || user?.email || "Manual Entry",
-                      lastUpdatedAt: new Date().toISOString()
-                    });
-                  }
-                }}
-              >
-                {isManualEntry ? "❌ Cancel Manual Entry" : "📝 Start Manual Entry"}
-              </button>
-              
-              {isManualEntry && (
-                <button
-                  className="mobile-btn mobile-btn-secondary"
-                  style={{ 
-                    ...styles.button, 
-                    backgroundColor: "#0066cc",
-                    width: window.innerWidth <= 768 ? "100%" : "auto"
-                  }}
-                  onClick={() => {
-                    // Generate a temporary Reg No for manual entry
-                    const tempRegNo = `WALKIN_${Date.now()}`;
-                    setFormData(prev => ({
-                      ...prev,
-                      regNo: tempRegNo,
-                      lastUpdatedBy: user?.displayName || user?.email || "Manual Entry",
-                      lastUpdatedAt: new Date().toISOString()
-                    }));
-                  }}
-                >
-                  🆔 Generate Temp Reg No
-                </button>
-              )}
-            </div>
-
-            {isManualEntry && (
-              <div style={{ 
-                padding: "1rem", 
-                backgroundColor: "var(--color-surface-elevated)", 
-                borderRadius: "8px",
-                border: "2px solid #cc0066"
-              }}>
-                <h3 style={{ color: "#ff0080", marginBottom: "1rem" }}>⚠️ Manual Entry Mode Active</h3>
-                <p style={{ color: "#ffcc00", marginBottom: "1rem" }}>
-                  <strong>Note:</strong> This will create a new candidate record. Make sure to collect all required information.
-                </p>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1rem" }}>
-                  <div>
-                    <label style={{ color: "#ff0080", fontWeight: "bold" }}>Required Fields:</label>
-                    <ul style={{ color: "var(--color-text-secondary)", margin: "0.5rem 0", paddingLeft: "1.5rem" }}>
-                      <li>Name</li>
-                      <li>Registration Number</li>
-                      <li>Academic Year</li>
-                      <li>College</li>
-                      <li>Branch</li>
-                      <li>WhatsApp Number</li>
-                      <li>Preferences (based on year)</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <label style={{ color: "#ff0080", fontWeight: "bold" }}>Year-Specific Requirements:</label>
-                    <ul style={{ color: "var(--color-text-secondary)", margin: "0.5rem 0", paddingLeft: "1.5rem" }}>
-                      <li><strong>1st Year:</strong> TalentComm + WorkComm preferences</li>
-                      <li><strong>2nd Year:</strong> TalentComm preferences only</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="mobile-form-group">
-            <label className="mobile-form-label" style={{ color: isManualEntry ? "#ff0080" : "#ccc", fontWeight: isManualEntry ? "bold" : "normal" }}>
-              Name {isManualEntry && " *"}
-            </label>
-            <input
-              className="mobile-form-input"
-              style={{
-                ...styles.input,
-                border: isManualEntry ? "2px solid #ff0080" : "1px solid #666",
-                backgroundColor: isManualEntry ? "#2a2a2a" : "#333",
-                fontSize: "16px",
-                minHeight: "44px"
-              }}
-              type="text"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder={isManualEntry ? "Enter candidate's full name" : ""}
-            />
-          </div>
-
-          <div className="mobile-form-group">
-            <label className="mobile-form-label" style={{ color: isManualEntry ? "#ff0080" : "#ccc", fontWeight: isManualEntry ? "bold" : "normal" }}>
-              Reg No {isManualEntry && " *"}
-            </label>
-            <input
-              className="mobile-form-input"
-              style={{
-                ...styles.input,
-                border: isManualEntry ? "2px solid #ff0080" : "1px solid #666",
-                backgroundColor: isManualEntry ? "#2a2a2a" : "#333",
-                fontSize: "16px",
-                minHeight: "44px"
-              }}
-              type="text"
-              value={formData.regNo}
-              onChange={(e) => setFormData({ ...formData, regNo: e.target.value })}
-              placeholder={isManualEntry ? "Enter registration number or use 'Generate Temp Reg No'" : ""}
-            />
-          </div>
-
-          <div className="mobile-form-group">
-            <label className="mobile-form-label" style={{ color: isManualEntry ? "#ff0080" : "#ccc", fontWeight: isManualEntry ? "bold" : "normal" }}>
-              Academic Year {isManualEntry && " *"}
-            </label>
-            <select
-              className="mobile-form-input"
-              style={{
-                ...styles.input,
-                border: isManualEntry ? "2px solid #ff0080" : "1px solid #666",
-                backgroundColor: isManualEntry ? "#2a2a2a" : "#333",
-                fontSize: "16px",
-                minHeight: "44px",
-                color: "#fff"
-              }}
-              value={formData.year}
-              onChange={(e) => {
-                const selectedYear = e.target.value;
-                setFormData(prev => ({
-                  ...prev,
-                  year: selectedYear,
-                  // Clear WorkComm preferences for 2nd year students
-                  preferences: {
-                    ...prev.preferences,
-                    workComm: selectedYear === "2nd Year" || selectedYear === "2nd year" 
-                      ? { pref1: "", pref2: "", pref3: "" }
-                      : prev.preferences.workComm
-                  },
-                  // Clear WorkComm verdict for 2nd year students
-                  verdict: {
-                    ...prev.verdict,
-                    workComm: selectedYear === "2nd Year" || selectedYear === "2nd year" 
-                      ? []
-                      : prev.verdict.workComm
-                  }
-                }));
-              }}
-              disabled={!isManualEntry}
-            >
-              <option value="">Select Academic Year</option>
-              <option value="1st Year">1st Year</option>
-              <option value="2nd Year">2nd Year</option>
-            </select>
-          </div>
-
-          <div className="mobile-form-group">
-            <label className="mobile-form-label" style={{ color: isManualEntry ? "#ff0080" : "#ccc", fontWeight: isManualEntry ? "bold" : "normal" }}>
-              College {isManualEntry && " *"}
-            </label>
-            <input
-              className="mobile-form-input"
-              style={{
-                ...styles.input,
-                border: isManualEntry ? "2px solid #ff0080" : "1px solid #666",
-                backgroundColor: isManualEntry ? "#2a2a2a" : "#333",
-                fontSize: "16px",
-                minHeight: "44px"
-              }}
-              type="text"
-              value={formData.college}
-              onChange={(e) => setFormData({ ...formData, college: e.target.value })}
-              placeholder={isManualEntry ? "Enter college name" : ""}
-            />
-          </div>
-
-          <div className="mobile-form-group">
-            <label className="mobile-form-label" style={{ color: isManualEntry ? "#ff0080" : "#ccc", fontWeight: isManualEntry ? "bold" : "normal" }}>
-              Branch {isManualEntry && " *"}
-            </label>
-            <input
-              className="mobile-form-input"
-              style={{
-                ...styles.input,
-                border: isManualEntry ? "2px solid #ff0080" : "1px solid #666",
-                backgroundColor: isManualEntry ? "#2a2a2a" : "#333",
-                fontSize: "16px",
-                minHeight: "44px"
-              }}
-              type="text"
-              value={formData.branch}
-              onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
-              placeholder={isManualEntry ? "Enter branch name" : ""}
-            />
-          </div>
-
-          <div className="mobile-form-group">
-            <label className="mobile-form-label" style={{ color: isManualEntry ? "#ff0080" : "#ccc", fontWeight: isManualEntry ? "bold" : "normal" }}>
-              WhatsApp Number {isManualEntry && " *"}
-            </label>
-            <input
-              className="mobile-form-input"
-              style={{
-                ...styles.input,
-                border: isManualEntry ? "2px solid #ff0080" : "1px solid #666",
-                backgroundColor: isManualEntry ? "#2a2a2a" : "#333",
-                fontSize: "16px",
-                minHeight: "44px"
-              }}
-              type="text"
-              value={formData.whatsappNumber}
-              onChange={(e) => setFormData({ ...formData, whatsappNumber: e.target.value })}
-              placeholder={isManualEntry ? "Enter 10-digit WhatsApp number" : ""}
-            />
-          </div>
-
-          {/* Preferences Section - Conditional based on Year */}
-          {formData.year && (
-            <div className="mobile-card" style={{ 
-              marginTop: "2rem", 
-              padding: window.innerWidth <= 768 ? "1rem" : "1rem", 
-              backgroundColor: "var(--color-surface-card)", 
-              borderRadius: "8px", 
-              border: isManualEntry ? "2px solid #ff0080" : "1px solid #333" 
-            }}>
-              <h3 style={{ 
-                color: isManualEntry ? "#ff0080" : "#cc0066", 
-                marginBottom: "1rem",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.5rem",
-                fontSize: window.innerWidth <= 768 ? "1.2rem" : "1.5rem"
-              }}>
-                Preferences {isManualEntry && " *"}
-                {isManualEntry && <span style={{ fontSize: "0.8rem", color: "#ffcc00" }}>(Required based on year)</span>}
-              </h3>
-              
-              {/* TalentComm Preferences - Show for both years */}
-              <div className="mobile-form-group">
-                <label className="mobile-form-label">TalentComm Preference 1</label>
-                <input
-                  className="mobile-form-input"
-                  style={{
-                    ...styles.input,
-                    fontSize: "16px",
-                    minHeight: "44px"
-                  }}
-                  type="text"
-                  value={formData.preferences.talentComm.pref1}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    preferences: {
-                      ...formData.preferences,
-                      talentComm: {
-                        ...formData.preferences.talentComm,
-                        pref1: e.target.value
-                      }
-                    }
-                  })}
-                />
-              </div>
-
-              <div className="mobile-form-group">
-                <label className="mobile-form-label">TalentComm Preference 2</label>
-                <input
-                  className="mobile-form-input"
-                  style={{
-                    ...styles.input,
-                    fontSize: "16px",
-                    minHeight: "44px"
-                  }}
-                  type="text"
-                  value={formData.preferences.talentComm.pref2}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    preferences: {
-                      ...formData.preferences,
-                      talentComm: {
-                        ...formData.preferences.talentComm,
-                        pref2: e.target.value
-                      }
-                    }
-                  })}
-                />
-              </div>
-
-              {/* WorkComm Preferences - Only show for 1st Year */}
-              {(formData.year === "1st Year" || formData.year === "1st year") && (
-                <>
-                  <div className="mobile-form-group">
-                    <label className="mobile-form-label">WorkComm Preference 1</label>
-                    <input
-                      className="mobile-form-input"
-                      style={{
-                        ...styles.input,
-                        fontSize: "16px",
-                        minHeight: "44px"
-                      }}
-                      type="text"
-                      value={formData.preferences.workComm.pref1}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        preferences: {
-                          ...formData.preferences,
-                          workComm: {
-                            ...formData.preferences.workComm,
-                            pref1: e.target.value
-                          }
-                        }
-                      })}
-                    />
-                  </div>
-
-                  <div className="mobile-form-group">
-                    <label className="mobile-form-label">WorkComm Preference 2</label>
-                    <input
-                      className="mobile-form-input"
-                      style={{
-                        ...styles.input,
-                        fontSize: "16px",
-                        minHeight: "44px"
-                      }}
-                      type="text"
-                      value={formData.preferences.workComm.pref2}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        preferences: {
-                          ...formData.preferences,
-                          workComm: {
-                            ...formData.preferences.workComm,
-                            pref2: e.target.value
-                          }
-                        }
-                      })}
-                    />
-                  </div>
-
-                  <div className="mobile-form-group">
-                    <label className="mobile-form-label">WorkComm Preference 3 (Optional)</label>
-                    <input
-                      className="mobile-form-input"
-                      style={{
-                        ...styles.input,
-                        fontSize: "16px",
-                        minHeight: "44px"
-                      }}
-                      type="text"
-                      value={formData.preferences.workComm.pref3}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        preferences: {
-                          ...formData.preferences,
-                          workComm: {
-                            ...formData.preferences.workComm,
-                            pref3: e.target.value
-                          }
-                        }
-                      })}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          <div className="mobile-form-group">
-            <label className="mobile-form-label">TalentComm Domains</label>
-            <div className="mobile-preferences-grid" style={{ 
-              marginBottom: "1rem", 
-              display: "flex", 
-              flexWrap: "wrap", 
-              gap: "0.5rem",
-              gridTemplateColumns: window.innerWidth <= 768 ? "1fr 1fr" : "repeat(3, 1fr)"
-            }}>
-              {["Dance", "Music", "Art"].map((domain) => (
-                <button
-                  key={domain}
-                  className="mobile-preference-btn"
-                  onClick={() => handleVerdictChange("talentComm", domain)}
-                  style={{
-                    ...styles.button,
-                    backgroundColor: Array.isArray(formData.verdict.talentComm) && formData.verdict.talentComm.includes(domain)
-                      ? "green"
-                      : "#800080",
-                    minHeight: "44px",
-                    fontSize: window.innerWidth <= 768 ? "0.9rem" : "1rem"
-                  }}
-                >
-                  {domain}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* WorkComm Domains - Only show for 1st Year */}
-          {(formData.year === "1st Year" || formData.year === "1st year") && (
-            <div className="mobile-form-group">
-              <label className="mobile-form-label">WorkComm Domains</label>
-              <div className="mobile-preferences-grid" style={{ 
-                marginBottom: "1rem", 
-                display: "flex", 
-                flexWrap: "wrap", 
-                gap: "0.5rem",
-                gridTemplateColumns: window.innerWidth <= 768 ? "1fr 1fr" : "repeat(2, 1fr)"
-              }}>
-                {["Human Resources", "Public Relations", "Social Media and Graphic Design", "Photography and Videography"].map((domain) => (
-                  <button
-                    key={domain}
-                    className="mobile-preference-btn"
-                    onClick={() => handleVerdictChange("workComm", domain)}
-                    style={{
-                      ...styles.button,
-                      backgroundColor: Array.isArray(formData.verdict.workComm) && formData.verdict.workComm.includes(domain)
-                        ? "green"
-                        : "#800000",
-                      minHeight: "44px",
-                      fontSize: window.innerWidth <= 768 ? "0.8rem" : "1rem"
-                    }}
-                  >
-                    {domain}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Payment Section */}
-          <div className="mobile-payment-section" style={{ 
-            marginTop: "2rem", 
-            padding: window.innerWidth <= 768 ? "1rem" : "1rem", 
-            backgroundColor: "var(--color-surface-card)", 
-            borderRadius: "8px", 
-            border: "1px solid #333" 
-          }}>
-            <h3 style={{ 
-              color: "var(--color-primary)", 
-              marginBottom: "1rem",
-              fontSize: window.innerWidth <= 768 ? "1.2rem" : "1.5rem"
-            }}>Payment</h3>
-            
-            {formData.paid ? (
-              <div className="mobile-payment-status mobile-payment-paid">
-                <span>✅</span>
-                <span>Payment Completed</span>
-                {formData.paymentDetails && (
-                  <div style={{ fontSize: "0.9rem", marginTop: "0.5rem", width: "100%" }}>
-                    <div>Transaction ID: {formData.paymentDetails.transactionId}</div>
-                    <div>Verification Code: {formData.paymentDetails.verificationCode}</div>
-                    <div>Amount: ₹{formData.paymentDetails.amount}</div>
-                    <div>Method: {formData.paymentDetails.method}</div>
-                    <div>Date: {new Date(formData.paymentDetails.timestamp).toLocaleString()}</div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div>
-                <label>Payment Amount (₹)</label>
-                <div style={{
-                  ...styles.input,
-                  backgroundColor: "var(--color-surface-card)",
-                  color: "#00ff88",
-                  fontWeight: "bold",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "default"
-                }}>
-                  ₹300 (Fixed Amount)
-                </div>
-
-                {/* QR Code Payment Section */}
-                {!showQRCode ? (
-                  <div style={{ backgroundColor: "var(--color-surface-elevated)", padding: "1rem", borderRadius: "8px", marginBottom: "1rem" }}>
-                    <h4 style={{ color: "#00ff88", marginBottom: "0.5rem" }}>📱 UPI Payment QR Code</h4>
-                    
-                    {/* UPI ID Selection */}
-                    <div style={{ marginBottom: "1rem" }}>
-                      <label style={{ color: "#fff", fontSize: "0.9rem", marginBottom: "0.5rem", display: "block" }}>
-                        Select UPI ID:
-                      </label>
-                      <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                        {UPI_CONFIG.upiIds.map((upi, index) => (
-                          <button
-                            key={index}
-                            onClick={() => setSelectedUpiId(index)}
-                            style={{
-                              padding: "0.5rem 1rem",
-                              backgroundColor: selectedUpiId === index ? "#00ff88" : "#444",
-                              color: selectedUpiId === index ? "#000" : "#fff",
-                              border: "none",
-                              borderRadius: "4px",
-                              cursor: "pointer",
-                              fontSize: "0.8rem",
-                              fontWeight: "bold"
-                            }}
-                          >
-                            {upi.name} ({upi.type})
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    
-                    <div style={{ fontSize: "0.9rem", marginBottom: "1rem" }}>
-                      <strong>Selected UPI ID:</strong> {UPI_CONFIG.upiIds[selectedUpiId].id}<br />
-                      <strong>Amount:</strong> ₹{paymentAmount}<br />
-                      <strong>Name:</strong> {UPI_CONFIG.merchantName}
-                    </div>
-                    
-                    {errorMessage && (
-                      <div style={{ color: "#ff6b6b", marginBottom: "1rem", padding: "0.5rem", backgroundColor: "#3a1a1a", borderRadius: "4px" }}>
-                        ⚠️ {errorMessage}
-                      </div>
-                    )}
-                    
-                    <button
-                      onClick={generateQRCode}
-                      disabled={isGeneratingQR}
-                      style={{ 
-                        ...styles.button, 
-                        backgroundColor: isGeneratingQR ? "#666" : "#00ff88", 
-                        color: isGeneratingQR ? "#ccc" : "#000",
-                        cursor: isGeneratingQR ? "not-allowed" : "pointer"
-                      }}
-                    >
-                      {isGeneratingQR ? (
-                        <>
-                          <span>Generating...</span>
-                          <div style={{ width: "16px", height: "16px", border: "2px solid #000", borderTop: "2px solid transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }}></div>
-                        </>
-                      ) : (
-                        "🎯 Generate QR Code"
-                      )}
-                    </button>
-                    
-                    {rateLimitCount > 0 && (
-                      <div style={{ fontSize: "0.8rem", color: "#888", marginTop: "0.5rem" }}>
-                        QR generations: {rateLimitCount}/{RATE_LIMIT.MAX_ATTEMPTS}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div style={{ backgroundColor: "var(--color-surface-elevated)", padding: "1rem", borderRadius: "8px", marginBottom: "1rem", textAlign: "center" }}>
-                    <h4 style={{ color: "#00ff88", marginBottom: "1rem" }}>📱 Scan QR Code</h4>
-                    <div style={{ fontSize: "0.8rem", color: "#00ff88", marginBottom: "0.5rem" }}>
-                      Using: {UPI_CONFIG.upiIds[selectedUpiId].name} ({UPI_CONFIG.upiIds[selectedUpiId].type})
-                    </div>
-                    
-                    {/* QR Code Display */}
-                    <div style={{ backgroundColor: "white", padding: "1rem", borderRadius: "8px", display: "inline-block", marginBottom: "1rem" }}>
-                      <QRCode 
-                        value={qrCodeData}
-                        size={200}
-                        level="H"
-                      />
-                    </div>
-                    
-                    <div style={{ fontSize: "0.9rem", marginBottom: "1rem" }}>
-                      <strong>Verification Code:</strong> {verificationCode}<br />
-                      <strong>Amount:</strong> ₹{paymentAmount}<br />
-                      <strong>Status:</strong> {
-                        paymentStatus === "pending" ? "⏳ Waiting for payment..." : 
-                        paymentStatus === "processing" ? "🔄 Verifying..." :
-                        paymentStatus === "completed" ? "✅ Payment verified!" :
-                        paymentStatus === "timeout" ? "⏰ Timeout - verify manually" :
-                        paymentStatus === "cancelled" ? "❌ Cancelled" :
-                        paymentStatus === "error" ? "💥 Error occurred" : "❌ Failed"
-                      }
-                      {paymentTimeLeft > 0 && (
-                        <div style={{ marginTop: "0.5rem", color: paymentTimeLeft < 60000 ? "#ffaa00" : "#00ff88" }}>
-                          <strong>Time Left:</strong> {Math.floor(paymentTimeLeft / 60000)}:{(paymentTimeLeft % 60000 / 1000).toFixed(0).padStart(2, '0')}
-                        </div>
-                      )}
-                    </div>
-                    
-                    {errorMessage && (
-                      <div style={{ color: "#ff6b6b", marginBottom: "1rem", padding: "0.5rem", backgroundColor: "#3a1a1a", borderRadius: "4px" }}>
-                        ⚠️ {errorMessage}
-                      </div>
-                    )}
-                    
-                    {lastTransactionCheck && (
-                      <div style={{ fontSize: "0.8rem", color: "#888", marginBottom: "1rem" }}>
-                        Last checked: {lastTransactionCheck.toLocaleTimeString()}
-                      </div>
-                    )}
-                    
-                    <div style={{ display: "flex", gap: "0.5rem", justifyContent: "center", flexWrap: "wrap" }}>
-                      <button
-                        onClick={verifyPaymentManually}
-                        disabled={paymentStatus === "processing"}
-                        style={{
-                          ...styles.button,
-                          backgroundColor: paymentStatus === "processing" ? "#666" : "#4285f4",
-                          color: paymentStatus === "processing" ? "#ccc" : "white"
-                        }}
-                      >
-                        {paymentStatus === "processing" ? "Verifying..." : "Verify Manually"}
-                      </button>
-                      
-                      <div style={{ fontSize: "0.9rem", color: "#00ff88", marginTop: "0.5rem", textAlign: "center", padding: "0.5rem", backgroundColor: "#1a2a1a", borderRadius: "4px" }}>
-                        💡 <strong>Manual Verification:</strong><br />
-                        • Check your UPI app for ₹300 payment<br />
-                        • Look for verification code: <strong>{verificationCode}</strong><br />
-                        • Click "Verify Manually" once payment is confirmed
-                      </div>
-                      
-                      <button
-                        onClick={async () => {
-                          if (verificationCode) {
-                            await cleanupPaymentSession(verificationCode);
-                          }
-                          setShowQRCode(false);
-                          setPaymentStatus("pending");
-                          setErrorMessage("");
-                        }}
-                        style={{ ...styles.button, backgroundColor: "#666" }}
-                      >
-                        Close QR
-                      </button>
-                      
-                      <button
-                        onClick={() => {
-                          setShowQRCode(false);
-                          setPaymentStatus("pending");
-                          setErrorMessage("");
-                          // Don't cleanup session - let it continue checking
-                        }}
-                        style={{ ...styles.button, backgroundColor: "#ffaa00", color: "#000" }}
-                      >
-                        Hide QR (Keep Checking)
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Manual Payment Option */}
-                <div style={{ marginTop: "1rem", padding: "1rem", backgroundColor: "#333", borderRadius: "8px" }}>
-                  <h4 style={{ color: "#ffaa00", marginBottom: "0.5rem" }}>⚠️ Manual Payment</h4>
-                  <button
-                    onClick={() => setFormData({ ...formData, paid: true, paymentDetails: { method: 'Manual', timestamp: new Date().toISOString() } })}
-                    style={{ ...styles.button, backgroundColor: "#ffaa00", color: "#000" }}
-                  >
-                    Mark as Paid (Manual)
-                  </button>
-                </div>
-                
-                {/* Show QR Code Again Option */}
-                {!showQRCode && verificationCode && (paymentStatus === "pending" || paymentStatus === "timeout") && (
-                  <div style={{ marginTop: "1rem", padding: "1rem", backgroundColor: "var(--color-surface-elevated)", borderRadius: "8px" }}>
-                    <h4 style={{ color: "#00ff88", marginBottom: "0.5rem" }}>📱 Payment Still Active</h4>
-                    <p style={{ color: "var(--color-text-secondary)", fontSize: "0.9rem", marginBottom: "1rem" }}>
-                      Payment verification is still active. You can show the QR code again if needed.
-                    </p>
-                    <button
-                      onClick={() => setShowQRCode(true)}
-                      style={{ ...styles.button, backgroundColor: "#00ff88", color: "#000" }}
-                    >
-                      Show QR Code Again
-                    </button>
-                  </div>
-                )}
-
-
-                
-                {paymentStatus === "failed" && (
-                  <div style={{ color: "#ff6b6b", marginTop: "0.5rem" }}>
-                    Payment verification failed. Please try again or verify manually.
-                  </div>
-                )}
-                
-                {paymentStatus === "timeout" && (
-                  <div style={{ color: "#ffaa00", marginTop: "0.5rem" }}>
-                    Automatic verification timeout. Please check your Google Pay app and verify manually.
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          <label>Comments</label>
-          <textarea
-            style={styles.input}
-            value={formData.comments}
-            onChange={(e) => setFormData({ ...formData, comments: e.target.value })}
-            placeholder="Enter notes about their talent..."
-          ></textarea>
-
-          <div style={{
-            display: "flex",
-            gap: "1rem",
-            marginTop: "1rem",
-            flexDirection: window.innerWidth <= 768 ? "column" : "row"
-          }}>
-            <button
-              className="mobile-btn mobile-btn-primary"
-              onClick={handleSubmit}
-              style={{ 
-                ...styles.button, 
-                backgroundColor: isManualEntry ? "#ff0080" : "#cc0066",
-                border: isManualEntry ? "2px solid #ff0080" : "1px solid #cc0066",
-                width: window.innerWidth <= 768 ? "100%" : "auto",
-                flex: window.innerWidth <= 768 ? "none" : "1"
-              }}
-            >
-              {isManualEntry ? "📝 Create New Candidate" : "Submit"}
-            </button>
-            
-            <button
-              className="mobile-btn mobile-btn-danger"
-              onClick={clearForm}
-              style={{ 
-                ...styles.button, 
-                backgroundColor: isManualEntry ? "#ff4444" : "#666", 
-                width: window.innerWidth <= 768 ? "100%" : "auto",
-                flex: window.innerWidth <= 768 ? "none" : "1"
-              }}
-            >
-              {isManualEntry ? "❌ Cancel Manual Entry" : "Clear Form"}
-            </button>
-          </div>
-        </div>
-        </div>
+          <Payment
+            subject={paymentSubject.data}
+            amount={paymentAmount}
+            upiAccounts={UPI_CONFIG.upiIds}
+            selectedUpi={selectedUpiId}
+            onSelectUpi={selectUpiAccount}
+            qrVisible={qrVisible}
+            qrElement={
+              qrVisible ? (
+                <QRCode value={qrCodeData} size={248} level="H" />
+              ) : null
+            }
+            verificationCode={sessionMatchesSubject ? verificationCode : ""}
+            sessionUpiId={sessionMatchesSubject ? paymentSession.upiId : null}
+            status={paymentStatus}
+            generating={isGeneratingQR}
+            errorMessage={errorMessage}
+            lastCheckAt={lastTransactionCheck}
+            triesLeft={paymentTriesLeft}
+            onShowQR={showPaymentQR}
+            onRegenerate={generateQRCode}
+            onMarkPaid={confirmManualPaid}
+            onBack={() => setScreen("search")}
+            onCancelPayment={cancelPayment}
+            cancelBusy={isCancellingPayment}
+            greenRoom={greenRoom}
+            onGreenRoomDone={finishGreenRoom}
+            onContinue={() => leavePaymentFinished(paymentSubject.data.regNo)}
+          />
         </ScreenEnter>
       )}
       {/* §6.6 / sanctioned exception (e): the walk-in window.confirm guard,
@@ -2328,344 +1871,5 @@ function App() {
     </div>
   );
 }
-
-const styles = {
-  input: {
-    width: "100%",
-    padding: "0.5rem",
-    margin: "0.5rem 0 1rem 0",
-    borderRadius: "8px",
-    border: "1px solid #333",
-    backgroundColor: "var(--color-surface-card)",
-    color: "white",
-  },
-  button: {
-    padding: "0.6rem 1rem",
-    borderRadius: "8px",
-    border: "none",
-    color: "white",
-    cursor: "pointer",
-  },
-  // Login page styles
-  loginContainer: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: "100vh",
-    padding: "2rem",
-    background: "linear-gradient(135deg, #0d0d0d 0%, #1a1a2e 50%, #16213e 100%)",
-  },
-  loginCard: {
-    backgroundColor: "rgba(26, 26, 26, 0.95)",
-    borderRadius: "20px",
-    padding: "3.5rem",
-    boxShadow: "0 20px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1)",
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-    maxWidth: "450px",
-    width: "100%",
-    textAlign: "center",
-    backdropFilter: "blur(10px)",
-    position: "relative",
-    overflow: "hidden",
-  },
-  loginHeader: {
-    marginBottom: "2.5rem",
-    position: "relative",
-  },
-  logoContainer: {
-    position: "relative",
-    display: "inline-block",
-    marginBottom: "1rem",
-  },
-  brandLogo: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "0.5rem",
-  },
-  logoImage: {
-    width: "80px",
-    height: "80px",
-    objectFit: "contain",
-    filter: "drop-shadow(0 0 10px rgba(204, 0, 102, 0.5))",
-    marginBottom: "0.5rem",
-  },
-  logoSubtitle: {
-    fontSize: "1rem",
-    color: "var(--color-primary)",
-    fontWeight: "500",
-    letterSpacing: "2px",
-    textTransform: "uppercase",
-    marginTop: "-0.5rem",
-  },
-  logoGlow: {
-    position: "absolute",
-    top: "50%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-    width: "150px",
-    height: "150px",
-    background: "radial-gradient(circle, rgba(204, 0, 102, 0.3) 0%, transparent 70%)",
-    borderRadius: "50%",
-    filter: "blur(20px)",
-    animation: "pulse 2s ease-in-out infinite alternate",
-  },
-  loginTitle: {
-    fontSize: "3.5rem",
-    color: "var(--color-primary)",
-    margin: "0 0 0.5rem 0",
-    fontWeight: "bold",
-    textShadow: "0 0 20px rgba(204, 0, 102, 0.5)",
-    position: "relative",
-    zIndex: 1,
-    letterSpacing: "3px",
-  },
-  loginSubtitle: {
-    fontSize: "1.3rem",
-    color: "var(--color-text-tertiary)",
-    margin: 0,
-    fontWeight: "300",
-    letterSpacing: "1px",
-  },
-  loginContent: {
-    marginBottom: "2rem",
-  },
-  loginDescription: {
-    color: "var(--color-text-secondary)",
-    marginBottom: "2.5rem",
-    lineHeight: "1.7",
-    fontSize: "1rem",
-    fontWeight: "300",
-  },
-  loginButton: {
-    backgroundColor: "#4285f4",
-    color: "white",
-    padding: "1.2rem 2rem",
-    borderRadius: "12px",
-    border: "none",
-    fontSize: "1.1rem",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: "0.8rem",
-    width: "100%",
-    marginBottom: "2.5rem",
-    transition: "all 0.3s ease",
-    boxShadow: "0 8px 25px rgba(66, 133, 244, 0.4)",
-    fontWeight: "500",
-    letterSpacing: "0.5px",
-  },
-  googleIcon: {
-    fontSize: "1.3rem",
-  },
-  loginFeatures: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1.2rem",
-    marginBottom: "2rem",
-  },
-  feature: {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.8rem",
-    color: "#aaa",
-    fontSize: "0.95rem",
-    padding: "0.5rem",
-    borderRadius: "8px",
-    transition: "all 0.2s ease",
-  },
-  featureIcon: {
-    fontSize: "1.2rem",
-    opacity: "0.8",
-  },
-  contactInfo: {
-    marginTop: "2rem",
-    padding: "1.5rem",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: "12px",
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-  },
-  contactHeader: {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5rem",
-    marginBottom: "0.8rem",
-  },
-  contactIcon: {
-    fontSize: "1.2rem",
-    color: "var(--color-primary)",
-  },
-  contactTitle: {
-    color: "var(--color-primary)",
-    fontWeight: "bold",
-    fontSize: "1rem",
-  },
-  contactText: {
-    color: "var(--color-text-tertiary)",
-    fontSize: "0.9rem",
-    margin: 0,
-    lineHeight: "1.5",
-  },
-  contactNumber: {
-    color: "var(--color-primary)",
-    fontWeight: "bold",
-    fontSize: "1.1rem",
-    textShadow: "0 0 10px rgba(204, 0, 102, 0.3)",
-  },
-  // Dashboard styles
-  dashboardHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: "2.5rem",
-    paddingBottom: "1.5rem",
-    borderBottom: "2px solid rgba(255, 255, 255, 0.1)",
-    background: "rgba(255, 255, 255, 0.02)",
-    padding: "2rem",
-    borderRadius: "16px",
-    backdropFilter: "blur(10px)",
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-  },
-  dashboardBrand: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.5rem",
-  },
-  dashboardLogo: {
-    display: "flex",
-    alignItems: "center",
-    gap: "1rem",
-  },
-  dashboardLogoImage: {
-    width: "60px",
-    height: "60px",
-    objectFit: "contain",
-    filter: "drop-shadow(0 0 15px rgba(204, 0, 102, 0.5))",
-  },
-  dashboardTitle: {
-    color: "var(--color-primary)",
-    margin: 0,
-    fontSize: "2.5rem",
-    fontWeight: "bold",
-    textShadow: "0 0 20px rgba(204, 0, 102, 0.3)",
-    letterSpacing: "2px",
-  },
-  dashboardSubtitle: {
-    color: "var(--color-text-tertiary)",
-    margin: 0,
-    fontSize: "1.1rem",
-    fontWeight: "300",
-    letterSpacing: "1px",
-  },
-  welcomeText: {
-    color: "var(--color-text-tertiary)",
-    margin: "0.5rem 0 0 0",
-    fontSize: "1.1rem",
-    fontWeight: "300",
-  },
-  userName: {
-    color: "var(--color-primary)",
-    fontWeight: "bold",
-  },
-  headerActions: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-end",
-    gap: "1rem",
-  },
-  userInfo: {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5rem",
-    padding: "0.5rem 1rem",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    borderRadius: "8px",
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-  },
-  userIcon: {
-    fontSize: "1rem",
-    color: "var(--color-primary)",
-  },
-  userEmail: {
-    color: "var(--color-text-secondary)",
-    fontSize: "0.9rem",
-    fontWeight: "500",
-  },
-  searchSection: {
-    marginBottom: "2rem",
-    padding: "1.5rem",
-    backgroundColor: "rgba(255, 255, 255, 0.02)",
-    borderRadius: "12px",
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-  },
-  sectionTitle: {
-    color: "var(--color-primary)",
-    fontSize: "1.5rem",
-    fontWeight: "bold",
-    marginBottom: "1rem",
-    textShadow: "0 0 10px rgba(204, 0, 102, 0.3)",
-  },
-  footer: {
-    marginTop: "3rem",
-    padding: "1.5rem",
-    backgroundColor: "rgba(255, 255, 255, 0.02)",
-    borderRadius: "12px",
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-    backdropFilter: "blur(10px)",
-  },
-  footerContent: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: "1rem",
-  },
-  footerBrand: {
-    display: "flex",
-    alignItems: "center",
-    gap: "0.5rem",
-  },
-  footerLogoImage: {
-    width: "30px",
-    height: "30px",
-    objectFit: "contain",
-    filter: "drop-shadow(0 0 10px rgba(204, 0, 102, 0.5))",
-  },
-  footerTitle: {
-    color: "var(--color-primary)",
-    fontSize: "1.2rem",
-    fontWeight: "bold",
-    letterSpacing: "1px",
-  },
-  footerInfo: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-end",
-    gap: "0.25rem",
-  },
-  footerText: {
-    color: "var(--color-text-tertiary)",
-    fontSize: "0.9rem",
-  },
-  footerContact: {
-    color: "var(--color-primary)",
-    fontSize: "0.9rem",
-    fontWeight: "bold",
-  },
-  logoutButton: {
-    backgroundColor: "#ff4444",
-    color: "white",
-    padding: "0.8rem 1.5rem",
-    borderRadius: "12px",
-    border: "none",
-    cursor: "pointer",
-    fontSize: "1rem",
-    fontWeight: "500",
-    transition: "all 0.3s ease",
-    boxShadow: "0 4px 15px rgba(255, 68, 68, 0.3)",
-    letterSpacing: "0.5px",
-  },
-};
 
 export default App;
