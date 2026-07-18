@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Avatar, Button, Sheet, Ticket, TopBar } from "../../ui";
+import { Avatar, Button, OfflineBanner, Sheet, Ticket, TopBar } from "../../ui";
 import "./Chrome.css";
 
 /**
@@ -8,7 +8,9 @@ import "./Chrome.css";
  * candidate/payment, a back chevron + condensed ticket; right: connection
  * dot (navigator.onLine → green "Synced" / amber "Offline") + 32 px
  * initials Avatar opening the account bottom Sheet (email, mono tel: help,
- * Sign out — NO counters, §2 #34). `pendingPayment` ({name, onOpen}) renders
+ * Sign out — NO counters, §2 #34). Offline additionally shows the thin
+ * amber OfflineBanner ("Offline — changes will sync") under the bar on
+ * every signed-in screen. `pendingPayment` ({name, onOpen}) renders
  * the amber "₹ pending · {name}" chip when a payment session is live away
  * from the Payment screen (§6.4 — tap returns to it). Presentational:
  * auth/session logic stays in App.js.
@@ -68,6 +70,7 @@ export default function InterviewerChrome({
           </>
         }
       />
+      {!isOnline ? <OfflineBanner /> : null}
       <Sheet
         open={accountOpen}
         onClose={() => setAccountOpen(false)}

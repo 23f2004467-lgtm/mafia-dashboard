@@ -16,7 +16,7 @@ import "./Login.css";
  *   dot row, showbill lettering (mix-blend-mode: screen over the pure-black
  *   stage), one 56 px primary "Continue with Google", mono tel: help link.
  *   Errors render as an inline error Banner (mapped copy from App.js's
- *   existing error table) — never alert().
+ *   existing error table) — never a native dialog.
  */
 export default function Login({
   booting = false,

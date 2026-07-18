@@ -1,0 +1,58 @@
+/* Done — §6.5 recap. Designed at 375px; desktop = 560px centered column.
+   Tokens only; the Stamp's own --ease-spring entrance (§9 #9) is the one
+   moving element — nothing else animates here. */
+
+.iv-done {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: var(--space-10) var(--space-4)
+    calc(var(--space-10) + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-5);
+}
+
+/* Big ✓ in success ink (§6.5). */
+.iv-done__check {
+  font-size: 64px;
+  line-height: 1;
+  color: var(--state-good-ink);
+}
+
+.iv-done__title {
+  font-family: var(--font-display);
+  font-weight: 400; /* Bakbak One's only weight (§4 single-weight law) */
+  font-size: var(--text-24);
+  line-height: var(--leading-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  color: var(--text-1);
+  overflow-wrap: break-word;
+  max-width: 100%;
+  margin: 0;
+}
+
+/* Stamp + payment pill recap. */
+.iv-done__recap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: 100%;
+}
+
+.iv-done__action {
+  width: 100%;
+  margin-top: var(--space-4);
+}
+
+/* The static light-theme brand lockup (§2 #49: wordmark-black.png's ONE
+   named location). Decorative, constant — never a counter (§2 #34). */
+.iv-done__lockup {
+  width: 140px;
+  height: auto;
+  margin-top: var(--space-6);
+}

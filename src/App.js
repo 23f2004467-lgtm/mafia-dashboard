@@ -18,6 +18,7 @@ import Login from './screens/interviewer/Login';
 import Search from './screens/interviewer/Search';
 import Candidate from './screens/interviewer/Candidate';
 import Payment from './screens/interviewer/Payment';
+import Done from './screens/interviewer/Done';
 import InterviewerChrome, { ScreenEnter } from './screens/interviewer/Chrome';
 import {
   throttle,
@@ -61,7 +62,7 @@ const filterCandidates = (candidates, queryText) => {
 
 // Maps FirebaseSecurity.validator.validateCandidateData's exact message
 // strings (validation logic untouched, §2 #43) to Candidate-screen fields so
-// they render as inline errors instead of the deleted alert().
+// they render as inline errors instead of the deleted native dialogs.
 const SECURITY_ERROR_FIELDS = {
   'Invalid name': 'name',
   'Invalid registration number': 'regNo',
@@ -175,22 +176,28 @@ function App() {
   // restored sessions go splash → Search and never see Login.
   const [authResolved, setAuthResolved] = useState(false);
   // Inline login error (§6.1): the mapped message from the existing error
-  // table in login() renders as a Banner on the Login screen — never alert().
+  // table in login() renders as a Banner on the Login screen — never a
+  // native dialog.
   const [loginError, setLoginError] = useState("");
   // Connection dot state for the global chrome (§6).
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   // "My recent" (§6.2): last 5 candidates touched, persisted per device.
   const [recents, setRecents] = useState(readRecents);
-  // §2 #45: Search autofocuses ONLY when arriving via "Next candidate" —
-  // plumbed as a prop now; 3f's Done screen adds the setter when it wires
-  // the next-candidate route (cold load never autofocuses).
-  const [searchAutoFocus] = useState(false);
+  // §2 #45: Search autofocuses ONLY when arriving via "Next candidate"
+  // (set there, cleared on every other way out of Search — cold load and
+  // back-navigation never autofocus).
+  const [searchAutoFocus, setSearchAutoFocus] = useState(false);
+  // §6.5: the Done screen's recap ({name, verdict, paid, manuallyVerified}),
+  // latched from formData BEFORE the routed reset (resetAfterSubmit /
+  // clearForm) wipes it — the recap is display-local, like §2 #30's
+  // "Not selected" state.
+  const [doneRecap, setDoneRecap] = useState(null);
   // Landmine #2 prep: the Firestore doc key of the loaded candidate is
   // captured HERE at load time. 3d's submit path must use this ref, never
   // live formData.regNo.
   const candidateDocKeyRef = useRef(null);
   const [paymentAmount] = useState("300"); // Fixed at ₹300
-  const [paymentStatus, setPaymentStatus] = useState("pending"); // pending, processing, completed, failed
+  const [paymentStatus, setPaymentStatus] = useState("pending"); // pending, completed, cancelled, timeout, error
   const [showQRCode, setShowQRCode] = useState(false);
   const [qrCodeData, setQrCodeData] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
@@ -206,10 +213,10 @@ function App() {
   // Mutually exclusive with domain selections (§2 #10, confirmed in-screen).
   const [notSelected, setNotSelected] = useState(false);
   // Inline submit validation errors ({field: message}) — replaces the
-  // deleted validation alert()s (§6.3: inline errors, never modal).
+  // deleted native validation dialogs (§6.3: inline errors, never modal).
   const [submitErrors, setSubmitErrors] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // §6.6 / sanctioned exception (e): the walk-in window.confirm guard
+  // §6.6 / sanctioned exception (e): the walk-in native-confirm guard
   // becomes a ConfirmSheet — same condition, same write.
   const [walkInConfirmOpen, setWalkInConfirmOpen] = useState(false);
   // §2 #20: index of selected UPI ID, last-used preselected per device.
@@ -273,6 +280,8 @@ function App() {
         postLoginSetupDoneRef.current = false;
         setUser(null);
         setScreen("login");
+        setSearchAutoFocus(false); // next session's Search is a cold load
+        setDoneRecap(null);
         setAuthResolved(true);
         return;
       }
@@ -532,7 +541,7 @@ function App() {
         formData: { regNo: formData.regNo, name: formData.name },
         user: user?.email
       });
-      // Inline red Banner + Retry on the Payment screen — never alert()
+      // Inline red Banner + Retry on the Payment screen — never a native dialog
       setErrorMessage(error.message);
     } finally {
       setIsGeneratingQR(false);
@@ -793,26 +802,8 @@ function App() {
     };
   }, [activePaymentSessions, memoryManager, dataCache, rateLimiter]);
 
-  // Add CSS for spinner animation
-  useEffect(() => {
-    const spinnerStyle = `
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-    `;
-
-    const styleSheet = document.createElement("style");
-    styleSheet.type = "text/css";
-    styleSheet.innerText = spinnerStyle;
-    document.head.appendChild(styleSheet);
-
-    return () => {
-      if (styleSheet.parentNode) {
-        styleSheet.parentNode.removeChild(styleSheet);
-      }
-    };
-  }, []);
+  // (§12/§9: the runtime <style> spinner injection is deleted — the app's
+  // only keyframes, including `spin`, live in src/ui/base.css.)
 
   // Robust Multi-Interview Payment System
   const RATE_LIMIT = {
@@ -932,13 +923,13 @@ function App() {
     if (isLoggingIn) return;
     setLoginError("");
 
-    // Check rate limiting — inline Banner, never alert() (§6.1)
+    // Check rate limiting — inline Banner, never a native dialog (§6.1)
     if (!FirebaseSecurity.rateLimiter.checkLimit('login', 5, 60000)) {
       setLoginError('Too many login attempts. Please try again later.');
       return;
     }
 
-    // Check if user is locked out — inline Banner, never alert() (§6.1)
+    // Check if user is locked out — inline Banner, never a native dialog (§6.1)
     if (FirebaseSecurity.sessionManager.isLockedOut('login')) {
       setLoginError('Account temporarily locked due to too many failed attempts.');
       return;
@@ -1037,7 +1028,7 @@ function App() {
           errorMessage += error.message;
       }
 
-      // Inline Banner on the Login screen (§6.1) — never alert()
+      // Inline Banner on the Login screen (§6.1) — never a native dialog
       setLoginError(errorMessage);
     } finally {
       setIsLoggingIn(false);
@@ -1152,6 +1143,7 @@ function App() {
     pushRecent(cand);
     setNotSelected(false);
     setSubmitErrors(null);
+    setSearchAutoFocus(false); // consumed — next Search visit is a back-nav
     setScreen("candidate");
   };
 
@@ -1194,6 +1186,7 @@ function App() {
     setIsManualEntry(true);
     setNotSelected(false);
     setSubmitErrors(null);
+    setSearchAutoFocus(false);
     setFormData({
       name: "",
       regNo: tempRegNo,
@@ -1235,6 +1228,7 @@ function App() {
     candidateDocKeyRef.current = formData.regNo;
     setNotSelected(false);
     setSubmitErrors(null);
+    setSearchAutoFocus(false);
     setScreen("candidate");
   };
 
@@ -1431,6 +1425,25 @@ function App() {
     clearForm();
   };
 
+  // §6.5: latch the Done recap (name, verdict domains, payment state) from
+  // the form BEFORE resetAfterSubmit wipes it. Display-local only — the
+  // Stamp and payment pill on Done render from this, never from the DB.
+  const latchDoneRecap = (source) => {
+    setDoneRecap({
+      name: source.name,
+      verdict: {
+        talentComm: Array.isArray(source.verdict?.talentComm)
+          ? source.verdict.talentComm
+          : [],
+        workComm: Array.isArray(source.verdict?.workComm)
+          ? source.verdict.workComm
+          : [],
+      },
+      paid: !!source.paid,
+      manuallyVerified: !!source.manuallyVerified,
+    });
+  };
+
   // The write itself. The doc key is the one CAPTURED AT LOAD in
   // candidateDocKeyRef (landmine #2) — never live formData.regNo (for
   // loaded candidates regNo is not editable, and walk-ins lock the
@@ -1524,6 +1537,7 @@ function App() {
       if (hasDomains && !formData.paid) {
         enterPayment(formData.regNo);
       } else {
+        latchDoneRecap(formData);
         resetAfterSubmit();
         setScreen("done");
       }
@@ -1537,7 +1551,7 @@ function App() {
   const handleSubmit = () => {
     // Additional validation for manual entry (walk-ins), then the
     // ConfirmSheet guard — same condition, same write as the old
-    // window.confirm (sanctioned exception e).
+    // native confirm (sanctioned exception e).
     if (isManualEntry) {
       const manualErrors = buildManualEntryErrors();
       if (manualErrors) {
@@ -1637,11 +1651,21 @@ function App() {
   const leavePaymentFinished = (subjectRegNo) => {
     setPaymentFor(null);
     if (subjectRegNo === formData.regNo) {
+      latchDoneRecap(formData);
       resetAfterSubmit();
       setScreen("done");
     } else {
       setScreen("search");
     }
+  };
+
+  // §6.5 → §6.2: "Next candidate" — Search, cleared, autofocused. This is
+  // the ONE route that autofocuses Search (§2 #45).
+  const goNextCandidate = () => {
+    setDoneRecap(null);
+    setSearchName("");
+    setSearchAutoFocus(true);
+    setScreen("search");
   };
 
   // §2 #18 / landmine #6 / sanctioned exception (b): Cancel payment passes
@@ -1725,9 +1749,9 @@ function App() {
     );
   }
 
-  // Signed in. Candidate renders the new §6.3 screen (3d); payment still
-  // renders the OLD mega-page JSX until 3e replaces it whole (landmine #12);
-  // "done" transitionally renders Search until 3f builds the Done screen.
+  // Signed in: the §6 state machine's four working screens — Candidate
+  // (§6.3), Payment (§6.4), Done (§6.5, recap latched pre-reset; without a
+  // recap it falls through to Search), everything else Search (§6.2).
   const onWorkScreen = screen === "candidate" || screen === "payment";
   // Draft banner data (§2 #46): a persisted formData draft that identifies
   // a candidate → offer Resume/Discard on Search, never silently reopen.
@@ -1804,6 +1828,10 @@ function App() {
             onCancel={() => setScreen("search")}
           />
         </ScreenEnter>
+      ) : screen === "done" && doneRecap ? (
+        <ScreenEnter id="done">
+          <Done recap={doneRecap} onNext={goNextCandidate} />
+        </ScreenEnter>
       ) : screen !== "payment" ? (
         <ScreenEnter id="search">
           <Search
@@ -1854,7 +1882,7 @@ function App() {
           />
         </ScreenEnter>
       )}
-      {/* §6.6 / sanctioned exception (e): the walk-in window.confirm guard,
+      {/* §6.6 / sanctioned exception (e): the walk-in native-confirm guard,
           now a ConfirmSheet — same condition (manual entry, post-validation),
           same write (performSubmit → the existing setDoc path). Mounted at
           App level so it works wherever handleSubmit fires. */}
