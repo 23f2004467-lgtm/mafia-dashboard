@@ -1,0 +1,129 @@
+/* Ticket — candidate identity as a physical event ticket (§11.2). */
+
+.ui-ticket {
+  display: flex;
+  align-items: stretch;
+  background: var(--surface);
+  border: 1.5px solid var(--text-1);
+  border-radius: var(--radius-ticket);
+  overflow: hidden;
+}
+
+/* ---------- Identity block ---------- */
+
+.ui-ticket__identity {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-4);
+}
+
+.ui-ticket__name {
+  font-family: var(--font-display);
+  font-weight: 400; /* Bakbak One's only weight — never synthesize bold */
+  font-size: var(--text-30);
+  line-height: var(--leading-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  color: var(--text-1);
+  overflow-wrap: break-word;
+}
+
+/* The regNo well (§11.1): mono in a bordered sunken well = read this aloud. */
+.ui-ticket__well {
+  display: inline-block;
+  margin-top: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-input);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--text-20);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-1);
+  white-space: nowrap;
+}
+
+.ui-ticket__year {
+  margin-top: var(--space-2);
+}
+
+/* ---------- Stub (dashed perforation + pills) ---------- */
+
+.ui-ticket__stub {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-3);
+  border-left: 1px dashed var(--border-strong);
+}
+
+.ui-ticket__pills {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+/* ---------- Walk-in variant: amber stub + micro-label ---------- */
+
+.ui-ticket--walkin .ui-ticket__stub {
+  background: var(--state-claim-tint);
+}
+
+.ui-ticket__walkin-label {
+  font-size: var(--text-12);
+  font-weight: 600;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--state-claim-ink);
+}
+
+/* ---------- Compact variant (admin drawer header) ---------- */
+
+.ui-ticket--compact .ui-ticket__identity {
+  padding: var(--space-3);
+}
+
+.ui-ticket--compact .ui-ticket__name {
+  font-size: var(--text-18);
+}
+
+.ui-ticket--compact .ui-ticket__well {
+  margin-top: var(--space-1);
+  padding: 2px var(--space-2);
+  font-size: var(--text-14);
+}
+
+.ui-ticket--compact .ui-ticket__stub {
+  padding: var(--space-3) var(--space-2);
+}
+
+/* ---------- Condensed (slim sticky bar: name 16/600 + mono regNo) ---------- */
+
+.ui-ticket--condensed {
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+}
+
+.ui-ticket__condensed-name {
+  font-family: var(--font-ui);
+  font-size: var(--text-16);
+  font-weight: 600;
+  color: var(--text-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-ticket__condensed-regno {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--text-14);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  white-space: nowrap;
+}

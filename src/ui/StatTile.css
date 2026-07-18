@@ -1,0 +1,81 @@
+/* StatTile — admin stat-strip tile (§7.3). */
+
+.ui-stat-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  text-align: left;
+  color: var(--text-1);
+  font-family: var(--font-ui);
+}
+
+.ui-stat-tile__label {
+  font-size: var(--text-12);
+  font-weight: 600;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.ui-stat-tile__value {
+  font-family: var(--font-display);
+  font-weight: 400; /* Bakbak One's only weight */
+  font-size: var(--text-40);
+  line-height: var(--leading-display);
+  letter-spacing: var(--tracking-display);
+  color: var(--text-1);
+}
+
+.ui-stat-tile__sub {
+  font-size: var(--text-13);
+  color: var(--text-2);
+}
+
+/* Actionable tone — amber (Awaiting verification). */
+.ui-stat-tile--actionable .ui-stat-tile__value {
+  color: var(--state-claim-ink);
+}
+
+/* Loading skeleton: value renders "—" and pulses. */
+.ui-stat-tile.is-loading .ui-stat-tile__value {
+  color: var(--text-3);
+  animation: skeleton-pulse 1.2s var(--ease) infinite;
+}
+
+/* ---------- Interactive (button) tiles ---------- */
+
+button.ui-stat-tile {
+  cursor: pointer;
+  transition: transform var(--motion-micro) var(--ease);
+}
+
+button.ui-stat-tile:hover {
+  border-color: var(--border-strong);
+}
+
+@media (hover: hover) {
+  button.ui-stat-tile:hover {
+    transform: translateY(-1px);
+  }
+}
+
+button.ui-stat-tile:active {
+  transform: scale(0.99);
+}
+
+button.ui-stat-tile:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+button.ui-stat-tile:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}

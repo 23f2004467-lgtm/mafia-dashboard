@@ -1,0 +1,88 @@
+/* Pill — candidate-state pill (§5). Static, non-interactive. */
+
+.ui-pill {
+  display: inline-grid;
+  vertical-align: middle;
+}
+
+.ui-pill__face {
+  grid-area: 1 / 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  user-select: none;
+  transition: opacity var(--motion-micro) var(--ease);
+}
+
+.ui-pill__face.is-active {
+  opacity: 1;
+  user-select: text;
+}
+
+/* Sizes */
+.ui-pill--md .ui-pill__face {
+  font-size: var(--text-13);
+  line-height: 1;
+  padding: 5px 10px;
+}
+
+.ui-pill--sm .ui-pill__face {
+  font-size: var(--text-12);
+  line-height: 1;
+  padding: 3px 8px;
+}
+
+/* ---------- Track 1: journey (§5) ---------- */
+
+/* Registered — dormant ink, OUTLINE pill */
+.ui-pill__face--registered {
+  color: var(--state-dormant-ink);
+  border-color: var(--state-dormant-ink);
+  background: transparent;
+}
+
+/* Checked in — ready ink on ready tint, filled */
+.ui-pill__face--checked_in {
+  color: var(--state-ready-ink);
+  background: var(--state-ready-tint);
+}
+
+/* Selected — good ink on good tint, filled */
+.ui-pill__face--selected {
+  color: var(--state-good-ink);
+  background: var(--state-good-tint);
+}
+
+/* Not selected — ink OUTLINE pill (a decision, not an alarm) */
+.ui-pill__face--not_selected {
+  color: var(--state-no-ink);
+  border-color: var(--state-no-ink);
+  background: transparent;
+}
+
+/* ---------- Track 2: payment (§5) ---------- */
+
+/* Unpaid — dormant ink on dormant tint (neutral, NOT red) */
+.ui-pill__face--unpaid {
+  color: var(--state-dormant-ink);
+  background: var(--state-dormant-tint);
+}
+
+/* Paid · unverified — claim amber: a claim, not a fact */
+.ui-pill__face--paid_unverified {
+  color: var(--state-claim-ink);
+  background: var(--state-claim-tint);
+}
+
+/* Verified — good ink on good tint */
+.ui-pill__face--verified {
+  color: var(--state-good-ink);
+  background: var(--state-good-tint);
+}

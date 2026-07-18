@@ -1,0 +1,65 @@
+/* ActionBar — sticky bottom, safe-area padded. Sticky chrome never animates (§9.1). */
+
+.ui-action-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  padding: var(--space-3) var(--space-4)
+    calc(var(--space-3) + var(--safe-bottom));
+}
+
+.ui-action-bar__primary {
+  flex: 1;
+  min-width: 0;
+}
+
+.ui-action-bar__overflow {
+  position: relative;
+  flex: none;
+  width: var(--touch-primary);
+  height: var(--touch-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-input);
+  background: var(--surface);
+  color: var(--text-1);
+  font-size: var(--text-20);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ui-action-bar__overflow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--surface-sunken);
+  opacity: 0;
+  transition: opacity var(--motion-micro) var(--ease);
+  pointer-events: none;
+}
+
+.ui-action-bar__overflow:hover::before {
+  opacity: 1;
+}
+
+.ui-action-bar__overflow:active {
+  transform: scale(0.98);
+}
+
+.ui-action-bar__overflow:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.ui-action-bar__overflow:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

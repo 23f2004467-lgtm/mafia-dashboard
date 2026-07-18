@@ -1,0 +1,114 @@
+/* Input / Select / Textarea — §8. Tokens only.
+   Color-state changes (border/background) swap instantly; nothing animates
+   except what the global :focus-visible ring provides (§9 laws). */
+
+.ui-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.ui-field__label {
+  font-size: var(--text-13);
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.ui-field__control {
+  width: 100%;
+  min-height: 48px;
+  padding: var(--space-3);
+  font-family: var(--font-ui);
+  font-size: var(--text-16); /* iOS-zoom floor — never below 16px */
+  color: var(--text-1);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-input);
+}
+
+.ui-field__control::placeholder {
+  color: var(--text-3);
+}
+
+/* ---------- States ---------- */
+/* (class-scoped rather than :read-only — <select> always matches :read-only) */
+.ui-field:not(.ui-field--readonly) .ui-field__control:hover:not(:disabled) {
+  border-color: var(--text-3);
+}
+.ui-field:not(.ui-field--readonly) .ui-field__control:active:not(:disabled),
+.ui-field:not(.ui-field--readonly) .ui-field__control:focus:not(:disabled) {
+  border-color: var(--brand-600);
+}
+.ui-field__control:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.ui-field__control:disabled {
+  background: var(--surface-sunken);
+  color: var(--text-3);
+  border-color: var(--border);
+  cursor: not-allowed;
+}
+
+/* ---------- Error ---------- */
+.ui-field--error .ui-field__control {
+  border-color: var(--error-ink);
+}
+.ui-field__error {
+  font-size: var(--text-13);
+  color: var(--error-ink);
+}
+.ui-field__helper {
+  font-size: var(--text-13);
+  color: var(--text-2);
+}
+
+/* ---------- Mono variant (the truth channel) ---------- */
+.ui-field--mono .ui-field__control {
+  font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+/* ---------- Read-only: borderless sunken well ---------- */
+.ui-field--readonly .ui-field__control,
+.ui-field--readonly .ui-field__control:hover,
+.ui-field--readonly .ui-field__control:focus,
+.ui-field--readonly .ui-field__control:disabled {
+  background: var(--surface-sunken);
+  border-color: transparent;
+  color: var(--text-1);
+  cursor: default;
+}
+
+/* ---------- Select ---------- */
+.ui-field__selectwrap {
+  position: relative;
+  display: block;
+}
+.ui-field__control--select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: var(--space-10);
+  cursor: pointer;
+}
+.ui-field__selectwrap::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: var(--space-4);
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  color: var(--text-2);
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+
+/* ---------- Textarea ---------- */
+.ui-field__control--textarea {
+  min-height: auto;
+  resize: vertical;
+  line-height: var(--leading-body);
+}

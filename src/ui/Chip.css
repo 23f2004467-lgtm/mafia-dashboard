@@ -1,0 +1,91 @@
+/* Chip — filter (live count) / rank (static ①②③) / year (static). */
+
+.ui-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 2px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text-2);
+  font-family: var(--font-ui);
+  font-size: var(--text-13);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.ui-chip__count {
+  font-weight: 600;
+}
+
+.ui-chip__rank {
+  font-size: var(--text-14);
+  line-height: 1;
+}
+
+/* Selected — brand-100 fill + brand-700 ink (light theme) */
+.ui-chip--selected {
+  background: var(--brand-100);
+  border-color: var(--brand-100);
+  color: var(--brand-700);
+}
+
+/* Selected — brand-a12 + brand-300 ink (dark theme), brand-400 boundary */
+[data-theme="dark"] .ui-chip--selected {
+  background: var(--brand-a12);
+  border-color: var(--brand-400);
+  color: var(--brand-300);
+}
+
+/* ---------- Interactive (button) chips ---------- */
+
+button.ui-chip {
+  position: relative;
+  min-height: 32px;
+  cursor: pointer;
+  transition: transform var(--motion-micro) var(--ease);
+}
+
+/* Invisible hit-area extension to the 44 px touch minimum (§10). */
+button.ui-chip::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: var(--touch-min);
+  transform: translateY(-50%);
+}
+
+button.ui-chip:hover {
+  border-color: var(--border-strong);
+  background: var(--surface-sunken);
+}
+
+button.ui-chip.ui-chip--selected:hover {
+  border-color: var(--brand-400);
+  background: var(--brand-100);
+}
+
+[data-theme="dark"] button.ui-chip.ui-chip--selected:hover {
+  background: var(--brand-a12);
+  border-color: var(--brand-300);
+}
+
+button.ui-chip:active {
+  transform: scale(0.97);
+}
+
+button.ui-chip:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+button.ui-chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}

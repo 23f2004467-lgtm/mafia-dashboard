@@ -1,0 +1,23 @@
+/* Skeleton — loading placeholder shapes (skeleton-pulse from base.css). */
+
+.ui-skeleton {
+  display: block;
+  width: 100%;
+  background: var(--surface-sunken);
+  animation: skeleton-pulse 1.2s var(--ease) infinite;
+}
+
+.ui-skeleton--text {
+  height: 1em;
+  border-radius: 4px;
+}
+
+.ui-skeleton--row {
+  height: 56px;
+  border-radius: var(--radius-card);
+}
+
+.ui-skeleton--tile {
+  height: 96px;
+  border-radius: var(--radius-card);
+}

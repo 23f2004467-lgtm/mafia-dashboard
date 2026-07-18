@@ -1,0 +1,33 @@
+/* Avatar — initials disc, 32 / 40. */
+
+.ui-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: var(--radius-pill);
+  background: var(--brand-100);
+  color: var(--brand-700);
+  font-family: var(--font-ui);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+
+[data-theme="dark"] .ui-avatar {
+  background: var(--brand-a12);
+  color: var(--brand-300);
+  border: 1px solid var(--brand-400);
+}
+
+.ui-avatar--32 {
+  width: 32px;
+  height: 32px;
+  font-size: var(--text-13);
+}
+
+.ui-avatar--40 {
+  width: 40px;
+  height: 40px;
+  font-size: var(--text-14);
+}

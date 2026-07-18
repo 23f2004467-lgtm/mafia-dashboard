@@ -1,0 +1,133 @@
+/* QRPanel — payment QR surface. Lives on the light Payment screen (§6.4);
+   the QR area uses --surface, which is pure white there. */
+
+.ui-qr-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  /* §9.11 entrance: translateY 8px + fade, 240ms --ease */
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity var(--motion-sheet) var(--ease),
+    transform var(--motion-sheet) var(--ease);
+}
+
+.ui-qr-panel--in {
+  opacity: 1;
+  transform: none;
+}
+
+/* ---------- QR area: 280px, 16px quiet zone ---------- */
+
+.ui-qr-panel__qr {
+  width: 280px;
+  height: 280px;
+  padding: var(--space-4); /* the 16px quiet zone */
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* §9.11: the QR bitmap fades in 180ms when generated */
+.ui-qr-panel__qr-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--motion-screen) var(--ease);
+}
+
+.ui-qr-panel__qr-content--ready {
+  opacity: 1;
+}
+
+/* Stale QR in timeout/error waits behind the banner */
+.ui-qr-panel[data-status="timeout"] .ui-qr-panel__qr-content,
+.ui-qr-panel[data-status="error"] .ui-qr-panel__qr-content {
+  opacity: 0.3;
+}
+
+/* ---------- Record-arc spinner (§9.5 named loop: 900ms linear) ---------- */
+
+.ui-qr-panel__arc {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-pill);
+  background: conic-gradient(
+    var(--brand-600) 0 27%,
+    transparent 27% 100%
+  );
+  -webkit-mask: radial-gradient(closest-side, transparent 70%, black 72%);
+  mask: radial-gradient(closest-side, transparent 70%, black 72%);
+  animation: arc-spin 900ms linear infinite;
+}
+
+/* ---------- Receipt state mark ---------- */
+
+.ui-qr-panel__receipt-mark {
+  font-size: var(--text-40);
+  line-height: 1;
+  color: var(--success-ink);
+  user-select: none;
+}
+
+/* ---------- Verification code well (§11.1: mono in a well) ---------- */
+
+.ui-qr-panel__code-well {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-input);
+  padding: var(--space-2) var(--space-4);
+  /* §9.11: the code well follows delayed 2 × --stagger */
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity var(--motion-sheet) var(--ease)
+      calc(2 * var(--stagger)),
+    transform var(--motion-sheet) var(--ease) calc(2 * var(--stagger));
+}
+
+.ui-qr-panel--in .ui-qr-panel__code-well {
+  opacity: 1;
+  transform: none;
+}
+
+.ui-qr-panel__code {
+  font-family: var(--font-mono);
+  font-size: var(--text-18);
+  font-weight: 600;
+  color: var(--text-1);
+  user-select: all;
+}
+
+/* ---------- UPI value line (selectable, §10) ---------- */
+
+.ui-qr-panel__value {
+  font-size: var(--text-13);
+  color: var(--text-2);
+}
+
+.ui-qr-panel__value-mono {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  user-select: all;
+}
+
+/* ---------- Banner slot + meta lines ---------- */
+
+.ui-qr-panel__banner {
+  align-self: stretch;
+}
+
+.ui-qr-panel__meta {
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+  font-weight: 500;
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}

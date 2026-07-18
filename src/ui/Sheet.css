@@ -1,0 +1,181 @@
+/* Sheet — mobile bottom sheet (§8, §9 #7). */
+
+.ui-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  /* Scrim: token-derived (no raw hex/rgb). Dark ink over the light theme… */
+  background: color-mix(in srgb, var(--text-1) 55%, transparent);
+  opacity: 0;
+  transition: opacity var(--motion-sheet) var(--ease);
+}
+
+/* …and near-black stage over the dark theme (text-1 is light there). */
+[data-theme="dark"] .ui-sheet {
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+.ui-sheet--open {
+  opacity: 1;
+}
+
+.ui-sheet__panel {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  max-height: 85dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  box-shadow: var(--shadow-sheet);
+  padding: var(--space-2) var(--space-4) calc(var(--space-6) + var(--safe-bottom));
+  transform: translateY(100%);
+  /* Exit easing lives here (--ease); the open state overrides to the spring
+     so entrances spring and exits ease (§9 #7). */
+  transition: transform var(--motion-sheet) var(--ease);
+  outline: none;
+}
+
+[data-theme="dark"] .ui-sheet__panel {
+  border: 1px solid var(--border);
+  border-bottom: none;
+}
+
+.ui-sheet--open .ui-sheet__panel {
+  transform: translateY(0);
+  transition-timing-function: var(--ease-spring);
+}
+
+.ui-sheet__grab {
+  width: 36px;
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--border-strong);
+  margin: var(--space-2) auto var(--space-1);
+  flex: none;
+}
+
+.ui-sheet__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--touch-min);
+  flex: none;
+}
+
+.ui-sheet__title {
+  font-family: var(--font-ui);
+  font-size: var(--text-18);
+  font-weight: 600;
+  line-height: var(--leading-display);
+  color: var(--text-1);
+}
+
+.ui-sheet--danger .ui-sheet__title {
+  color: var(--error-ink);
+}
+
+.ui-sheet__close {
+  flex: none;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-input);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background-color var(--motion-micro) var(--ease),
+    color var(--motion-micro) var(--ease),
+    transform var(--motion-micro) var(--ease);
+}
+
+.ui-sheet__close:hover {
+  background: var(--surface-sunken);
+  color: var(--text-1);
+}
+
+.ui-sheet__close:active {
+  transform: scale(0.98);
+}
+
+.ui-sheet__close:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.ui-sheet__close:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ui-sheet__body {
+  overflow-y: auto;
+  padding-top: var(--space-2);
+  font-size: var(--text-16);
+  color: var(--text-1);
+}
+
+/* ---------- Typed-confirm slot ---------- */
+
+.ui-sheet__typed {
+  flex: none;
+  margin-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ui-sheet__typed-label {
+  font-size: var(--text-13);
+  color: var(--text-2);
+}
+
+.ui-sheet__typed-word {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.ui-sheet--danger .ui-sheet__typed-word {
+  color: var(--error-ink);
+}
+
+.ui-sheet__typed-input {
+  height: 48px;
+  min-height: var(--touch-min);
+  padding: 0 var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-16);
+  letter-spacing: var(--tracking-caps);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-input);
+  transition: border-color var(--motion-micro) var(--ease);
+}
+
+.ui-sheet__typed-input:hover {
+  border-color: var(--text-3);
+}
+
+.ui-sheet__typed-input:active {
+  border-color: var(--focus-ring);
+}
+
+.ui-sheet__typed-input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-color: var(--focus-ring);
+}
+
+.ui-sheet__typed-input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

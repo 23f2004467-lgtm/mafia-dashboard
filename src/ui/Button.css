@@ -1,0 +1,147 @@
+/* Button — §8. Tokens only; transitions on transform/opacity only (§9 laws). */
+
+.ui-button {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-input);
+  font-family: var(--font-ui);
+  font-weight: 600;
+  line-height: var(--leading-body);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform var(--motion-micro) var(--ease);
+}
+
+.ui-button--full {
+  display: flex;
+  width: 100%;
+}
+
+/* ---------- Sizes ---------- */
+.ui-button--lg {
+  min-height: var(--touch-primary);
+  padding: var(--space-2) var(--space-5);
+  font-size: var(--text-16);
+}
+.ui-button--md {
+  min-height: 48px;
+  padding: var(--space-1) var(--space-4);
+  font-size: var(--text-16);
+}
+.ui-button--sm {
+  min-height: var(--touch-min);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--text-14);
+}
+
+/* ---------- Variants ---------- */
+.ui-button--primary {
+  background: var(--brand-600);
+  color: var(--on-brand);
+}
+.ui-button--primary:hover:not(:disabled) {
+  background: var(--brand-700);
+}
+/* §10 boundary rule: primary on dark surfaces carries a 1px brand-400 border */
+[data-theme="dark"] .ui-button--primary {
+  border-color: var(--brand-400);
+}
+
+.ui-button--secondary {
+  background: var(--surface);
+  color: var(--text-1);
+  border-color: var(--border-strong);
+}
+.ui-button--secondary:hover:not(:disabled) {
+  background: var(--surface-sunken);
+}
+
+.ui-button--ghost {
+  background: transparent;
+  color: var(--brand-text);
+}
+.ui-button--ghost:hover:not(:disabled) {
+  background: var(--brand-a12);
+}
+
+.ui-button--destructive {
+  background: var(--destructive);
+  color: var(--on-destructive);
+  border-color: transparent;
+}
+.ui-button--destructive:hover:not(:disabled) {
+  background: var(--error-ink);
+}
+
+/* Destructive-recolored non-fill variants (boolean `destructive` prop) */
+.ui-button--ghost.ui-button--destructive {
+  background: transparent;
+  color: var(--error-ink);
+}
+.ui-button--ghost.ui-button--destructive:hover:not(:disabled) {
+  background: var(--error-tint);
+}
+.ui-button--secondary.ui-button--destructive {
+  background: var(--surface);
+  color: var(--error-ink);
+  border-color: var(--error-ink);
+}
+.ui-button--secondary.ui-button--destructive:hover:not(:disabled) {
+  background: var(--error-tint);
+}
+
+/* ---------- States ---------- */
+.ui-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.ui-button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.ui-button:disabled {
+  cursor: not-allowed;
+}
+/* Disabled (not loading): dim to sunken; loading keeps its variant colors */
+.ui-button:disabled:not(.ui-button--loading) {
+  background: var(--surface-sunken);
+  color: var(--text-3);
+  border-color: var(--border);
+}
+
+.ui-button__reason {
+  font-size: var(--text-13);
+  font-weight: 500;
+  color: var(--text-2);
+  line-height: 1.2;
+}
+
+/* ---------- Loading: spinner replaces label, WIDTH LOCKED ---------- */
+.ui-button--loading .ui-button__label,
+.ui-button--loading .ui-button__reason {
+  visibility: hidden;
+}
+.ui-button__spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border-radius: var(--radius-pill);
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: spin 900ms linear infinite;
+}
+.ui-button--sm .ui-button__spinner {
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+}

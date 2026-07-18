@@ -1,0 +1,41 @@
+/* PresenceDot — solid green < 5 m / hollow amber 5–30 m / gray outline > 30 m,
+   always paired with a mono age. */
+
+.ui-presence {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ui-presence__dot {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  border-radius: var(--radius-pill);
+}
+
+/* Active (< 5 m): solid green, sanctioned dot-pulse loop (§9 #14). */
+.ui-presence--active .ui-presence__dot {
+  background: var(--success-ink);
+  animation: dot-pulse 2s var(--ease) infinite;
+}
+
+/* Idle (5–30 m): hollow amber. */
+.ui-presence--idle .ui-presence__dot {
+  background: transparent;
+  border: 2px solid var(--warning-ink);
+}
+
+/* Away (> 30 m): gray outline. */
+.ui-presence--away .ui-presence__dot {
+  background: transparent;
+  border: 1.5px solid var(--text-3);
+}
+
+.ui-presence__age {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--text-12);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+}

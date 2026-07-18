@@ -1,0 +1,23 @@
+/* Card — surface container; sunken-well variant. */
+
+.ui-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-1);
+  padding: var(--space-4);
+  transition: transform var(--motion-micro) var(--ease);
+}
+
+.ui-card--sunken {
+  background: var(--surface-sunken);
+  border-color: var(--border);
+  box-shadow: none;
+}
+
+/* Hover-lift: desktop pointer only. */
+@media (hover: hover) {
+  .ui-card:hover {
+    transform: translateY(-1px);
+  }
+}

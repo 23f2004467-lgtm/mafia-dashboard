@@ -1,0 +1,129 @@
+/* Toast — feedback capsule (§8, §9 #12). */
+
+.ui-toast {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--touch-min);
+  max-width: 420px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-2);
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(8px);
+  /* Exit easing (--ease); the open state overrides to the spring (§9 #12). */
+  transition: opacity var(--motion-sheet) var(--ease),
+    transform var(--motion-sheet) var(--ease);
+}
+
+.ui-toast--open {
+  opacity: 1;
+  transform: translateY(0);
+  transition-timing-function: var(--ease-spring);
+}
+
+.ui-toast--exit {
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+/* Tone accent: a left ink edge + glyph color (color never the only signal —
+   the glyph carries it too). */
+.ui-toast--success { border-left: 3px solid var(--success-ink); }
+.ui-toast--error   { border-left: 3px solid var(--error-ink); }
+.ui-toast--info    { border-left: 3px solid var(--border-strong); }
+.ui-toast--undo    { border-left: 3px solid var(--brand-text); }
+
+.ui-toast__glyph {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-14);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.ui-toast__glyph--success { color: var(--success-ink); background: var(--success-tint); }
+.ui-toast__glyph--error   { color: var(--error-ink);   background: var(--error-tint); }
+.ui-toast__glyph--info    { color: var(--text-2);      background: var(--surface-sunken); font-style: italic; }
+
+.ui-toast__message {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-14);
+  line-height: var(--leading-body);
+  color: var(--text-1);
+}
+
+/* ---------- Undo countdown ---------- */
+
+.ui-toast__ring-wrap {
+  flex: none;
+  display: inline-flex;
+}
+
+.ui-toast__ring {
+  transform: rotate(-90deg); /* countdown starts at 12 o'clock */
+}
+
+.ui-toast__ring-track {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 2.5;
+}
+
+.ui-toast__ring-fill {
+  fill: none;
+  stroke: var(--brand-text);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+}
+
+.ui-toast__seconds {
+  flex: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-13);
+  color: var(--text-2);
+  min-width: 3ch;
+  text-align: right;
+}
+
+.ui-toast__action {
+  flex: none;
+  min-height: var(--touch-min);
+  padding: 0 var(--space-3);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-input);
+  font-size: var(--text-14);
+  font-weight: 600;
+  color: var(--brand-text);
+  cursor: pointer;
+  transition: background-color var(--motion-micro) var(--ease),
+    transform var(--motion-micro) var(--ease);
+}
+
+.ui-toast__action:hover {
+  background: var(--brand-a12);
+}
+
+.ui-toast__action:active {
+  transform: scale(0.98);
+}
+
+.ui-toast__action:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.ui-toast__action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

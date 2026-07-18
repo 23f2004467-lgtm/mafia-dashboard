@@ -1,0 +1,36 @@
+/* Stamp — the verdict stamp (§11.5). Done screen only. */
+
+.ui-stamp {
+  display: inline-block;
+  max-width: 100%;
+  padding: var(--space-2) var(--space-4);
+  border: 2px solid currentColor;
+  border-radius: var(--radius-input);
+  font-family: var(--font-display);
+  font-weight: 400; /* Bakbak One's only weight */
+  font-size: var(--text-24);
+  line-height: var(--leading-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  text-align: center;
+  overflow-wrap: break-word;
+  /* Entrance: scale 1.06 → 1.0 (+fade), --ease-spring, once on mount. */
+  transform: rotate(-2deg) scale(1.06);
+  opacity: 0;
+  transition: transform var(--motion-sheet) var(--ease-spring),
+    opacity var(--motion-sheet) var(--ease-spring);
+}
+
+.ui-stamp.is-entered {
+  transform: rotate(-2deg) scale(1);
+  opacity: 1;
+}
+
+/* Selected stamps in green; Not-selected in ink. */
+.ui-stamp--selected {
+  color: var(--state-good-ink);
+}
+
+.ui-stamp--not_selected {
+  color: var(--state-no-ink);
+}

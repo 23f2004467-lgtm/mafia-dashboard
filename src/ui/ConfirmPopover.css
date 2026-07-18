@@ -1,0 +1,48 @@
+/* ConfirmPopover — anchored confirm popover (§8, §7.5). */
+
+.ui-confirm-popover {
+  /* Transparent click-catcher: outside click closes; no visible scrim. */
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: transparent;
+}
+
+.ui-confirm-popover__panel {
+  position: fixed;
+  width: 300px;
+  max-width: calc(100vw - var(--space-4));
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-2);
+  padding: var(--space-4);
+  outline: none;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity var(--motion-sheet) var(--ease),
+    transform var(--motion-sheet) var(--ease);
+}
+
+.ui-confirm-popover--open .ui-confirm-popover__panel {
+  opacity: 1;
+  transform: translateY(0);
+  transition-timing-function: var(--ease-spring);
+}
+
+.ui-confirm-popover__message {
+  font-size: var(--text-14);
+  line-height: var(--leading-body);
+  color: var(--text-1);
+  margin-bottom: var(--space-3);
+}
+
+.ui-confirm-popover--destructive .ui-confirm-popover__panel {
+  border-color: var(--error-ink);
+}
+
+.ui-confirm-popover__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}

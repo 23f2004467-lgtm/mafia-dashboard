@@ -1,0 +1,65 @@
+/* TableRow — admin 44px row. Tints are stacked opacity layers on the cells
+   (pseudo-elements on <tr> are unreliable), honoring the transform/opacity law. */
+
+.ui-table-row {
+  height: 44px;
+}
+
+.ui-table-row > td,
+.ui-table-row > th {
+  position: relative;
+  padding: 0 var(--space-3);
+  font-size: var(--text-14);
+  color: var(--text-1);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+/* hover/pressed sunken tint layer */
+.ui-table-row > td::before,
+.ui-table-row > th::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--surface-sunken);
+  opacity: 0;
+  transition: opacity var(--motion-micro) var(--ease);
+  pointer-events: none;
+}
+
+.ui-table-row--interactive {
+  cursor: pointer;
+}
+
+.ui-table-row--interactive:hover > td::before,
+.ui-table-row--interactive:hover > th::before,
+.ui-table-row--interactive:active > td::before,
+.ui-table-row--interactive:active > th::before,
+.ui-table-row--selected > td::before,
+.ui-table-row--selected > th::before {
+  opacity: 1;
+}
+
+.ui-table-row--interactive:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* flash-success overlay: 120ms in / 800ms out (§9 named exception) */
+.ui-table-row > td::after,
+.ui-table-row > th::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--success-tint);
+  opacity: 0;
+  transition: opacity 800ms var(--ease);
+  pointer-events: none;
+}
+
+.ui-table-row--flash > td::after,
+.ui-table-row--flash > th::after {
+  opacity: 1;
+  transition-duration: var(--motion-micro);
+}

@@ -1,0 +1,102 @@
+/* Banner — inline status/message strip. */
+
+.ui-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-card);
+  font-family: var(--font-ui);
+  /* font-size inherits: 16 px interviewer body, 14 px admin contexts */
+}
+
+.ui-banner__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.ui-banner__action {
+  flex-shrink: 0;
+}
+
+/* ---------- Tones ---------- */
+
+.ui-banner--info {
+  background: var(--brand-a12);
+  color: var(--brand-text);
+}
+
+.ui-banner--success {
+  background: var(--success-tint);
+  color: var(--success-ink);
+}
+
+.ui-banner--warning,
+.ui-banner--offline {
+  background: var(--warning-tint);
+  color: var(--warning-ink);
+}
+
+.ui-banner--error {
+  background: var(--error-tint);
+  color: var(--error-ink);
+}
+
+/* payment-status: the neutral "Waiting for payment" strip (§6.4) */
+.ui-banner--payment-status {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-strong);
+  color: var(--text-1);
+}
+
+/* ---------- Dismiss ---------- */
+
+.ui-banner__dismiss {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: currentColor;
+  font-size: var(--text-18);
+  line-height: 1;
+  opacity: 0.7;
+  cursor: pointer;
+  transition: opacity var(--motion-micro) var(--ease),
+    transform var(--motion-micro) var(--ease);
+}
+
+/* Invisible hit-area extension to the 44 px touch minimum (§10). */
+.ui-banner__dismiss::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  transform: translate(-50%, -50%);
+}
+
+.ui-banner__dismiss:hover {
+  opacity: 1;
+}
+
+.ui-banner__dismiss:active {
+  transform: scale(0.95);
+}
+
+.ui-banner__dismiss:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.ui-banner__dismiss:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

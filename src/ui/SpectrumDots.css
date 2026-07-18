@@ -1,0 +1,58 @@
+/* SpectrumDots — six-dot lockup row + loader (§2 #50, §9.4).
+   Loader loop: spectrum-seq, 1.2s cycle, per-dot 200ms delay (named loop). */
+
+.ui-spectrum-dots {
+  display: inline-flex;
+  align-items: center;
+}
+
+.ui-spectrum-dots--6  { gap: 6px; }
+.ui-spectrum-dots--8  { gap: 8px; }
+.ui-spectrum-dots--10 { gap: 10px; }
+
+.ui-spectrum-dots__dot {
+  flex: none;
+  border-radius: var(--radius-pill);
+}
+
+.ui-spectrum-dots--6 .ui-spectrum-dots__dot {
+  width: 6px;
+  height: 6px;
+}
+
+.ui-spectrum-dots--8 .ui-spectrum-dots__dot {
+  width: 8px;
+  height: 8px;
+}
+
+.ui-spectrum-dots--10 .ui-spectrum-dots__dot {
+  width: 10px;
+  height: 10px;
+}
+
+/* Canonical order red → violet (§2 #50) */
+.ui-spectrum-dots__dot--red    { background: var(--spectrum-red); }
+.ui-spectrum-dots__dot--orange { background: var(--spectrum-orange); }
+.ui-spectrum-dots__dot--amber  { background: var(--spectrum-amber); }
+.ui-spectrum-dots__dot--green  { background: var(--spectrum-green); }
+.ui-spectrum-dots__dot--blue   { background: var(--spectrum-blue); }
+.ui-spectrum-dots__dot--violet { background: var(--spectrum-violet); }
+
+/* §2 #50 dark-surface rule: violet dot renders --brand-400 on dark grounds */
+[data-theme="dark"] .ui-spectrum-dots__dot--violet {
+  background: var(--brand-400);
+}
+
+/* ---------- Loader form (§9.4 named loop) ---------- */
+
+.ui-spectrum-dots--loading .ui-spectrum-dots__dot {
+  opacity: 0.25;
+  animation: spectrum-seq 1.2s linear infinite;
+}
+
+.ui-spectrum-dots--loading .ui-spectrum-dots__dot:nth-child(1) { animation-delay: 0ms; }
+.ui-spectrum-dots--loading .ui-spectrum-dots__dot:nth-child(2) { animation-delay: 200ms; }
+.ui-spectrum-dots--loading .ui-spectrum-dots__dot:nth-child(3) { animation-delay: 400ms; }
+.ui-spectrum-dots--loading .ui-spectrum-dots__dot:nth-child(4) { animation-delay: 600ms; }
+.ui-spectrum-dots--loading .ui-spectrum-dots__dot:nth-child(5) { animation-delay: 800ms; }
+.ui-spectrum-dots--loading .ui-spectrum-dots__dot:nth-child(6) { animation-delay: 1000ms; }

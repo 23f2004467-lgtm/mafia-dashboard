@@ -1,0 +1,28 @@
+/* EmptyState — one title, one body, one CTA max, no illustration blobs. */
+
+.ui-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-8) var(--space-4);
+}
+
+.ui-empty-state__title {
+  font-family: var(--font-ui);
+  font-size: var(--text-18);
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.ui-empty-state__body {
+  margin-top: var(--space-2);
+  max-width: 40ch;
+  font-size: var(--text-14);
+  line-height: var(--leading-body);
+  color: var(--text-2);
+}
+
+.ui-empty-state__action {
+  margin-top: var(--space-4);
+}

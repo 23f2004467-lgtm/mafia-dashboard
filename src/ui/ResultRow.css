@@ -1,0 +1,102 @@
+/* ResultRow — 72px candidate search result, full-row button. */
+
+.ui-result-row {
+  position: relative;
+  width: 100%;
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  text-align: left;
+  cursor: pointer;
+}
+
+.ui-result-row__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.ui-result-row__name {
+  font-size: var(--text-18);
+  font-weight: 600;
+  color: var(--text-1);
+  line-height: var(--leading-display);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ui-result-row__regno {
+  font-family: var(--font-mono);
+  font-size: var(--text-14);
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.ui-result-row__chip,
+.ui-result-row__pill {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.ui-result-row__chevron {
+  flex: none;
+  color: var(--text-3);
+}
+
+/* ---------- States (opacity-layer tints only; §9 transform/opacity law) ---------- */
+
+/* hover sunken tint */
+.ui-result-row::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--surface-sunken);
+  opacity: 0;
+  transition: opacity var(--motion-micro) var(--ease);
+  pointer-events: none;
+}
+
+.ui-result-row:hover::before {
+  opacity: 1;
+}
+
+.ui-result-row:active {
+  transform: scale(0.99);
+}
+
+.ui-result-row:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.ui-result-row:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* flash-success overlay: 120ms in / 800ms out (§9 named exception) */
+.ui-result-row::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--success-tint);
+  opacity: 0;
+  transition: opacity 800ms var(--ease);
+  pointer-events: none;
+}
+
+.ui-result-row--flash::after {
+  opacity: 1;
+  transition-duration: var(--motion-micro);
+}

@@ -1,0 +1,138 @@
+/* TopBar — global chrome. Sticky chrome never animates (§9.1). */
+
+.ui-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.ui-topbar__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 48px;
+  padding: 0 var(--space-4);
+}
+
+.ui-topbar--admin .ui-topbar__row {
+  height: 56px;
+  gap: var(--space-3);
+}
+
+/* ---------- Spectrum hairline (§2 #50: admin topbar top border ONLY) ---------- */
+
+.ui-topbar__hairline {
+  display: flex;
+  height: 2px;
+}
+
+.ui-topbar__hairline-seg {
+  flex: 1;
+}
+
+.ui-topbar__hairline-seg--red    { background: var(--spectrum-red); }
+.ui-topbar__hairline-seg--orange { background: var(--spectrum-orange); }
+.ui-topbar__hairline-seg--amber  { background: var(--spectrum-amber); }
+.ui-topbar__hairline-seg--green  { background: var(--spectrum-green); }
+.ui-topbar__hairline-seg--blue   { background: var(--spectrum-blue); }
+.ui-topbar__hairline-seg--violet { background: var(--spectrum-violet); }
+
+/* §2 #50 dark-surface rule: canonical violet vanishes on the stage black. */
+[data-theme="dark"] .ui-topbar__hairline-seg--violet {
+  background: var(--brand-400);
+}
+
+/* ---------- Slots ---------- */
+
+.ui-topbar__left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.ui-topbar__center {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.ui-topbar__spacer {
+  flex: 1;
+}
+
+.ui-topbar__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+}
+
+.ui-topbar__ticket-slot {
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* ---------- Wordmark ---------- */
+
+.ui-topbar__wordmark {
+  font-family: var(--font-display);
+  font-size: var(--text-18);
+  font-weight: 400;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  line-height: var(--leading-display);
+  color: var(--text-1);
+  user-select: none;
+}
+
+/* ---------- Back button ---------- */
+
+.ui-topbar__back {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  margin-left: calc(-1 * var(--space-2));
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-input);
+  color: var(--text-1);
+  cursor: pointer;
+}
+
+.ui-topbar__back::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--surface-sunken);
+  opacity: 0;
+  transition: opacity var(--motion-micro) var(--ease);
+  pointer-events: none;
+}
+
+.ui-topbar__back:hover::before {
+  opacity: 1;
+}
+
+.ui-topbar__back:active {
+  transform: scale(0.96);
+}
+
+.ui-topbar__back:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.ui-topbar__back:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

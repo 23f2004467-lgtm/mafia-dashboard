@@ -1,0 +1,130 @@
+/* SearchField — §8. interviewer 56px / admin 40px (admin size is the §7.4
+   spec'd desktop exception to the 44px touch floor). Tokens only. */
+
+.ui-searchfield {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.ui-searchfield__input {
+  width: 100%;
+  font-family: var(--font-ui);
+  color: var(--text-1);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-input);
+}
+.ui-searchfield__input::placeholder {
+  color: var(--text-3);
+}
+/* kill the native WebKit clear control — the ✕ button replaces it */
+.ui-searchfield__input::-webkit-search-cancel-button,
+.ui-searchfield__input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* ---------- Sizes ---------- */
+.ui-searchfield--interviewer .ui-searchfield__input {
+  height: var(--touch-primary); /* 56px */
+  font-size: var(--text-16);
+  padding: 0 var(--touch-min) 0 var(--space-12);
+}
+.ui-searchfield--admin .ui-searchfield__input {
+  height: 40px;
+  font-size: var(--text-14);
+  padding: 0 var(--space-8) 0 var(--space-8);
+}
+
+/* ---------- Icon ---------- */
+.ui-searchfield__icon {
+  position: absolute;
+  left: var(--space-4);
+  width: 18px;
+  height: 18px;
+  color: var(--text-3);
+  pointer-events: none;
+}
+.ui-searchfield--admin .ui-searchfield__icon {
+  left: var(--space-2);
+  width: 16px;
+  height: 16px;
+}
+
+/* ---------- States ---------- */
+.ui-searchfield__input:hover:not(:disabled) {
+  border-color: var(--text-3);
+}
+.ui-searchfield__input:active:not(:disabled),
+.ui-searchfield__input:focus:not(:disabled) {
+  border-color: var(--brand-600);
+}
+.ui-searchfield__input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.ui-searchfield__input:disabled {
+  background: var(--surface-sunken);
+  color: var(--text-3);
+  border-color: var(--border);
+  cursor: not-allowed;
+}
+
+/* ---------- Clear ✕ ---------- */
+.ui-searchfield__clear {
+  position: absolute;
+  right: var(--space-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--touch-min);
+  height: var(--touch-min);
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-pill);
+  color: var(--text-2);
+  font-size: var(--text-20);
+  line-height: 1;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--motion-micro) var(--ease);
+}
+.ui-searchfield--admin .ui-searchfield__clear {
+  width: 28px;
+  height: 28px;
+  font-size: var(--text-16);
+}
+.ui-searchfield__clear:hover:not(:disabled) {
+  background: var(--surface-sunken);
+  color: var(--text-1);
+}
+.ui-searchfield__clear:active:not(:disabled) {
+  transform: scale(0.96);
+}
+.ui-searchfield__clear:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.ui-searchfield__clear:disabled {
+  color: var(--text-3);
+  cursor: not-allowed;
+}
+
+/* ---------- Inline spinner (loading) ---------- */
+.ui-searchfield__spinner {
+  position: absolute;
+  right: var(--space-3);
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-pill);
+  border: 2px solid var(--text-3);
+  border-top-color: transparent;
+  animation: spin 900ms linear infinite;
+}
+.ui-searchfield--admin .ui-searchfield__spinner {
+  right: var(--space-2);
+  width: 14px;
+  height: 14px;
+}

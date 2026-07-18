@@ -1,0 +1,88 @@
+/* Accordion — 44 px collapsed header; instant open with opacity fade
+   (grid 0fr/1fr WITHOUT transition — no height animation, no new keyframes). */
+
+.ui-accordion {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-input);
+  overflow: hidden;
+}
+
+.ui-accordion__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--touch-min);
+  padding: 0 var(--space-4);
+  background: transparent;
+  border: none;
+  color: var(--text-1);
+  font-family: var(--font-ui);
+  font-size: var(--text-16);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--motion-micro) var(--ease);
+}
+
+.ui-accordion__header:hover {
+  background: var(--surface-sunken);
+}
+
+.ui-accordion__header:active {
+  transform: scale(0.995);
+}
+
+.ui-accordion__header:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px; /* inset — the accordion clips overflow */
+}
+
+.ui-accordion__header:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.ui-accordion__chevron {
+  flex-shrink: 0;
+  color: var(--text-2);
+  transition: transform var(--motion-micro) var(--ease);
+}
+
+.is-open .ui-accordion__chevron {
+  transform: rotate(180deg);
+}
+
+/* ---------- Panel: instant show, opacity fade ---------- */
+
+.ui-accordion__panel {
+  display: grid;
+  grid-template-rows: 0fr; /* NOT transitioned — the snap is intentional */
+}
+
+.ui-accordion__panel-inner {
+  overflow: hidden;
+  min-height: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--motion-micro) var(--ease);
+}
+
+.is-open .ui-accordion__panel {
+  grid-template-rows: 1fr;
+}
+
+.is-open .ui-accordion__panel-inner {
+  opacity: 1;
+  visibility: visible;
+}
+
+.ui-accordion__content {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  font-size: var(--text-16);
+  line-height: var(--leading-body);
+  color: var(--text-1);
+}

@@ -1,0 +1,108 @@
+/* HoldButton — §8 / §9.13. Radial fill = inner circle span scaling 0 → 1
+   under overflow:hidden (a masked circle; transform-only, no keyframes).
+   Gesture timings 600/100/60 ms are §9 named exceptions to the motion tokens. */
+
+.ui-holdbutton {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: var(--touch-primary); /* 56px — money-touch primary */
+  padding: 0 var(--space-5);
+  border: 1px solid transparent;
+  border-radius: var(--radius-input);
+  font-family: var(--font-ui);
+  font-size: var(--text-16);
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition: transform 60ms var(--ease);
+}
+
+.ui-holdbutton__label {
+  position: relative;
+  z-index: 1;
+}
+
+/* The masked radial fill */
+.ui-holdbutton__fill {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 220%;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--radius-pill);
+  transform: translate(-50%, -50%) scale(0);
+  /* early release: 100 ms spring-back */
+  transition: transform 100ms var(--ease);
+}
+.ui-holdbutton--holding .ui-holdbutton__fill {
+  transform: translate(-50%, -50%) scale(1);
+  /* the 600 ms (holdMs) fill */
+  transition: transform var(--ui-hold-ms, 600ms) linear;
+}
+
+/* ---------- Variants ---------- */
+.ui-holdbutton--brand {
+  background: var(--brand-600);
+  color: var(--on-brand);
+}
+.ui-holdbutton--brand .ui-holdbutton__fill {
+  background: var(--brand-700);
+}
+[data-theme="dark"] .ui-holdbutton--brand {
+  border-color: var(--brand-400); /* §10 boundary rule on dark */
+}
+
+.ui-holdbutton--destructive {
+  background: var(--destructive);
+  color: var(--on-destructive);
+}
+.ui-holdbutton--destructive .ui-holdbutton__fill {
+  background: var(--error-ink);
+}
+
+/* ---------- States ---------- */
+.ui-holdbutton:hover:not(:disabled).ui-holdbutton--brand {
+  background: var(--brand-700);
+}
+.ui-holdbutton:hover:not(:disabled).ui-holdbutton--destructive {
+  background: var(--error-ink);
+}
+.ui-holdbutton:active:not(:disabled) {
+  transform: scale(0.99);
+}
+.ui-holdbutton:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+.ui-holdbutton:disabled {
+  cursor: not-allowed;
+  background: var(--surface-sunken);
+  color: var(--text-3);
+  border-color: var(--border);
+}
+.ui-holdbutton:disabled .ui-holdbutton__fill {
+  display: none;
+}
+
+/* ---------- Completion: 60 ms scale pulse + color flip ---------- */
+.ui-holdbutton--pulse {
+  transform: scale(1.03);
+}
+.ui-holdbutton--pulse,
+.ui-holdbutton--confirmed {
+  background: var(--success-ink);
+  color: var(--on-brand);
+  border-color: transparent;
+}
+.ui-holdbutton--pulse .ui-holdbutton__fill,
+.ui-holdbutton--confirmed .ui-holdbutton__fill {
+  opacity: 0;
+  transition: none;
+}

@@ -1,0 +1,104 @@
+/* DomainToggle — full-width 56 px verdict row (§6.3 Zone D). */
+
+.ui-domain-toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--touch-primary);
+  padding: 0 var(--space-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-input);
+  color: var(--text-1);
+  font-family: var(--font-ui);
+  font-size: var(--text-16);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--motion-micro) var(--ease);
+}
+
+/* Status tint as a stacked opacity layer (motion law: colors crossfade
+   via stacked opacity, never background transitions). */
+.ui-domain-toggle::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: var(--state-good-tint);
+  opacity: 0;
+  transition: opacity var(--motion-micro) var(--ease);
+}
+
+.ui-domain-toggle__label,
+.ui-domain-toggle__check {
+  position: relative;
+  z-index: 1;
+}
+
+.ui-domain-toggle__check {
+  opacity: 0;
+  font-weight: 600;
+  transition: opacity var(--motion-micro) var(--ease);
+}
+
+/* ---------- On: good tint + good ink + ✓ + 600 ---------- */
+
+.ui-domain-toggle.is-on {
+  color: var(--state-good-ink);
+  border-color: var(--state-good-ink);
+  font-weight: 600;
+}
+
+.ui-domain-toggle.is-on::before {
+  opacity: 1;
+}
+
+.ui-domain-toggle.is-on .ui-domain-toggle__check {
+  opacity: 1;
+}
+
+/* ---------- Negative ("Not selected"): ink OUTLINE treatment when on ---------- */
+
+.ui-domain-toggle--negative::before {
+  background: transparent;
+}
+
+.ui-domain-toggle--negative.is-on {
+  color: var(--state-no-ink);
+  border: 2px solid var(--state-no-ink);
+  background: transparent;
+}
+
+/* ---------- Interaction states ---------- */
+
+.ui-domain-toggle:hover {
+  border-color: var(--border-strong);
+}
+
+.ui-domain-toggle.is-on:hover {
+  border-color: var(--state-good-ink);
+}
+
+.ui-domain-toggle--negative.is-on:hover {
+  border-color: var(--state-no-ink);
+}
+
+.ui-domain-toggle:active {
+  transform: scale(0.99);
+}
+
+.ui-domain-toggle:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.ui-domain-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
