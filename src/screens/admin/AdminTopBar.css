@@ -125,6 +125,12 @@
   color: var(--error-ink);
 }
 
+/* §7.8: the Reset action is amber (reset-vs-annihilate must not read as
+   near-identical red, §2 #38). */
+.admin-menu__item--warn {
+  color: var(--warning-ink);
+}
+
 .admin-menu__item--sub {
   padding-left: var(--space-6);
 }

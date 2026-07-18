@@ -3,7 +3,7 @@
  * props and asserts nothing throws. Library-scoped (touches no app code).
  */
 import React, { createRef } from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import "@testing-library/jest-dom";
 
 import {
@@ -281,5 +281,68 @@ describe("src/ui smoke", () => {
 
   test("useFocusTrap is a hook function", () => {
     expect(typeof useFocusTrap).toBe("function");
+  });
+
+  // §2 #38 / §7.8: `busy` HOLDS the Dialog open — Esc, scrim click, and the
+  // ✕ button must all refuse to close while the async op runs (the old
+  // common/Modal closed instantly on confirm; this is the fix 5e ships).
+  test("Dialog busy holds open (Esc, scrim, close button all refused)", () => {
+    const onClose = jest.fn();
+    const { container } = render(
+      <Dialog open onClose={onClose} title="Force logout all" danger busy>
+        <p>working…</p>
+      </Dialog>
+    );
+
+    const panel = screen.getByRole("alertdialog");
+    expect(panel).toHaveAttribute("aria-busy", "true");
+
+    fireEvent.keyDown(panel, { key: "Escape" });
+    fireEvent.click(container.querySelector(".ui-dialog")); // scrim
+    const closeBtn = screen.getByRole("button", { name: "Close" });
+    expect(closeBtn).toBeDisabled();
+    fireEvent.click(closeBtn);
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  test("Dialog closes normally when not busy", () => {
+    const onClose = jest.fn();
+    render(
+      <Dialog open onClose={onClose} title="Reverse verification" danger>
+        <p>body</p>
+      </Dialog>
+    );
+    fireEvent.keyDown(screen.getByRole("alertdialog"), { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  // §7.8 typed confirm: the actions slot's confirmEnabled flag flips only
+  // on an exact word match, and the typed input disables while busy.
+  test("Dialog typedConfirm gates the actions slot until the word matches", () => {
+    render(
+      <Dialog
+        open
+        onClose={() => {}}
+        title="Reset interview data"
+        danger
+        typedConfirm={{ word: "RESET" }}
+        actions={({ confirmEnabled }) => (
+          <Button disabled={!confirmEnabled}>Reset interview data</Button>
+        )}
+      >
+        <p>Clears verdicts, payments, comments.</p>
+      </Dialog>
+    );
+
+    const confirm = screen.getByRole("button", { name: "Reset interview data" });
+    const input = screen.getByLabelText(/type/i);
+    expect(confirm).toBeDisabled();
+
+    fireEvent.change(input, { target: { value: "RESE" } });
+    expect(confirm).toBeDisabled();
+
+    fireEvent.change(input, { target: { value: "RESET" } });
+    expect(confirm).not.toBeDisabled();
   });
 });

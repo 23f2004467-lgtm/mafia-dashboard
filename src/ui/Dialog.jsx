@@ -9,7 +9,8 @@ import "./Dialog.css";
  * `danger` renders role="alertdialog" (§10) and error-ink title.
  * `busy` holds it open until the async op resolves (fixes the
  * Modal.jsx:290-293 auto-close bug). `typedConfirm={{ word }}` renders the
- * mono confirm input; pass children as a function to receive
+ * mono confirm input; pass children (body) and/or `actions` (footer,
+ * rendered BELOW the typed-confirm input) as a function to receive
  * `{ confirmEnabled }` for the confirm button's disabled state.
  */
 const EXIT_MS = 240;
@@ -21,6 +22,7 @@ export default function Dialog({
   danger = false,
   busy = false,
   typedConfirm = null,
+  actions = null,
   children,
   className,
 }) {
@@ -73,6 +75,8 @@ export default function Dialog({
   const confirmEnabled = typedConfirm ? typedValue === typedConfirm.word : true;
   const body =
     typeof children === "function" ? children({ confirmEnabled }) : children;
+  const footer =
+    typeof actions === "function" ? actions({ confirmEnabled }) : actions;
 
   const rootClasses = [
     "ui-dialog",
@@ -147,6 +151,7 @@ export default function Dialog({
             />
           </div>
         ) : null}
+        {footer ? <div className="ui-dialog__actions">{footer}</div> : null}
       </div>
     </div>
   );

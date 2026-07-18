@@ -111,6 +111,17 @@
   color: var(--text-1);
 }
 
+/* ---------- Footer actions (the `actions` slot — always BELOW the
+   typed-confirm input so the gate reads before the trigger) ---------- */
+
+.ui-dialog__actions {
+  flex: none;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
 /* ---------- Typed-confirm slot ---------- */
 
 .ui-dialog__typed {

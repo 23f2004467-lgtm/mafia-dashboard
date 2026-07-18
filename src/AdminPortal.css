@@ -41,3 +41,27 @@
     gap: var(--space-4);
   }
 }
+
+/* ---------- §7.8 danger zone — the amber Reset dialog ----------
+   Reset is destructive-but-recoverable-in-spirit (keeps all candidates):
+   it wears warning amber so it can never be confused with the red
+   Delete-ALL dialog (§2 #38 "near-identical red buttons die"). */
+
+.admin-dialog--warn .ui-dialog__panel {
+  border-color: var(--warning-ink);
+}
+
+.admin-dialog--warn .ui-dialog__title,
+.admin-dialog--warn .ui-dialog__typed-word {
+  color: var(--warning-ink);
+}
+
+/* Amber-filled confirm Button (scoped recolor of the destructive fill). */
+.ui-button.admin-btn--warn {
+  background: var(--warning-ink);
+  color: var(--bg);
+}
+
+.ui-button.admin-btn--warn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--warning-ink) 82%, var(--bg));
+}

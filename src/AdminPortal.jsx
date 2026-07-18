@@ -2,8 +2,7 @@ import React, { useCallback, useEffect, useRef, useState, useMemo } from "react"
 import { db } from "./firebaseConfig";
 import { FirebaseSecurity } from './security';
 import { SecureAdminAuth } from './secureAdminAuth';
-import { ConfirmDialog } from './components/common';
-import { ToastHost, toast } from './ui';
+import { Button, Dialog, ToastHost, toast } from './ui';
 import AdminLogin from './screens/admin/AdminLogin';
 import AdminTopBar from './screens/admin/AdminTopBar';
 import AdminStats from './screens/admin/AdminStats';
@@ -41,6 +40,11 @@ import { PerformanceMonitor } from './performanceOptimizations';
  * session, all off the ONE existing interviewers listener — landmine #13),
  * §7.7 live activity card (client-side over the candidates snapshot, no
  * new listeners), and the §2 #27 export scope popover + progress + toast.
+ * Phase 5e (last, landmine #8): §7.8 danger zone + every remaining confirm
+ * on the new Dialog (typed confirms RESET/DELETE, busy state HOLDS the
+ * dialog open until the async op resolves — the old Modal closed
+ * instantly on confirm); the last admin blocking alerts die into toasts;
+ * the old components/common + styles/theme.js are deleted.
  * All Firestore logic/writes/listeners live here; rendering moves to
  * src/ui/ + src/screens/admin/ presentational pieces.
  */
@@ -115,6 +119,11 @@ function AdminPortal() {
   const [filterPaid, setFilterPaid] = useState("all");
   const [isForceLogoutLoading, setIsForceLogoutLoading] = useState(false);
   const [isClearDataLoading, setIsClearDataLoading] = useState(false);
+  // §7.8: delete-all busy flag (presentation only — the new Dialog holds
+  // open on `busy` until the async op resolves, §2 #38).
+  const [isDeleteDataLoading, setIsDeleteDataLoading] = useState(false);
+  // §7.5: reverse-verification in flight (Dialog busy-hold).
+  const [isReversing, setIsReversing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   // §2 #27: export progress state (button spinner + re-entry guard).
   const [isExporting, setIsExporting] = useState(false);
@@ -149,7 +158,7 @@ function AdminPortal() {
   // §7.5 reverse verification: regNo pending the confirm dialog.
   const [reverseRegNo, setReverseRegNo] = useState(null);
 
-  // §7.1 inline login error (replaces the four login alert()s):
+  // §7.1 inline login error (replaces the four old login alerts):
   // null | { kind: 'missing'|'rate'|'lockout'|'failed', message?, remaining?, until? }
   const [loginError, setLoginError] = useState(null);
   const clearLoginError = useCallback(() => setLoginError(null), []);
@@ -273,11 +282,12 @@ function AdminPortal() {
         candidatesCleared: snapshot.docs.length
       });
 
-      alert(`Successfully cleared all interviewer data for ${snapshot.docs.length} candidates.`);
+      toast({ tone: 'success', message: `Reset interview data for ${snapshot.docs.length} candidates` });
       setShowClearDataModal(false);
     } catch (error) {
       console.error('Error clearing interviewer data:', error);
-      alert('Failed to clear interviewer data: ' + error.message);
+      // Dialog stays open (busy released) so the op can be retried.
+      toast({ tone: 'error', message: 'Failed to reset interview data: ' + error.message });
     } finally {
       setIsClearDataLoading(false);
     }
@@ -291,6 +301,7 @@ function AdminPortal() {
       const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
       await Promise.all(deletePromises);
       toast({ tone: 'success', message: `Ended ${snapshot.docs.length} interviewer ${snapshot.docs.length === 1 ? 'session' : 'sessions'}` });
+      setShowForceLogoutModal(false); // close AFTER the op resolves (§2 #38)
     } catch (error) {
       console.error("Error force logging out interviewers:", error);
       toast({ tone: 'error', message: "Error force logging out interviewers: " + error.message });
@@ -315,12 +326,14 @@ function AdminPortal() {
   };
 
   const clearAllCandidateData = async () => {
+    setIsDeleteDataLoading(true);
     try {
       const candidatesRef = collection(db, "candidates");
       const snapshot = await getDocs(candidatesRef);
 
       if (snapshot.empty) {
-        alert("No candidate data found to delete.");
+        toast({ message: "No candidate data found to delete." });
+        setShowDeleteDataModal(false);
         return;
       }
 
@@ -332,7 +345,7 @@ function AdminPortal() {
       const paymentDeletePromises = paymentSnapshot.docs.map(doc => deleteDoc(doc.ref));
       await Promise.all(paymentDeletePromises);
 
-      alert(`Successfully deleted ${snapshot.docs.length} candidate records and ${paymentSnapshot.docs.length} payment sessions.`);
+      toast({ tone: 'success', message: `Deleted ${snapshot.docs.length} candidate records and ${paymentSnapshot.docs.length} payment sessions` });
 
       FirebaseSecurity.auditLogger.logEvent('admin_cleared_all_data', {
         timestamp: new Date().toISOString(),
@@ -344,7 +357,10 @@ function AdminPortal() {
       setShowDeleteDataModal(false);
     } catch (error) {
       console.error("Error clearing candidate data:", error);
-      alert("Error clearing candidate data: " + error.message);
+      // Dialog stays open (busy released) so the op can be retried.
+      toast({ tone: 'error', message: "Error clearing candidate data: " + error.message });
+    } finally {
+      setIsDeleteDataLoading(false);
     }
   };
 
@@ -468,18 +484,25 @@ function AdminPortal() {
     }
   };
 
-  // Reverse verification (drawer destructive ghost → ConfirmDialog — the
-  // OLD ConfirmDialog until 5e, landmine #8).
+  // Reverse verification (§7.5): drawer destructive ghost → new Dialog,
+  // held open on `busy` until the revert write resolves (§2 #38).
   const confirmReverseVerification = async () => {
     const target = candidates.find((c) => c.regNo === reverseRegNo);
-    setReverseRegNo(null);
-    if (!target || !target.manuallyVerified) return;
+    if (!target || !target.manuallyVerified) {
+      setReverseRegNo(null);
+      return;
+    }
+    setIsReversing(true);
     try {
       await revertVerification(target.regNo);
       toast({ tone: 'success', message: `Verification reversed · ${target.name}` });
+      setReverseRegNo(null);
     } catch (error) {
       console.error('Error reversing verification:', error);
+      // Dialog stays open (busy released) so the op can be retried.
       toast({ tone: 'error', message: 'Failed to reverse verification: ' + error.message });
+    } finally {
+      setIsReversing(false);
     }
   };
 
@@ -752,9 +775,7 @@ function AdminPortal() {
         totalCount={total}
         filteredCount={filteredCandidates.length}
         onForceLogout={() => setShowForceLogoutModal(true)}
-        forceLogoutBusy={isForceLogoutLoading}
         onDangerReset={() => setShowClearDataModal(true)}
-        dangerResetBusy={isClearDataLoading}
         onDangerDelete={() => setShowDeleteDataModal(true)}
         onSignOut={handleLogout}
         userEmail={email}
@@ -822,49 +843,150 @@ function AdminPortal() {
         formatWhen={(stamp) => formatRelativeTime(toDate(stamp))}
       />
 
-      {/* §7.5 reverse verification — old ConfirmDialog until 5e (landmine #8) */}
-      <ConfirmDialog
-        isOpen={reverseRegNo != null}
+      {/* §7.5 reverse verification — new Dialog, busy-held (§2 #38) */}
+      <Dialog
+        open={reverseRegNo != null}
         onClose={() => setReverseRegNo(null)}
-        onConfirm={confirmReverseVerification}
-        title="Reverse Verification"
-        message={`This will mark ${reverseCandidate ? reverseCandidate.name : 'this candidate'}'s payment as unverified again (clears verified-by and verified-at). The payment claim itself is kept.`}
-        confirmText="Reverse"
-        variant="danger"
-      />
+        title="Reverse verification"
+        danger
+        busy={isReversing}
+        actions={
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={isReversing}
+              onClick={() => setReverseRegNo(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              loading={isReversing}
+              onClick={confirmReverseVerification}
+            >
+              Reverse
+            </Button>
+          </>
+        }
+      >
+        <p>
+          Mark {reverseCandidate ? reverseCandidate.name : 'this candidate'}
+          &#8217;s payment as unverified again (clears verified-by and
+          verified-at). The payment claim itself is kept.
+        </p>
+      </Dialog>
 
-      {/* Confirmation modals — old ConfirmDialog survives until 5e (landmine #8) */}
-      <ConfirmDialog
-        isOpen={showClearDataModal}
+      {/* §7.8 danger zone — amber Reset (type RESET), busy holds open */}
+      <Dialog
+        open={showClearDataModal}
         onClose={() => setShowClearDataModal(false)}
-        onConfirm={clearAllInterviewerData}
-        title="Clear All Interviewer Data"
-        message="This will reset all candidates to their original state. All interview verdicts, payment confirmations, and comments will be permanently removed."
-        confirmText="Clear Data"
-        variant="danger"
-      />
+        title="Reset interview data"
+        danger
+        busy={isClearDataLoading}
+        className="admin-dialog--warn"
+        typedConfirm={{ word: 'RESET' }}
+        actions={({ confirmEnabled }) => (
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={isClearDataLoading}
+              onClick={() => setShowClearDataModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              className="admin-btn--warn"
+              disabled={!confirmEnabled}
+              loading={isClearDataLoading}
+              onClick={clearAllInterviewerData}
+            >
+              Reset interview data
+            </Button>
+          </>
+        )}
+      >
+        <p>
+          Clears all verdicts, payment confirmations, and comments.
+          All candidate records are kept.
+        </p>
+      </Dialog>
 
-      <ConfirmDialog
-        isOpen={showDeleteDataModal}
+      {/* §7.8 danger zone — red Delete ALL (type DELETE), busy holds open */}
+      <Dialog
+        open={showDeleteDataModal}
         onClose={() => setShowDeleteDataModal(false)}
-        onConfirm={clearAllCandidateData}
-        title="Delete All Candidate Data"
-        message="This will PERMANENTLY delete ALL candidate records from the database. This action cannot be undone."
-        confirmText="Delete All"
-        variant="danger"
-      />
+        title="Delete ALL candidate data"
+        danger
+        busy={isDeleteDataLoading}
+        typedConfirm={{ word: 'DELETE' }}
+        actions={({ confirmEnabled }) => (
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={isDeleteDataLoading}
+              onClick={() => setShowDeleteDataModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={!confirmEnabled}
+              loading={isDeleteDataLoading}
+              onClick={clearAllCandidateData}
+            >
+              Delete ALL data
+            </Button>
+          </>
+        )}
+      >
+        <p>
+          Permanently deletes every candidate record and payment session
+          from the database. This cannot be undone.
+        </p>
+      </Dialog>
 
       {/* §7.6 / §2 #38: plain confirm (recoverable — no typed confirm),
-          stating the count; old ConfirmDialog until 5e (landmine #8) */}
-      <ConfirmDialog
-        isOpen={showForceLogoutModal}
+          stating the count; busy holds open until the deletes resolve */}
+      <Dialog
+        open={showForceLogoutModal}
         onClose={() => setShowForceLogoutModal(false)}
-        onConfirm={forceLogoutAllInterviewers}
         title="Force logout all"
-        message={`End all ${interviewers.length} interviewer sessions? Interviewers will need to sign in again.`}
-        confirmText="End sessions"
-        variant="danger"
-      />
+        danger
+        busy={isForceLogoutLoading}
+        actions={
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={isForceLogoutLoading}
+              onClick={() => setShowForceLogoutModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              loading={isForceLogoutLoading}
+              onClick={forceLogoutAllInterviewers}
+            >
+              End sessions
+            </Button>
+          </>
+        }
+      >
+        <p>
+          End all {interviewers.length} interviewer{' '}
+          {interviewers.length === 1 ? 'session' : 'sessions'}? Interviewers
+          will need to sign in again.
+        </p>
+      </Dialog>
 
       <ToastHost position="bottom-right" />
     </div>

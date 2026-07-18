@@ -13,9 +13,9 @@ import "./AdminTopBar.css";
  * - Export Button (§2 #27): no filters active → onExport("all") directly;
  *   filters active → scope popover "Export {M} filtered" / "Export all {N}".
  *   `exportBusy` shows the width-locked progress spinner on the button.
- * - overflow "⋯" menu: Force logout all… · Danger zone… · Sign out
- *   (the destructive items stub to the EXISTING ConfirmDialog flows
- *   until 5e)
+ * - overflow "⋯" menu: Force logout all… · Danger zone… (§7.8: amber
+ *   Reset / red Delete, each opening its typed-confirm Dialog in
+ *   AdminPortal.jsx) · Sign out
  * - user chip: Avatar initials + email
  */
 export default function AdminTopBar({
@@ -26,9 +26,7 @@ export default function AdminTopBar({
   totalCount = 0,
   filteredCount = 0,
   onForceLogout,
-  forceLogoutBusy = false,
   onDangerReset,
-  dangerResetBusy = false,
   onDangerDelete,
   onSignOut,
   userEmail,
@@ -198,10 +196,9 @@ export default function AdminTopBar({
                   type="button"
                   role="menuitem"
                   className="admin-menu__item admin-menu__item--destructive"
-                  disabled={forceLogoutBusy}
                   onClick={pick(onForceLogout)}
                 >
-                  {forceLogoutBusy ? "Force logout all… (working)" : "Force logout all…"}
+                  Force logout all…
                 </button>
                 <button
                   type="button"
@@ -217,13 +214,10 @@ export default function AdminTopBar({
                     <button
                       type="button"
                       role="menuitem"
-                      className="admin-menu__item admin-menu__item--destructive admin-menu__item--sub"
-                      disabled={dangerResetBusy}
+                      className="admin-menu__item admin-menu__item--warn admin-menu__item--sub"
                       onClick={pick(onDangerReset)}
                     >
-                      {dangerResetBusy
-                        ? "Reset interview data… (working)"
-                        : "Reset interview data…"}
+                      Reset interview data…
                     </button>
                     <button
                       type="button"
