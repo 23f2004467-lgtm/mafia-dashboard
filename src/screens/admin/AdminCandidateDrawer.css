@@ -1,0 +1,177 @@
+/* AdminCandidateDrawer (§7.5) — the heart. Tokens only, dark-theme via
+   the admin root's data-theme="dark". */
+
+/* The compact Ticket IS the drawer header (§7.5): let it own the h2 slot. */
+.acd-drawer .ui-drawer__title {
+  flex: 1;
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.acd {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding-top: var(--space-2);
+}
+
+/* ---------- Section micro-labels (§4: 12px caps 600) ---------- */
+
+.acd__label {
+  margin-bottom: var(--space-2);
+  font-size: var(--text-12);
+  font-weight: 600;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.acd__sublabel {
+  display: block;
+  font-size: var(--text-12);
+  font-weight: 600;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.acd__muted {
+  color: var(--text-3);
+}
+
+.acd__mono {
+  font-family: var(--font-mono);
+}
+
+/* ---------- Identity / payment definition list (sunken well) ---------- */
+
+.acd__dl {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-input);
+}
+
+.acd__dl dt {
+  font-size: var(--text-13);
+  color: var(--text-3);
+}
+
+.acd__dl dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-1);
+}
+
+/* ---------- Preferences / verdicts ---------- */
+
+.acd__pref-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.acd__pref-row + .acd__pref-row {
+  margin-top: var(--space-3);
+}
+
+.acd__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Verdict domain tag — same good-tint language as the table's verdict pill */
+.acd__verdict-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-13);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--state-good-ink);
+  background: var(--state-good-tint);
+}
+
+/* ---------- Comments ---------- */
+
+.acd__comments {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--text-1);
+}
+
+/* ---------- Payment block ---------- */
+
+.acd__payment-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+/* Amber "manual" tag (§5: amber marks manual-payment tags in admin) */
+.acd__manual-tag {
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-12);
+  font-weight: 600;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--state-claim-ink);
+  background: var(--state-claim-tint);
+}
+
+/* Mono wells (§11.1: mono in a well = check this exactly) */
+.acd__wells {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.acd__well-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.acd__well {
+  padding: var(--space-2) var(--space-3);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-input);
+  font-family: var(--font-mono);
+  font-size: var(--text-14);
+  color: var(--text-1);
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.acd__verified-line {
+  margin-top: var(--space-3);
+  font-size: var(--text-13);
+  color: var(--success-ink);
+}
+
+/* ---------- Actions (next to the evidence) ---------- */
+
+.acd__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.acd__verify-anchor {
+  display: block;
+}
+
+/* ---------- Updated ---------- */
+
+.acd__updated {
+  font-size: var(--text-13);
+  color: var(--text-2);
+}

@@ -8,6 +8,7 @@
 .ui-table-row > td,
 .ui-table-row > th {
   position: relative;
+  z-index: 0; /* stacking context so the tint layers paint UNDER content */
   padding: 0 var(--space-3);
   font-size: var(--text-14);
   color: var(--text-1);
@@ -22,6 +23,7 @@
   content: "";
   position: absolute;
   inset: 0;
+  z-index: -1; /* behind the cell's text (was blanking hovered/selected rows) */
   background: var(--surface-sunken);
   opacity: 0;
   transition: opacity var(--motion-micro) var(--ease);
@@ -52,6 +54,7 @@
   content: "";
   position: absolute;
   inset: 0;
+  z-index: -1; /* behind the cell's text, same as the hover tint */
   background: var(--success-tint);
   opacity: 0;
   transition: opacity 800ms var(--ease);

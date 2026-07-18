@@ -8,6 +8,8 @@ import AdminLogin from './screens/admin/AdminLogin';
 import AdminTopBar from './screens/admin/AdminTopBar';
 import AdminStats from './screens/admin/AdminStats';
 import AdminCandidatesTable from './screens/admin/AdminCandidatesTable';
+import AdminCandidateDrawer from './screens/admin/AdminCandidateDrawer';
+import { canUndo } from './undoGuard';
 import './AdminPortal.css';
 import {
   collection,
@@ -17,6 +19,7 @@ import {
   doc,
   setDoc,
   deleteDoc,
+  getDoc,
   getDocs,
   limit
 } from "firebase/firestore";
@@ -33,8 +36,12 @@ import {
  * MAFIA Recruitment Admin Portal — House Lights dark stage (§7).
  * Phase 5a: dark shell + §7.1 login + §7.2 topbar. Phase 5b: §7.3 stat
  * strip + §7.4 candidates table (funnel card and duplicate Export
- * deleted, §2 #25/#27). All Firestore logic/writes/listeners live here;
- * rendering moves to src/ui/ + src/screens/admin/ presentational pieces.
+ * deleted, §2 #25/#27). Phase 5c: §7.5 candidate drawer — row click opens
+ * the full record; verify moves next to the evidence (confirm popover →
+ * existing write → Undo toast) and the §2 #26 reverse/undo-verify revert
+ * (the ONE sanctioned net-new admin mutation) lands here.
+ * All Firestore logic/writes/listeners live here; rendering moves to
+ * src/ui/ + src/screens/admin/ presentational pieces.
  * The interviewers card stays Vault-styled until its §7.6 sub-step.
  */
 
@@ -128,6 +135,15 @@ function AdminPortal() {
   const [showClearDataModal, setShowClearDataModal] = useState(false);
   const [showDeleteDataModal, setShowDeleteDataModal] = useState(false);
   const [showForceLogoutModal, setShowForceLogoutModal] = useState(false);
+
+  // §7.5 drawer: regNo of the open candidate (kept through the exit
+  // animation) + open flag. The candidate object itself is derived LIVE
+  // from the candidates snapshot so drawer contents track echoes.
+  const [drawerRegNo, setDrawerRegNo] = useState(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // §7.5 reverse verification: regNo pending the confirm dialog.
+  const [reverseRegNo, setReverseRegNo] = useState(null);
 
   // §7.1 inline login error (replaces the four login alert()s):
   // null | { kind: 'missing'|'rate'|'lockout'|'failed', message?, remaining?, until? }
@@ -313,32 +329,138 @@ function AdminPortal() {
     }
   };
 
+  // The EXISTING verify write (§7.5). Presentation-layer changes only: the
+  // timestamp is hoisted to ONE const used by both fields it always stamped
+  // (verifiedAt / lastUpdatedAt — identical values, same write call), so
+  // the returned `writtenMeta` lets the Undo stale-check (§2 #12) compare
+  // against exactly what this write stamped. Returns the captured undo
+  // context on success, null on failure.
   const manuallyVerifyPayment = async (candidate) => {
-    if (!candidate.paid || candidate.manuallyVerified) return;
+    if (!candidate.paid || candidate.manuallyVerified) return null;
 
     try {
+      const nowIso = new Date().toISOString();
       const candidateRef = doc(db, 'candidates', candidate.regNo);
       await setDoc(candidateRef, {
         manuallyVerified: true,
         manualVerificationDetails: {
           verifiedBy: 'Admin',
-          verifiedAt: new Date().toISOString(),
+          verifiedAt: nowIso,
           paymentAmount: candidate.paymentDetails?.amount || 300,
           paymentMethod: candidate.paymentDetails?.method || 'Manual Verification'
         },
         lastUpdatedBy: 'Admin',
-        lastUpdatedAt: new Date().toISOString()
+        lastUpdatedAt: nowIso
       }, { merge: true });
 
       setCandidates(prev => prev.map(c =>
         c.regNo === candidate.regNo
-          ? { ...c, manuallyVerified: true, manualVerificationDetails: { verifiedBy: 'Admin', verifiedAt: new Date().toISOString() } }
+          ? {
+              ...c,
+              manuallyVerified: true,
+              manualVerificationDetails: { verifiedBy: 'Admin', verifiedAt: nowIso },
+              lastUpdatedBy: 'Admin',
+              lastUpdatedAt: nowIso
+            }
           : c
       ));
       flashRow(candidate.regNo); // §7.4 optimistic green row flash
+      return {
+        regNo: candidate.regNo,
+        name: candidate.name,
+        writtenMeta: { lastUpdatedAt: nowIso, lastUpdatedBy: 'Admin' }
+      };
     } catch (error) {
       console.error('Error manually verifying payment:', error);
       toast({ tone: 'error', message: 'Failed to manually verify payment: ' + error.message });
+      return null;
+    }
+  };
+
+  // §2 #26 — the ONE sanctioned net-new admin mutation, written ONCE and
+  // reused by both Reverse verification and the verify-toast Undo:
+  // manuallyVerified:false + clear verifiedBy/verifiedAt (they live inside
+  // manualVerificationDetails) via the existing update path (same doc ref,
+  // same merge-setDoc shape, same meta stamping the verify write uses).
+  const revertVerification = async (regNo) => {
+    const nowIso = new Date().toISOString();
+    const candidateRef = doc(db, 'candidates', regNo);
+    await setDoc(candidateRef, {
+      manuallyVerified: false,
+      manualVerificationDetails: null,
+      lastUpdatedBy: 'Admin',
+      lastUpdatedAt: nowIso
+    }, { merge: true });
+
+    setCandidates(prev => prev.map(c =>
+      c.regNo === regNo
+        ? {
+            ...c,
+            manuallyVerified: false,
+            manualVerificationDetails: null,
+            lastUpdatedBy: 'Admin',
+            lastUpdatedAt: nowIso
+          }
+        : c
+    ));
+    flashRow(regNo);
+  };
+
+  // Verify confirmed in the drawer popover: existing write → optimistic
+  // flash → Toast with Undo (10 s). Resolves true so the popover closes.
+  const handleVerifyConfirmed = async (candidate) => {
+    const captured = await manuallyVerifyPayment(candidate);
+    if (!captured) return false;
+    toast({
+      message: `Verified · ${captured.name}`,
+      undo: { label: 'Undo', ms: 10000, onUndo: () => undoVerification(captured) }
+    });
+    return true;
+  };
+
+  // Undo = the same revert, guarded by the §2 #12 stale-check (fresh read →
+  // canUndo over lastUpdatedAt/lastUpdatedBy → write; no transaction).
+  const undoVerification = async (captured) => {
+    try {
+      const ref = doc(db, 'candidates', captured.regNo);
+      const freshSnap = await getDoc(ref);
+      const freshData = freshSnap.exists() ? freshSnap.data() : null;
+      const freshMeta = freshData
+        ? {
+            lastUpdatedAt: freshData.lastUpdatedAt,
+            lastUpdatedBy: freshData.lastUpdatedBy,
+          }
+        : null;
+
+      if (!canUndo(captured.writtenMeta, freshMeta)) {
+        const who = (freshMeta && freshMeta.lastUpdatedBy) || 'another user';
+        toast({
+          tone: 'error',
+          message: `Changed by ${who} just now — not undone.`,
+        });
+        return;
+      }
+
+      await revertVerification(captured.regNo);
+      toast({ tone: 'success', message: `Verification undone · ${captured.name}` });
+    } catch (error) {
+      console.error('Error undoing verification:', error);
+      toast({ tone: 'error', message: 'Undo failed: ' + error.message });
+    }
+  };
+
+  // Reverse verification (drawer destructive ghost → ConfirmDialog — the
+  // OLD ConfirmDialog until 5e, landmine #8).
+  const confirmReverseVerification = async () => {
+    const target = candidates.find((c) => c.regNo === reverseRegNo);
+    setReverseRegNo(null);
+    if (!target || !target.manuallyVerified) return;
+    try {
+      await revertVerification(target.regNo);
+      toast({ tone: 'success', message: `Verification reversed · ${target.name}` });
+    } catch (error) {
+      console.error('Error reversing verification:', error);
+      toast({ tone: 'error', message: 'Failed to reverse verification: ' + error.message });
     }
   };
 
@@ -475,6 +597,40 @@ function AdminPortal() {
     }
   }, []);
 
+  // ---------- §7.5 drawer wiring ----------
+  const drawerCandidate = useMemo(
+    () =>
+      drawerRegNo
+        ? candidates.find((c) => c.regNo === drawerRegNo) || null
+        : null,
+    [candidates, drawerRegNo]
+  );
+
+  const openDrawer = useCallback((candidate) => {
+    setDrawerRegNo(candidate.regNo);
+    setDrawerOpen(true);
+  }, []);
+
+  // Keep drawerRegNo through the exit animation (the Drawer needs the
+  // candidate to render while translating out); focus restore to the row
+  // is the focus trap's job.
+  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+
+  // If the open candidate vanishes from the snapshot (deleted), close.
+  useEffect(() => {
+    if (drawerOpen && drawerRegNo && candidatesReady && !drawerCandidate) {
+      setDrawerOpen(false);
+    }
+  }, [drawerOpen, drawerRegNo, candidatesReady, drawerCandidate]);
+
+  const reverseCandidate = useMemo(
+    () =>
+      reverseRegNo
+        ? candidates.find((c) => c.regNo === reverseRegNo) || null
+        : null,
+    [candidates, reverseRegNo]
+  );
+
   // ---------- Login screen (§7.1) ----------
   if (!authenticated) {
     return (
@@ -536,7 +692,8 @@ function AdminPortal() {
             setFilterPaid("all");
           }}
           flashRegNo={flashRegNo}
-          onVerify={manuallyVerifyPayment}
+          onOpenRow={openDrawer}
+          selectedRegNo={drawerOpen ? drawerRegNo : null}
           scrollRef={tableCardRef}
           filterKey={`${search}|${filterPaid}`}
           formatWhen={(stamp) => formatRelativeTime(toDate(stamp))}
@@ -585,6 +742,27 @@ function AdminPortal() {
           </div>
         </VaultCard>
       </main>
+
+      {/* §7.5 candidate drawer — verify next to the evidence + reverse */}
+      <AdminCandidateDrawer
+        open={drawerOpen}
+        candidate={drawerCandidate}
+        onClose={closeDrawer}
+        onVerify={handleVerifyConfirmed}
+        onReverse={(candidate) => setReverseRegNo(candidate.regNo)}
+        formatWhen={(stamp) => formatRelativeTime(toDate(stamp))}
+      />
+
+      {/* §7.5 reverse verification — old ConfirmDialog until 5e (landmine #8) */}
+      <ConfirmDialog
+        isOpen={reverseRegNo != null}
+        onClose={() => setReverseRegNo(null)}
+        onConfirm={confirmReverseVerification}
+        title="Reverse Verification"
+        message={`This will mark ${reverseCandidate ? reverseCandidate.name : 'this candidate'}'s payment as unverified again (clears verified-by and verified-at). The payment claim itself is kept.`}
+        confirmText="Reverse"
+        variant="danger"
+      />
 
       {/* Confirmation modals — old ConfirmDialog survives until 5e (landmine #8) */}
       <ConfirmDialog

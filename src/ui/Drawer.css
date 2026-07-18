@@ -36,7 +36,11 @@
 }
 
 .ui-drawer--open .ui-drawer__panel {
-  transform: translateX(0);
+  /* `none`, not translateX(0): ANY transform makes the panel the containing
+     block for position:fixed descendants, which threw the §7.5 verify
+     ConfirmPopover off-screen. Transitions interpolate none ↔ translateX
+     as identity, so enter/exit motion is unchanged. */
+  transform: none;
   transition-timing-function: var(--ease-spring);
 }
 

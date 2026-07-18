@@ -26,9 +26,9 @@ import "./AdminCandidatesTable.css";
  *   your filters" only after the first snapshot; empty-filter state offers
  *   "Clear filters".
  * - `flashRegNo` drives the TableRow success flash (120 ms in / 800 ms out).
- * - Interim (dies in the drawer sub-step): a per-row Verify button keeps the
- *   existing verify write reachable until §7.5's drawer + confirm popover
- *   replace it; the chevron is a static affordance until rows open the drawer.
+ * - Rows open the §7.5 drawer: click / Enter / Space via TableRow `onOpen`
+ *   (`onOpenRow(candidate)`); `selectedRegNo` marks the open row. Verify
+ *   lives in the drawer's confirm popover now — no in-row writes.
  */
 
 const FILTERS = [
@@ -74,7 +74,8 @@ export default function AdminCandidatesTable({
   counts,
   onClearFilters,
   flashRegNo,
-  onVerify,
+  onOpenRow,
+  selectedRegNo,
   scrollRef,
   filterKey,
   formatWhen,
@@ -129,7 +130,13 @@ export default function AdminCandidatesTable({
     body = rows.slice(0, visible).map((c, i) => {
       const domains = verdictDomains(c);
       return (
-        <TableRow key={c.regNo || i} flash={c.regNo === flashRegNo}>
+        <TableRow
+          key={c.regNo || i}
+          flash={c.regNo === flashRegNo}
+          selected={c.regNo === selectedRegNo}
+          onOpen={() => onOpenRow(c)}
+          openLabel={`Open ${c.name || c.regNo}`}
+        >
           <td className="admin-table__regno">{formatRegNo(c.regNo)}</td>
           <td className="admin-table__name">{c.name}</td>
           <td className="admin-table__year">{c.year || "—"}</td>
@@ -165,15 +172,6 @@ export default function AdminCandidatesTable({
             )}
           </td>
           <td className="admin-table__actions">
-            {c.paid && !c.manuallyVerified ? (
-              <button
-                type="button"
-                className="admin-table__verify"
-                onClick={() => onVerify(c)}
-              >
-                Verify
-              </button>
-            ) : null}
             <span className="admin-table__chevron" aria-hidden="true">
               ›
             </span>

@@ -120,31 +120,10 @@
   vertical-align: middle;
 }
 
-/* ---------- Row actions (interim verify + chevron) ---------- */
+/* ---------- Row chevron (rows open the §7.5 drawer) ---------- */
 
 .admin-table__actions {
   text-align: right;
-}
-
-.admin-table__verify {
-  padding: 0 var(--space-3);
-  height: 32px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-input);
-  background: transparent;
-  color: var(--brand-text);
-  font-size: var(--text-13);
-  font-weight: 600;
-  cursor: pointer;
-  transition: transform var(--motion-micro) var(--ease);
-}
-
-.admin-table__verify:hover {
-  border-color: var(--brand-400);
-}
-
-.admin-table__verify:active {
-  transform: scale(0.98);
 }
 
 .admin-table__chevron {
@@ -152,6 +131,12 @@
   color: var(--text-3);
   opacity: 0.6;
   font-size: var(--text-16);
+  transition: opacity var(--motion-micro) var(--ease);
+}
+
+.ui-table-row--interactive:hover .admin-table__chevron,
+.ui-table-row--selected .admin-table__chevron {
+  opacity: 1;
 }
 
 /* ---------- Loading skeleton rows ---------- */
