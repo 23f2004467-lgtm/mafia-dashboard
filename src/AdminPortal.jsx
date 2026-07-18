@@ -15,6 +15,7 @@ import {
   limit
 } from "firebase/firestore";
 import * as ExcelJS from "exceljs";
+import { buildExportRows } from "./exportRows";
 import { DataCache, PerformanceMonitor } from './performanceOptimizations';
 import {
   VaultTokens as T,
@@ -250,29 +251,11 @@ function AdminPortal() {
       return matchesSearch && matchesPaid;
     });
 
-    const formattedData = filteredCandidates.map((cand) => ({
-      Name: cand.name || "",
-      RegNo: cand.regNo || "",
-      Year: cand.year || "",
-      College: cand.college || "",
-      Branch: cand.branch || "",
-      WhatsApp: cand.whatsappNumber || "",
-      Paid: cand.paid ? "Yes" : "No",
-      ManuallyVerified: cand.manuallyVerified ? "Yes" : "No",
-      PaymentAmount: cand.paymentDetails?.amount || "",
-      PaymentMethod: cand.paymentDetails?.method || "",
-      TalentCommPrefs: `${cand.preferences?.talentComm?.pref1 || ""}${cand.preferences?.talentComm?.pref2 ? `, ${cand.preferences.talentComm.pref2}` : ""}`,
-      WorkCommPrefs: `${cand.preferences?.workComm?.pref1 || ""}${cand.preferences?.workComm?.pref2 ? `, ${cand.preferences.workComm.pref2}` : ""}${cand.preferences?.workComm?.pref3 ? `, ${cand.preferences.workComm.pref3}` : ""}`,
-      TalentCommVerdict: Array.isArray(cand.verdict?.talentComm) ? cand.verdict.talentComm.join(", ") : "",
-      WorkCommVerdict: Array.isArray(cand.verdict?.workComm) ? cand.verdict.workComm.join(", ") : "",
-      Comments: cand.comments || "",
-      LastUpdatedBy: cand.lastUpdatedBy || "",
-    }));
+    const rows = buildExportRows(filteredCandidates);
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Candidates");
-    worksheet.addRow(Object.keys(formattedData[0] || {}));
-    formattedData.forEach(row => worksheet.addRow(Object.values(row)));
+    rows.forEach(row => worksheet.addRow(row));
 
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });

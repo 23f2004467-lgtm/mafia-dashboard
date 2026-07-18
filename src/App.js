@@ -15,6 +15,7 @@ import {
 } from "firebase/firestore";
 import QRCode from 'react-qr-code';
 import { FirebaseSecurity } from './security';
+import { buildCandidatePayload } from './candidatePayload';
 import { 
   debounce, 
   throttle, 
@@ -24,7 +25,6 @@ import {
   MemoryManager,
   AdvancedRateLimiter 
 } from './performanceOptimizations';
-import PerformanceDashboard from './PerformanceDashboard';
 
 // UPI config - using Bhuta's and Dheera's UPI IDs
 // TODO: might need to add more UPI IDs later if we get more payment handlers
@@ -962,22 +962,12 @@ function App() {
         return;
       }
 
-      // Sanitize data before saving
-      const sanitizedData = {
-        ...formData,
-        name: FirebaseSecurity.validator.sanitizeInput(formData.name),
-        regNo: FirebaseSecurity.validator.sanitizeInput(formData.regNo),
-        college: formData.college ? FirebaseSecurity.validator.sanitizeInput(formData.college) : '',
-        branch: formData.branch ? FirebaseSecurity.validator.sanitizeInput(formData.branch) : '',
-        comments: formData.comments ? FirebaseSecurity.validator.sanitizeInput(formData.comments) : ''
-      };
-      
       const ref = doc(db, "candidates", formData.regNo);
-      const payload = {
-        ...sanitizedData,
-        lastUpdatedBy: user?.email || "",
-        lastUpdatedAt: new Date().toISOString(),
-      };
+      const payload = buildCandidatePayload(formData, {
+        docKey: formData.regNo,
+        nowIso: new Date().toISOString(),
+        userEmail: user?.email,
+      });
       // Final payload logged securely
       await setDoc(ref, payload);
       
@@ -2187,25 +2177,6 @@ function App() {
             <span style={styles.footerContact}>📞 Contact: 9591185310</span>
           </div>
         </div>
-      </div>
-      
-      {/* Performance Dashboard */}
-      <PerformanceDashboard performanceMonitor={performanceMonitor} />
-      
-      {/* Debug Info - Remove this after testing */}
-      <div style={{
-        position: 'fixed',
-        top: '10px',
-        right: '10px',
-        backgroundColor: '#1a1a1a',
-        color: '#00ff88',
-        padding: '10px',
-        borderRadius: '5px',
-        fontSize: '12px',
-        zIndex: 9999,
-        border: '1px solid #00ff88'
-      }}>
-        Performance Dashboard Available
       </div>
     </div>
   );

@@ -1,0 +1,79 @@
+{
+  "formData": {
+    "name": "Aarav Sharma",
+    "regNo": "23BCE7431",
+    "year": "2nd Year",
+    "college": "VIT-AP University",
+    "branch": "Computer Science & Engineering",
+    "whatsappNumber": "9876543210",
+    "preferences": {
+      "talentComm": {
+        "pref1": "Music",
+        "pref2": "Dance"
+      },
+      "workComm": {
+        "pref1": "Design",
+        "pref2": "Content",
+        "pref3": "Logistics"
+      }
+    },
+    "verdict": {
+      "talentComm": [
+        "Selected for Music"
+      ],
+      "workComm": [
+        "Shortlisted for Design"
+      ]
+    },
+    "comments": "Strong stage presence & confident communicator",
+    "paid": true,
+    "paymentDetails": {
+      "amount": 300,
+      "status": "completed",
+      "method": "cash"
+    },
+    "lastUpdatedBy": "",
+    "lastUpdatedAt": ""
+  },
+  "meta": {
+    "docKey": "23BCE7431",
+    "nowIso": "2026-07-18T10:30:00.000Z",
+    "userEmail": "interviewer@mafiaclub.example"
+  },
+  "expected": {
+    "name": "Aarav Sharma",
+    "regNo": "23BCE7431",
+    "year": "2nd Year",
+    "college": "VIT-AP University",
+    "branch": "Computer Science &amp; Engineering",
+    "whatsappNumber": "9876543210",
+    "preferences": {
+      "talentComm": {
+        "pref1": "Music",
+        "pref2": "Dance"
+      },
+      "workComm": {
+        "pref1": "Design",
+        "pref2": "Content",
+        "pref3": "Logistics"
+      }
+    },
+    "verdict": {
+      "talentComm": [
+        "Selected for Music"
+      ],
+      "workComm": [
+        "Shortlisted for Design"
+      ]
+    },
+    "comments": "Strong stage presence &amp; confident communicator",
+    "paid": true,
+    "paymentDetails": {
+      "amount": 300,
+      "status": "completed",
+      "method": "cash"
+    },
+    "lastUpdatedBy": "interviewer@mafiaclub.example",
+    "lastUpdatedAt": "2026-07-18T10:30:00.000Z"
+  }
+}

@@ -1,0 +1,72 @@
+[
+  {
+    "name": "Asha Rao",
+    "regNo": "230911001",
+    "year": "2nd Year",
+    "college": "MIT Manipal",
+    "branch": "CSE",
+    "whatsappNumber": "+91 9876543210",
+    "paid": true,
+    "manuallyVerified": true,
+    "manualVerificationDetails": { "verifiedBy": "Admin", "verifiedAt": "2026-07-01T10:00:00.000Z" },
+    "paymentDetails": { "amount": 300, "method": "UPI" },
+    "preferences": {
+      "talentComm": { "pref1": "Music", "pref2": "Dance" },
+      "workComm": { "pref1": "Events", "pref2": "Design", "pref3": "Marketing" }
+    },
+    "verdict": {
+      "talentComm": ["Selected", "Music"],
+      "workComm": ["Waitlist"]
+    },
+    "comments": "Strong vocalist, callback for band audition",
+    "lastUpdatedBy": "interviewer1@example.com"
+  },
+  {
+    "name": "Bharat Iyer",
+    "regNo": "230911002",
+    "year": "1st Year",
+    "college": "MIT Manipal",
+    "branch": "ECE",
+    "whatsappNumber": "+91 9812345678",
+    "paid": true,
+    "manuallyVerified": false,
+    "paymentDetails": { "amount": "300", "method": "QR" },
+    "preferences": {
+      "talentComm": { "pref1": "Drama" },
+      "workComm": { "pref1": "Logistics" }
+    },
+    "verdict": {
+      "talentComm": []
+    },
+    "comments": "",
+    "lastUpdatedBy": "interviewer2@example.com"
+  },
+  {
+    "name": "Chitra Nair",
+    "regNo": "230911003",
+    "year": "3rd Year",
+    "college": "MIT Manipal",
+    "branch": "MECH",
+    "paid": false,
+    "preferences": {
+      "workComm": { "pref2": "Design" }
+    },
+    "comments": "Left before payment",
+    "lastUpdatedBy": "interviewer1@example.com"
+  },
+  {
+    "name": "Walk-in Dev",
+    "regNo": "WALKIN_1750000000000",
+    "year": 1,
+    "college": "",
+    "branch": "",
+    "paid": true,
+    "manuallyVerified": true,
+    "paymentDetails": { "amount": 300, "method": "Manual" },
+    "verdict": {
+      "workComm": ["Selected"]
+    },
+    "comments": "Walk-in, manual entry",
+    "lastUpdatedBy": "Manual Entry"
+  }
+]
