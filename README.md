@@ -153,7 +153,7 @@ onSnapshot(collection(db, "candidates"), (snapshot) => {
 ```javascript
 // Generate traceable payment identifier
 const paymentComment = `${studentId}|${interviewerCode}|${timestamp}`;
-const qrUrl = `upi://pay?pa=upi@bank&pn=MAFIA&am=300&tr=${paymentComment}`;
+const qrUrl = `upi://pay?pa=<CLUB_UPI_ID>&pn=MAFIA&am=300&tr=${paymentComment}`;
 ```
 
 ### Performance Optimizations

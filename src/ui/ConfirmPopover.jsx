@@ -72,8 +72,10 @@ export default function ConfirmPopover({
         top = Math.max(MARGIN, a.top - p.height - MARGIN);
       }
       let left = a.left;
-      if (left + p.width > window.innerWidth - MARGIN) {
-        left = Math.max(MARGIN, window.innerWidth - MARGIN - p.width);
+      // Viewport clamp via documentElement.clientWidth (Phase 6 gate: no JS window-width reads).
+      const viewportWidth = document.documentElement.clientWidth;
+      if (left + p.width > viewportWidth - MARGIN) {
+        left = Math.max(MARGIN, viewportWidth - MARGIN - p.width);
       }
       setPos({ top, left });
     };

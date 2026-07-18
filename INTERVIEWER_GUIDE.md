@@ -58,14 +58,12 @@ You'll see:
    - If candidate shows "Payment Pending" but claims to have paid
    - Click **"Payment Done"** button
    - Enter payment details (amount: ₹300)
-   - Select UPI ID used (Yukti's or Bhuta's)
+   - Select which of the club's two UPI accounts received it
    - **Note**: This only marks as paid, admin must manually verify later
 
 ### Payment Rules:
 - Amount is fixed at ₹300 (no partial payments)
-- Two UPI IDs:
-  - `yuktibhatia2005@okhdfcbank` (Yukti)
-  - `bhutakeyur0208@okhdfcbank` (Bhuta)
+- Payments go to one of the club's two UPI accounts (shown in the app's UPI selector)
 - Don't interview if payment is pending
 
 ---

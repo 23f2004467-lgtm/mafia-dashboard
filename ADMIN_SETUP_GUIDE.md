@@ -20,7 +20,7 @@
 3. **Add Admin User**
    - Click: **Add User**
    - Enter Email: `dheera1312@gmail.com`
-   - Enter Password: `mafiaadmin2025` (or your preferred secure password)
+   - Enter Password: a strong password of your choice (never commit it to this repo)
    - Click: **Add user**
 
 ### **Step 2: Add Admin to Firestore (Manual)**
@@ -51,7 +51,7 @@
 
 2. **Login with Admin Credentials**
    - Email: `dheera1312@gmail.com`
-   - Password: `mafiaadmin2025` (or your chosen password)
+   - Password: the password you set in Step 1
 
 3. **Verify Access**
    - Should see admin dashboard

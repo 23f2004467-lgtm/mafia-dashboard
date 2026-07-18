@@ -145,7 +145,7 @@ useEffect(() => {
 // Generate QR code with structured tracking comment
 const generatePaymentQR = (candidate, interviewerCode) => {
   const trackingComment = `${candidate.regNo}|${interviewerCode}|${Date.now()}`;
-  return `upi://pay?pa=mafia@upi&pn=MAFIA&am=300&tr=${trackingComment}`;
+  return `upi://pay?pa=<CLUB_UPI_ID>&pn=MAFIA&am=300&tr=${trackingComment}`;
 };
 ```
 
