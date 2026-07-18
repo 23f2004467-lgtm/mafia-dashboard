@@ -1,0 +1,169 @@
+/* AdminTopBar (§7.2) — chrome composition on the ui/ TopBar admin variant.
+   Tokens only; the spectrum hairline lives in TopBar.css. */
+
+.admin-topbar__lockup {
+  height: 20px;
+  width: auto;
+  display: block;
+}
+
+.admin-topbar__microlabel {
+  font-size: var(--text-12);
+  font-weight: 600;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--text-3);
+  user-select: none;
+}
+
+/* ---------- Live sync pill ---------- */
+
+.admin-sync {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+}
+
+.admin-sync__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success-ink);
+  flex-shrink: 0;
+}
+
+.admin-sync--waiting .admin-sync__dot {
+  background: var(--state-dormant-ink);
+}
+
+.admin-sync__label {
+  font-family: var(--font-mono);
+  font-size: var(--text-12);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+/* ---------- Overflow menu ---------- */
+
+.admin-topbar__menuwrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.admin-topbar__more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-input);
+  background: transparent;
+  color: var(--text-1);
+  font-size: var(--text-18);
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--motion-micro) var(--ease);
+}
+
+.admin-topbar__more:hover {
+  background: var(--surface-sunken);
+}
+
+.admin-topbar__more:active {
+  transform: scale(0.96);
+}
+
+.admin-menu {
+  position: absolute;
+  top: calc(100% + var(--space-2));
+  right: 0;
+  z-index: 30;
+  min-width: 240px;
+  padding: var(--space-2);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.admin-menu__item {
+  display: block;
+  width: 100%;
+  min-height: var(--touch-min);
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  border: 0;
+  border-radius: var(--radius-input);
+  background: transparent;
+  color: var(--text-1);
+  font-size: var(--text-14);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--motion-micro) var(--ease);
+}
+
+.admin-menu__item:hover {
+  background: var(--surface-sunken);
+}
+
+.admin-menu__item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-menu__item--destructive {
+  color: var(--error-ink);
+}
+
+.admin-menu__item--sub {
+  padding-left: var(--space-6);
+}
+
+.admin-menu__divider {
+  height: 1px;
+  margin: var(--space-1) var(--space-2);
+  background: var(--border);
+}
+
+/* ---------- User chip ---------- */
+
+.admin-topbar__user {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: var(--space-1);
+  padding-left: var(--space-3);
+  border-left: 1px solid var(--border);
+  min-width: 0;
+}
+
+.admin-topbar__email {
+  font-size: var(--text-13);
+  color: var(--text-2);
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .admin-topbar__email {
+    display: none;
+  }
+
+  .admin-sync__label {
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

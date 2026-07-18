@@ -1,0 +1,87 @@
+/* AdminLogin (§7.1) — dark stage login. Tokens only; scoped under
+   the admin data-theme="dark" root. */
+
+.admin-login {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--space-6);
+  background: var(--bg);
+}
+
+.admin-login__column {
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* §7.1: wordmark-white.png lockup ~180px above the card. */
+.admin-login__lockup {
+  width: 180px;
+  max-width: 70%;
+  height: auto;
+  margin-bottom: var(--space-8);
+}
+
+.admin-login .admin-login__card {
+  width: 100%;
+  padding: var(--space-8);
+}
+
+.admin-login__microlabel {
+  font-size: var(--text-12);
+  font-weight: 600;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--text-3);
+  text-align: center;
+  margin-bottom: var(--space-6);
+}
+
+.admin-login__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.admin-login__error {
+  margin-top: var(--space-4);
+}
+
+/* Mono is the truth channel (§1 #4): the ticking countdown. */
+.admin-login__countdown {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.admin-login__remaining {
+  margin-top: var(--space-1);
+  font-size: var(--text-13);
+}
+
+.admin-login__help {
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  font-size: var(--text-13);
+  color: var(--text-3);
+  text-align: center;
+}
+
+.admin-login__tel {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--text-2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.admin-login__tel:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}

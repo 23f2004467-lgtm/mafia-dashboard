@@ -1,0 +1,27 @@
+/* Admin shell (§7) — the dark stage wrapper for the whole /admin tree
+   (login included). Tokens only; replaces the old top-level inline styles.
+   Laptop-first 1280; single-column-friendly at 768–1024. */
+
+.admin-root {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text-1);
+  font-family: var(--font-ui);
+  line-height: var(--leading-body);
+}
+
+.admin-main {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+@media (max-width: 1024px) {
+  .admin-main {
+    padding: var(--space-4);
+    gap: var(--space-4);
+  }
+}

@@ -1,8 +1,12 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { db } from "./firebaseConfig";
 import { FirebaseSecurity } from './security';
 import { SecureAdminAuth } from './secureAdminAuth';
 import { ConfirmDialog } from './components/common';
+import { ToastHost } from './ui';
+import AdminLogin from './screens/admin/AdminLogin';
+import AdminTopBar from './screens/admin/AdminTopBar';
+import './AdminPortal.css';
 import {
   collection,
   onSnapshot,
@@ -19,21 +23,44 @@ import { buildExportRows } from "./exportRows";
 import { DataCache, PerformanceMonitor } from './performanceOptimizations';
 import {
   VaultTokens as T,
-  VaultMark,
-  VaultWordmark,
   VaultStat,
   VaultPill,
-  VaultSidebar,
-  VaultTopbar,
   VaultCard,
   VaultSectionHeader,
   VaultFunnel,
 } from './components/admin/VaultChrome';
 
 /**
- * MAFIA Recruitment Admin Portal — Vault direction
- * Sidebar + topbar + dashboard grid. Functionality preserved from prior version.
+ * MAFIA Recruitment Admin Portal — House Lights dark stage (§7).
+ * Phase 5a: dark shell + §7.1 login + §7.2 topbar. All Firestore
+ * logic/writes/listeners live here; rendering moves to src/ui/ +
+ * src/screens/admin/ presentational pieces. Dashboard body cards are
+ * still Vault-styled until 5b–5d.
  */
+
+// §7.1: the admin rate limit (3 attempts / 5 min) — the same literals the
+// checkLimit call has always used, lifted to consts so the login Banner
+// DERIVES its countdown from them instead of restating numbers in copy.
+const ADMIN_RATE_LIMIT_MAX_ATTEMPTS = 3;
+const ADMIN_RATE_LIMIT_WINDOW_MS = 300000;
+
+// When the current rate-limit window frees a slot (display only — reads
+// the same RateLimiter state the guard consults; never mutates it).
+function rateLimitRetryAt() {
+  const stamps = FirebaseSecurity.rateLimiter.attempts.get('admin_login') || [];
+  const now = Date.now();
+  const valid = stamps.filter((t) => now - t < ADMIN_RATE_LIMIT_WINDOW_MS);
+  if (valid.length === 0) return now + 1000;
+  return Math.min(...valid) + ADMIN_RATE_LIMIT_WINDOW_MS;
+}
+
+// When the SECURITY_CONFIG lockout lifts (display only — derived from the
+// same SessionManager state + config isLockedOut consults).
+function lockoutRetryAt() {
+  const rec = FirebaseSecurity.sessionManager.failedAttempts.get('admin_login');
+  if (!rec) return Date.now() + 1000;
+  return rec.lastAttempt + FirebaseSecurity.config.lockoutDuration;
+}
 function AdminPortal() {
   const performanceMonitor = useMemo(() => new PerformanceMonitor(), []);
   const dataCache = useMemo(() => new DataCache(100), []);
@@ -53,6 +80,12 @@ function AdminPortal() {
 
   const [showClearDataModal, setShowClearDataModal] = useState(false);
   const [showDeleteDataModal, setShowDeleteDataModal] = useState(false);
+  const [showForceLogoutModal, setShowForceLogoutModal] = useState(false);
+
+  // §7.1 inline login error (replaces the four login alert()s):
+  // null | { kind: 'missing'|'rate'|'lockout'|'failed', message?, remaining?, until? }
+  const [loginError, setLoginError] = useState(null);
+  const clearLoginError = useCallback(() => setLoginError(null), []);
 
   // Payment analytics
   const total = candidates.length;
@@ -73,20 +106,21 @@ function AdminPortal() {
   const handleLogin = async () => {
     if (isLoggingIn) return;
     if (!email || !password) {
-      alert('Please enter both email and password');
+      setLoginError({ kind: 'missing' });
       return;
     }
 
-    if (!FirebaseSecurity.rateLimiter.checkLimit('admin_login', 3, 300000)) {
-      alert('Too many admin login attempts. Please try again later.');
+    if (!FirebaseSecurity.rateLimiter.checkLimit('admin_login', ADMIN_RATE_LIMIT_MAX_ATTEMPTS, ADMIN_RATE_LIMIT_WINDOW_MS)) {
+      setLoginError({ kind: 'rate', until: rateLimitRetryAt() });
       return;
     }
 
     if (FirebaseSecurity.sessionManager.isLockedOut('admin_login')) {
-      alert('Admin access temporarily locked due to too many failed attempts.');
+      setLoginError({ kind: 'lockout', until: lockoutRetryAt() });
       return;
     }
 
+    setLoginError(null);
     setIsLoggingIn(true);
     try {
       await SecureAdminAuth.adminLogin(email, password);
@@ -106,7 +140,15 @@ function AdminPortal() {
         email: email,
         error: error.message
       });
-      alert("Admin login failed: " + error.message);
+      // Presentation only: derive remaining attempts from the same
+      // SessionManager state + SECURITY_CONFIG the lockout guard uses.
+      const failedCount = FirebaseSecurity.sessionManager.failedAttempts.get('admin_login')?.count || 0;
+      const remaining = Math.max(0, FirebaseSecurity.config.maxLoginAttempts - failedCount);
+      if (remaining === 0) {
+        setLoginError({ kind: 'lockout', until: lockoutRetryAt() });
+      } else {
+        setLoginError({ kind: 'failed', message: "Admin login failed: " + error.message, remaining });
+      }
     } finally {
       setIsLoggingIn(false);
     }
@@ -276,6 +318,7 @@ function AdminPortal() {
     const unsub = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map((doc) => doc.data());
       setCandidates(data);
+      setLastUpdate(new Date()); // §7.2 sync pill: candidates-snapshot receipt timestamp
       const fetchTime = performanceMonitor.endTimer(startTime);
       performanceMonitor.logMetric('adminCandidatesFetchTime', fetchTime);
     });
@@ -356,80 +399,25 @@ function AdminPortal() {
     return result;
   }, [candidates, search, filterPaid, dataCache]);
 
-  // ---------- Login screen ----------
+  // ---------- Login screen (§7.1) ----------
   if (!authenticated) {
     return (
-      <div style={{
-        minHeight: "100vh",
-        background: T.bg,
-        color: T.text,
-        fontFamily: T.fontSans,
-        display: "grid",
-        placeItems: "center",
-        padding: 24,
-      }}>
-        <div style={{
-          width: "100%", maxWidth: 380,
-          background: T.surface,
-          border: `1px solid ${T.border}`,
-          borderRadius: 14,
-          padding: 32,
-        }}>
-          <div style={{
-            display: "flex", flexDirection: "column",
-            alignItems: "center", marginBottom: 28,
-          }}>
-            <VaultMark size={64} />
-            <div style={{ marginTop: 18 }}><VaultWordmark size={34} /></div>
-            <div style={{
-              fontSize: 11, color: T.textMute, marginTop: 10,
-              letterSpacing: 1.4, textTransform: "uppercase", fontWeight: 500,
-            }}>Admin · Recruitment 25–26</div>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <input
-              type="email"
-              placeholder="admin@mafia.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={inputStyle}
-            />
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-              style={inputStyle}
-            />
-            <button
-              onClick={handleLogin}
-              disabled={isLoggingIn}
-              style={{
-                marginTop: 6, padding: "12px 16px", borderRadius: 9,
-                background: T.purple, color: "white", border: "none",
-                fontWeight: 600, fontSize: 13,
-                cursor: isLoggingIn ? "not-allowed" : "pointer",
-                opacity: isLoggingIn ? 0.6 : 1,
-              }}
-            >{isLoggingIn ? "Signing in…" : "Sign in as admin"}</button>
-          </div>
-
-          <div style={{
-            marginTop: 20, paddingTop: 16,
-            borderTop: `1px solid ${T.border}`,
-            fontSize: 11, color: T.textMute, textAlign: "center",
-          }}>
-            Need help? <span style={{ color: T.textDim, fontFamily: T.fontMono }}>9591185310</span>
-          </div>
-        </div>
+      <div className="admin-root" data-theme="dark">
+        <AdminLogin
+          email={email}
+          password={password}
+          onEmailChange={setEmail}
+          onPasswordChange={setPassword}
+          onSubmit={handleLogin}
+          isLoggingIn={isLoggingIn}
+          error={loginError}
+          onErrorExpired={clearLoginError}
+        />
       </div>
     );
   }
 
   // ---------- Dashboard ----------
-  const lastUpdateLabel = `synced ${formatRelativeTime(lastUpdate)}`;
   const funnelSteps = [
     { label: "Checked in", value: total,             color: T.text },
     { label: "Paid",       value: paid,              color: T.green },
@@ -438,29 +426,19 @@ function AdminPortal() {
   ];
 
   return (
-    <div style={{
-      display: "flex", height: "100vh",
-      background: T.bg, color: T.text,
-      fontFamily: T.fontSans,
-    }}>
-      <VaultSidebar
-        active="Dashboard"
-        user={{ initials: "AD", name: "Admin", role: email || "Admin · Board" }}
-        onLogout={handleLogout}
+    <div className="admin-root" data-theme="dark">
+      <AdminTopBar
+        lastSyncAt={lastUpdate}
+        onExport={exportToExcel}
+        onForceLogout={() => setShowForceLogoutModal(true)}
+        forceLogoutBusy={isForceLogoutLoading}
+        onDangerReset={() => setShowClearDataModal(true)}
+        onDangerDelete={() => setShowDeleteDataModal(true)}
+        onSignOut={handleLogout}
+        userEmail={email}
       />
 
-      <main style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <VaultTopbar
-          title="Dashboard"
-          sub={`${total} candidates · ${paid} paid (${percentPaid}%) · ${manuallyVerified} verified`}
-          lastUpdate={lastUpdateLabel}
-          onExport={exportToExcel}
-        />
-
-        <div style={{
-          padding: 28, overflow: "auto",
-          display: "flex", flexDirection: "column", gap: 24,
-        }}>
+      <main className="admin-main">
           {/* Stats row */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
             <VaultStat
@@ -498,15 +476,6 @@ function AdminPortal() {
               <VaultSectionHeader
                 title="Active interviewers"
                 meta={`${interviewers.length} online`}
-                actions={
-                  <button
-                    onClick={forceLogoutAllInterviewers}
-                    disabled={isForceLogoutLoading}
-                    style={ghostBtnStyle(T.red)}
-                  >
-                    {isForceLogoutLoading ? "…" : "Force logout"}
-                  </button>
-                }
               />
               <div style={{
                 display: "flex", flexDirection: "column", gap: 8,
@@ -664,10 +633,9 @@ function AdminPortal() {
               </button>
             </div>
           </VaultCard>
-        </div>
       </main>
 
-      {/* Confirmation modals — keep existing components */}
+      {/* Confirmation modals — old ConfirmDialog survives until 5e (landmine #8) */}
       <ConfirmDialog
         isOpen={showClearDataModal}
         onClose={() => setShowClearDataModal(false)}
@@ -687,6 +655,18 @@ function AdminPortal() {
         confirmText="Delete All"
         variant="danger"
       />
+
+      <ConfirmDialog
+        isOpen={showForceLogoutModal}
+        onClose={() => setShowForceLogoutModal(false)}
+        onConfirm={forceLogoutAllInterviewers}
+        title="Force Logout All Interviewers"
+        message={`This will end all ${interviewers.length} active interviewer sessions. Interviewers will need to sign in again.`}
+        confirmText="Force Logout All"
+        variant="danger"
+      />
+
+      <ToastHost position="bottom-right" />
     </div>
   );
 }
