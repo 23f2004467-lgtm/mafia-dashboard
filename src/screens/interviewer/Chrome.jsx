@@ -5,10 +5,16 @@ import "./Chrome.css";
 /**
  * InterviewerChrome — the §6 global chrome for all signed-in screens.
  * 48 px TopBar (interviewer variant): text wordmark left — or, on
- * candidate/payment, a back chevron + condensed ticket; right: connection
+ * candidate/payment, a back chevron; right: connection
  * dot (navigator.onLine → green "Synced" / amber "Offline") + 32 px
  * initials Avatar opening the account bottom Sheet (email, mono tel: help,
- * Sign out — NO counters, §2 #34). Offline additionally shows the thin
+ * Sign out — NO counters, §2 #34).
+ *
+ * Ticket dedup: the condensed identity (name + regNo) renders in the bar
+ * ONLY while the screen's main Ticket ([data-iv-ticket]) is scrolled out
+ * of view — an IntersectionObserver drives a 120 ms opacity/transform
+ * swap (spring entrance, --ease exit). Screens without a main Ticket
+ * (Payment) always show the identity. Offline additionally shows the thin
  * amber OfflineBanner ("Offline — changes will sync") under the bar on
  * every signed-in screen. `pendingPayment` ({name, onOpen}) renders
  * the amber "₹ pending · {name}" chip when a payment session is live away
@@ -25,6 +31,30 @@ export default function InterviewerChrome({
 }) {
   const [accountOpen, setAccountOpen] = useState(false);
 
+  // Ticket dedup: identity appears in the bar only once the main Ticket
+  // ([data-iv-ticket], rendered by the screen) has scrolled out of view.
+  // `ticket` is a fresh object each App render, so this re-arms on every
+  // screen/data change — cheap, and it re-resolves the sentinel after
+  // screen swaps (Payment has none → identity always shown there).
+  const [ticketAway, setTicketAway] = useState(false);
+  useEffect(() => {
+    if (!ticket) {
+      setTicketAway(false);
+      return undefined;
+    }
+    const sentinel = document.querySelector("[data-iv-ticket]");
+    if (!sentinel || typeof IntersectionObserver === "undefined") {
+      setTicketAway(true); // no main Ticket on this screen → bar carries it
+      return undefined;
+    }
+    const io = new IntersectionObserver(
+      ([entry]) => setTicketAway(!entry.isIntersecting),
+      { rootMargin: "-48px 0px 0px 0px" } // out of view = under the 48px bar
+    );
+    io.observe(sentinel);
+    return () => io.disconnect();
+  }, [ticket]);
+
   return (
     <>
       <TopBar
@@ -32,7 +62,14 @@ export default function InterviewerChrome({
         onBack={onBack}
         left={
           onBack && ticket ? (
-            <Ticket condensed name={ticket.name} regNo={ticket.regNo} />
+            <span
+              className={
+                "iv-chrome__ticket" + (ticketAway ? " is-in" : "")
+              }
+              aria-hidden={!ticketAway}
+            >
+              <Ticket condensed name={ticket.name} regNo={ticket.regNo} />
+            </span>
           ) : undefined
         }
         right={

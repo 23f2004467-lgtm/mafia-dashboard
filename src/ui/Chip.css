@@ -26,6 +26,20 @@
   line-height: 1;
 }
 
+/* Rank (①②③) — brand tint so preferences read as brand, not inert gray */
+.ui-chip--rank {
+  min-height: 28px;
+  background: var(--brand-100);
+  border-color: var(--brand-100);
+  color: var(--brand-700);
+}
+
+[data-theme="dark"] .ui-chip--rank {
+  background: var(--brand-a12);
+  border-color: var(--brand-400);
+  color: var(--brand-300);
+}
+
 /* Selected — brand-100 fill + brand-700 ink (light theme) */
 .ui-chip--selected {
   background: var(--brand-100);

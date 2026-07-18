@@ -123,6 +123,15 @@
   line-height: 1.2;
 }
 
+/* Enabled-state summary subtext (additive `sub` prop) — inherits the
+   variant's text color so contrast stays AA on any fill. */
+.ui-button__sub {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  opacity: 0.85;
+}
+
 /* ---------- Loading: spinner replaces label, WIDTH LOCKED ---------- */
 .ui-button--loading .ui-button__label,
 .ui-button--loading .ui-button__reason {

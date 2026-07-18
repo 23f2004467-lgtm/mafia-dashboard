@@ -1,4 +1,6 @@
-/* DomainToggle — full-width 56 px verdict row (§6.3 Zone D). */
+/* DomainToggle — full-width 56 px verdict row + right-side checkwell
+   (§6.3 Zone D). Motion: transform/opacity transitions only; the checkwell ✓
+   enters with the --ease-spring scale pop, exits with --ease. */
 
 .ui-domain-toggle {
   position: relative;
@@ -34,23 +36,56 @@
   transition: opacity var(--motion-micro) var(--ease);
 }
 
+/* Hover wash — its own stacked layer, desktop pointers only. */
+.ui-domain-toggle::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: var(--surface-sunken);
+  opacity: 0;
+  transition: opacity var(--motion-micro) var(--ease);
+  pointer-events: none;
+}
+
 .ui-domain-toggle__label,
-.ui-domain-toggle__check {
+.ui-domain-toggle__well {
   position: relative;
   z-index: 1;
 }
 
-.ui-domain-toggle__check {
-  opacity: 0;
-  font-weight: 600;
-  transition: opacity var(--motion-micro) var(--ease);
+/* ---------- Checkwell: 24 px ring → filled circle + ✓ pop ---------- */
+
+.ui-domain-toggle__well {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: transparent;
 }
 
-/* ---------- On: good tint + good ink + ✓ + 600 ---------- */
+.ui-domain-toggle__well svg {
+  display: block;
+  color: var(--surface);
+  opacity: 0;
+  transform: scale(0.6);
+  /* exit: --ease */
+  transition: opacity var(--motion-micro) var(--ease),
+    transform var(--motion-micro) var(--ease);
+}
+
+/* ---------- On: good tint + good ink + filled well + 600 ---------- */
 
 .ui-domain-toggle.is-on {
   color: var(--state-good-ink);
   border-color: var(--state-good-ink);
+  /* 1.5 px selected border without layout shift: 1px border + 0.5px inset ring */
+  box-shadow: inset 0 0 0 0.5px var(--state-good-ink);
   font-weight: 600;
 }
 
@@ -58,38 +93,64 @@
   opacity: 1;
 }
 
-.ui-domain-toggle.is-on .ui-domain-toggle__check {
-  opacity: 1;
+.ui-domain-toggle.is-on .ui-domain-toggle__well {
+  border-color: var(--state-good-ink);
+  background: var(--state-good-ink);
 }
 
-/* ---------- Negative ("Not selected"): ink OUTLINE treatment when on ---------- */
+.ui-domain-toggle.is-on .ui-domain-toggle__well svg {
+  opacity: 1;
+  transform: scale(1);
+  /* entrance: the one spring (§9) */
+  transition: opacity var(--motion-micro) var(--ease-spring),
+    transform var(--motion-micro) var(--ease-spring);
+}
+
+/* ---------- Negative ("Not selected"): ink OUTLINE treatment ---------- */
+
+.ui-domain-toggle--negative {
+  background: transparent;
+  border-color: var(--text-1);
+  box-shadow: inset 0 0 0 0.5px var(--text-1); /* 1.5px ink outline */
+}
 
 .ui-domain-toggle--negative::before {
   background: transparent;
 }
 
+.ui-domain-toggle--negative .ui-domain-toggle__well {
+  border-color: var(--text-1);
+}
+
 .ui-domain-toggle--negative.is-on {
-  color: var(--state-no-ink);
-  border: 2px solid var(--state-no-ink);
-  background: transparent;
+  color: var(--text-1);
+  border-color: var(--text-1);
+  box-shadow: inset 0 0 0 0.5px var(--text-1);
+}
+
+.ui-domain-toggle--negative.is-on .ui-domain-toggle__well {
+  border-color: var(--text-1);
+  background: var(--text-1);
 }
 
 /* ---------- Interaction states ---------- */
 
-.ui-domain-toggle:hover {
-  border-color: var(--border-strong);
+@media (hover: hover) {
+  .ui-domain-toggle:not(.is-on):hover::after {
+    opacity: 1;
+  }
+
+  .ui-domain-toggle:not(.is-on):hover {
+    border-color: var(--border-strong);
+  }
+
+  .ui-domain-toggle--negative:not(.is-on):hover {
+    border-color: var(--text-1);
+  }
 }
 
-.ui-domain-toggle.is-on:hover {
-  border-color: var(--state-good-ink);
-}
-
-.ui-domain-toggle--negative.is-on:hover {
-  border-color: var(--state-no-ink);
-}
-
-.ui-domain-toggle:active {
-  transform: scale(0.99);
+.ui-domain-toggle:active:not(:disabled) {
+  transform: scale(0.985);
 }
 
 .ui-domain-toggle:focus-visible {

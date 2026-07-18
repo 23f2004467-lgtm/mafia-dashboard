@@ -19,6 +19,29 @@
   font-size: var(--text-12) !important;
 }
 
+/* ---------- TopBar condensed identity (ticket dedup) ----------
+   Hidden at rest (back chevron only); enters when the main Ticket
+   scrolls out of view. 120 ms opacity/transform swap — spring entrance,
+   --ease exit (§9). */
+
+.iv-chrome__ticket {
+  display: inline-flex;
+  min-width: 0;
+  opacity: 0;
+  transform: translateY(4px);
+  pointer-events: none;
+  transition: opacity var(--motion-micro) var(--ease),
+    transform var(--motion-micro) var(--ease);
+}
+
+.iv-chrome__ticket.is-in {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  transition: opacity var(--motion-micro) var(--ease-spring),
+    transform var(--motion-micro) var(--ease-spring);
+}
+
 /* ---------- Connection dot ---------- */
 
 .iv-conn {

@@ -7,86 +7,48 @@
   padding: var(--space-3) var(--space-4) 0;
 }
 
-/* ---------- Sticky Ticket + §9 #3 condense crossfade ----------
-   Two stacked layers (expanded ticket / condensed bar). The threshold flip
-   swaps which layer is in flow (height snaps instantly — allowed; height is
-   never animated) while opacity/transform crossfade: the ENTERING layer
-   settles 240ms --ease-spring, the exiting layer leaves with --ease. */
+/* ---------- The full Ticket ----------
+   In flow (not sticky): once it scrolls out of view, the Chrome TopBar's
+   IntersectionObserver swaps the condensed identity into the bar (ticket
+   dedup — the identity never renders twice at once). */
 
 .iv-cand__ticket {
-  position: sticky;
-  top: calc(48px + var(--space-2)); /* below the 48px TopBar */
-  z-index: 10;
   margin-bottom: var(--space-4);
 }
 
-.iv-cand__ticket-full {
-  opacity: 1;
-  transform: none;
-  /* entering (leaving condensed): spring */
-  transition: opacity var(--motion-sheet) var(--ease-spring),
-    transform var(--motion-sheet) var(--ease-spring);
-}
-
-.iv-cand__ticket-mini {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  opacity: 0;
-  transform: translateY(-4px);
-  pointer-events: none;
-  /* exiting (not condensed): --ease */
-  transition: opacity var(--motion-sheet) var(--ease),
-    transform var(--motion-sheet) var(--ease);
-}
-
-.is-condensed .iv-cand__ticket-full {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  opacity: 0;
-  transform: scale(0.98);
-  pointer-events: none;
-  /* exiting: --ease */
-  transition: opacity var(--motion-sheet) var(--ease),
-    transform var(--motion-sheet) var(--ease);
-}
-
-.is-condensed .iv-cand__ticket-mini {
-  position: static;
-  opacity: 1;
-  transform: none;
-  pointer-events: auto;
-  /* entering: spring settle (§9 #3) */
-  transition: opacity var(--motion-sheet) var(--ease-spring),
-    transform var(--motion-sheet) var(--ease-spring);
-}
-
-/* Give the condensed bar the ticket's ink border treatment on a light bg
-   so it reads as the same artifact while sticky. */
-.iv-cand__ticket-mini .ui-ticket--condensed {
-  border: 1.5px solid var(--text-1);
-  border-radius: var(--radius-ticket);
-  background: var(--surface);
-  box-shadow: var(--shadow-1);
-}
-
-/* ---------- Zones ---------- */
+/* ---------- Zone panels ----------
+   Every zone sits on a sunken panel with a caps micro-label header row;
+   the white rows/cards inside lift off the panel. */
 
 .iv-cand__zone {
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-4);
+  padding: var(--space-3);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-card);
+}
+
+.iv-cand__zone-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
 }
 
 .iv-cand__micro-label {
-  font-size: var(--text-12);
+  font-size: 11px;
   font-weight: 600;
   line-height: 1.2; /* Phase 4: was implicit via old globals.css h-rule */
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
   color: var(--text-3);
-  margin-bottom: var(--space-2);
+  margin: 0;
+}
+
+.iv-cand__zone-helper {
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: right;
 }
 
 /* ---------- Zone A — details ---------- */
@@ -182,12 +144,46 @@
   gap: var(--space-3);
 }
 
-/* ---------- Zone C — questions ---------- */
+/* ---------- Zone C — questions ----------
+   Visually distinct from the verdict toggles: slim TRANSPARENT rows on the
+   sunken panel, 1px separators BETWEEN items only (no boxes). Scoped
+   restyle of the ui-Accordion — its API/markup is untouched. */
 
 .iv-cand__questions {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: 0;
+}
+
+.iv-cand__questions .ui-accordion {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.iv-cand__questions .ui-accordion + .ui-accordion {
+  border-top: 1px solid var(--border);
+}
+
+.iv-cand__questions .ui-accordion__header {
+  min-height: var(--touch-min); /* slim, but never under the 44px law */
+  padding: 0 var(--space-1);
+  font-size: var(--text-14);
+  font-weight: 500;
+}
+
+@media (hover: hover) {
+  .iv-cand__questions .ui-accordion__header:hover {
+    background: var(--surface); /* lift, not sink — the panel is sunken */
+  }
+}
+
+.iv-cand__questions .ui-accordion__chevron {
+  color: var(--text-3);
+}
+
+.iv-cand__questions .ui-accordion__content {
+  padding: var(--space-1) var(--space-1) var(--space-3);
 }
 
 .iv-cand__question-list {
@@ -207,12 +203,31 @@
   margin-bottom: var(--space-4);
 }
 
+.iv-cand__group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
 .iv-cand__group-label {
-  font-size: var(--text-13);
+  font-size: var(--text-12);
   font-weight: 600;
   line-height: 1.2; /* Phase 4: was implicit via old globals.css h-rule */
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
   color: var(--text-2);
-  margin-bottom: var(--space-2);
+  margin: 0;
+}
+
+/* Live "{n} selected" count — a selection count (allowed), not an
+   interview count. Shown only when n > 0. */
+.iv-cand__group-count {
+  font-size: var(--text-12);
+  font-weight: 600;
+  color: var(--brand-600);
+  font-variant-numeric: tabular-nums;
 }
 
 .iv-cand__toggles {
@@ -251,7 +266,21 @@
   gap: var(--space-2);
 }
 
-/* ---------- Zone E — comments ---------- */
+/* ---------- Zone E — comments ----------
+   The zone header carries the visible "COMMENTS" label; the Textarea's
+   own <label> stays for a11y but is visually hidden (no double label). */
+
+.iv-cand__comments .ui-field__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
 
 .iv-cand__template {
   margin-top: var(--space-2);

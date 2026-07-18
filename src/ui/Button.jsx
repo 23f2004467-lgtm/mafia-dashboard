@@ -7,6 +7,9 @@ import "./Button.css";
  * sizes: lg (56, interviewer primary) | md (48) | sm (44, admin)
  * loading: spinner replaces label, width locked (label kept in flow, hidden).
  * disabled + disabledReason: visible reason subtext inside the button.
+ * sub (optional, additive): 11px summary subtext under the label while the
+ *   button is ENABLED (e.g. "Selected · Dance + Music"); hidden while
+ *   loading or disabled (disabledReason owns that slot).
  * destructive (boolean): recolors the current variant destructively
  *   (e.g. ghost + destructive = the §6.4 ghost-destructive "Cancel payment").
  */
@@ -16,6 +19,7 @@ export default function Button({
   loading = false,
   disabled = false,
   disabledReason,
+  sub,
   destructive = false,
   onClick,
   type = "button",
@@ -47,6 +51,9 @@ export default function Button({
       {...rest}
     >
       <span className="ui-button__label">{children}</span>
+      {!disabled && !loading && sub ? (
+        <span className="ui-button__sub">{sub}</span>
+      ) : null}
       {disabled && !loading && disabledReason ? (
         <span className="ui-button__reason">{disabledReason}</span>
       ) : null}

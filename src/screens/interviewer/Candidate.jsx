@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   Accordion,
   ActionBar,
@@ -22,10 +22,13 @@ import "./Candidate.css";
  * Presentational: all Firebase writes, validation and the verdict state
  * live in App.js; this screen renders formData and reports intents.
  *
- * - Sticky Ticket (standard / walk-in), condensing on scroll (§9 #3) via
- *   the Ticket `condensed` prop + a scroll listener: two stacked layers
- *   crossfading on a threshold flip — transitions only, no keyframes.
- * - Zone A details definition list on sunken surface; ghost "Edit details"
+ * - Full Ticket (standard / walk-in) in flow at the top, tagged
+ *   [data-iv-ticket]: the Chrome TopBar watches it with an
+ *   IntersectionObserver and carries the condensed identity ONLY while
+ *   it is scrolled out of view (ticket dedup — never both at once).
+ * - Zones sit on sunken panels with caps micro-label header rows; the
+ *   white rows/cards inside lift off the panels.
+ * - Zone A details definition list; ghost "Edit details"
  *   flips name/year/college/branch/WhatsApp to Inputs. regNo NEVER editable
  *   (§2 #23) — walk-ins have it locked post-generation too.
  * - Zone B preferences: ranked chips (walk-in mode: editable Inputs, since
@@ -107,16 +110,6 @@ export default function Candidate({
   onClear,
   onCancel,
 }) {
-  // §9 #3: sticky ticket condenses past a scroll threshold; the crossfade
-  // between the expanded and condensed layers is CSS transitions only.
-  const [condensed, setCondensed] = useState(false);
-  useEffect(() => {
-    const onScroll = () => setCondensed(window.scrollY > 72);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
   // §6.3 Zone A: read-only details until "Edit details"; walk-ins are
   // always in edit mode (§6.6 create mode: all fields editable).
   const [editing, setEditing] = useState(false);
@@ -200,33 +193,43 @@ export default function Candidate({
 
   const displayName = formData.name || (isWalkIn ? "New walk-in" : "");
 
+  // Chosen-domain labels for the ActionBar summary line (short display
+  // labels for WorkComm; the verdict arrays keep their exact strings).
+  const chosenLabels = [
+    ...talentSelected,
+    ...workSelected.map(
+      (v) => (WORK_DOMAINS.find((w) => w.value === v) || { label: v }).label
+    ),
+  ];
+  const verdictSummary = notSelected
+    ? "Not selected"
+    : domainCount > 0
+    ? `Selected · ${chosenLabels.join(" + ")}`
+    : undefined;
+
   return (
     <div className="iv-cand">
-      {/* ---------- The sticky Ticket (§6.3 / §11.2) ---------- */}
-      <div className={"iv-cand__ticket" + (condensed ? " is-condensed" : "")}>
-        <div className="iv-cand__ticket-full" aria-hidden={condensed}>
-          <Ticket
-            name={displayName}
-            regNo={formData.regNo}
-            yearChip={formData.year || null}
-            pills={ticketPills}
-            variant={isWalkIn ? "walkin" : "standard"}
-          />
-        </div>
-        <div className="iv-cand__ticket-mini" aria-hidden={!condensed}>
-          <Ticket
-            condensed
-            name={displayName}
-            regNo={formData.regNo}
-            variant={isWalkIn ? "walkin" : "standard"}
-          />
-        </div>
+      {/* ---------- The full Ticket (§6.3 / §11.2) ----------
+          [data-iv-ticket]: the Chrome TopBar's IntersectionObserver
+          sentinel — the condensed bar identity appears only once this
+          scrolls out of view (ticket dedup). */}
+      <div className="iv-cand__ticket" data-iv-ticket="">
+        <Ticket
+          name={displayName}
+          regNo={formData.regNo}
+          yearChip={formData.year || null}
+          pills={ticketPills}
+          variant={isWalkIn ? "walkin" : "standard"}
+        />
       </div>
 
       {/* ---------- Zone A — Details ---------- */}
       <section className="iv-cand__zone" aria-label="Details">
+        <div className="iv-cand__zone-head">
+          <h2 className="iv-cand__micro-label">Details</h2>
+        </div>
         {editMode ? (
-          <Card sunken className="iv-cand__details iv-cand__details--edit">
+          <Card className="iv-cand__details iv-cand__details--edit">
             <Input
               label={isWalkIn ? "Name *" : "Name"}
               value={formData.name}
@@ -278,7 +281,7 @@ export default function Candidate({
             )}
           </Card>
         ) : (
-          <Card sunken className="iv-cand__details">
+          <Card className="iv-cand__details">
             <dl className="iv-cand__dl">
               <div className="iv-cand__dl-row">
                 <dt>Year</dt>
@@ -308,7 +311,10 @@ export default function Candidate({
 
       {/* ---------- Zone B — Preferences ---------- */}
       <section className="iv-cand__zone" aria-label="Preferences">
-        <h2 className="iv-cand__micro-label">Preferences</h2>
+        <div className="iv-cand__zone-head">
+          <h2 className="iv-cand__micro-label">Preferences</h2>
+          <span className="iv-cand__zone-helper">ranked by candidate</span>
+        </div>
         {isWalkIn ? (
           <div className="iv-cand__pref-edit">
             <Input
@@ -393,7 +399,12 @@ export default function Candidate({
       {/* ---------- Zone C — Questions ---------- */}
       {preferredKeys.length > 0 ? (
         <section className="iv-cand__zone" aria-label="Questions">
-          <h2 className="iv-cand__micro-label">Questions</h2>
+          <div className="iv-cand__zone-head">
+            <h2 className="iv-cand__micro-label">Questions</h2>
+            <span className="iv-cand__zone-helper">
+              from their preferred domains
+            </span>
+          </div>
           <div className="iv-cand__questions">
             {preferredKeys.map((key) => (
               <Accordion key={key} title={DOMAIN_TITLES[key]}>
@@ -410,11 +421,21 @@ export default function Candidate({
 
       {/* ---------- Zone D — Verdict ---------- */}
       <section className="iv-cand__zone" aria-label="Verdict">
-        <h2 className="iv-cand__micro-label">
-          Verdict — tap the domains they're selected for
-        </h2>
+        <div className="iv-cand__zone-head">
+          <h2 className="iv-cand__micro-label">Verdict</h2>
+          <span className="iv-cand__zone-helper">
+            tap every selected domain
+          </span>
+        </div>
         <div className="iv-cand__verdict-group">
-          <h3 className="iv-cand__group-label">TalentComm</h3>
+          <div className="iv-cand__group-head">
+            <h3 className="iv-cand__group-label">TalentComm</h3>
+            {talentSelected.length > 0 ? (
+              <span className="iv-cand__group-count">
+                {talentSelected.length} selected
+              </span>
+            ) : null}
+          </div>
           <div className="iv-cand__toggles">
             {TALENT_DOMAINS.map((domain) => (
               <DomainToggle
@@ -428,7 +449,14 @@ export default function Candidate({
         </div>
         {firstYear ? (
           <div className="iv-cand__verdict-group">
-            <h3 className="iv-cand__group-label">WorkComm</h3>
+            <div className="iv-cand__group-head">
+              <h3 className="iv-cand__group-label">WorkComm</h3>
+              {workSelected.length > 0 ? (
+                <span className="iv-cand__group-count">
+                  {workSelected.length} selected
+                </span>
+              ) : null}
+            </div>
             <div className="iv-cand__toggles">
               {WORK_DOMAINS.map(({ value, label }) => (
                 <DomainToggle
@@ -481,7 +509,11 @@ export default function Candidate({
 
       {/* ---------- Zone E — Comments ---------- */}
       <section className="iv-cand__zone" aria-label="Comments">
+        <div className="iv-cand__zone-head">
+          <h2 className="iv-cand__micro-label">Comments</h2>
+        </div>
         <Textarea
+          className="iv-cand__comments"
           label="Comments"
           rows={4}
           value={formData.comments}
@@ -515,6 +547,7 @@ export default function Candidate({
           loading={submitting}
           disabled={!verdictValid}
           disabledReason="Pick domains or Not selected"
+          sub={verdictSummary}
           onClick={onSubmit}
         >
           {isWalkIn ? "Save walk-in" : "Submit verdict"}
