@@ -1,0 +1,283 @@
+/* Candidate — §6.3. Designed at 375px; desktop = 560px centered column. */
+
+.iv-cand {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: var(--space-3) var(--space-4) 0;
+}
+
+/* ---------- Sticky Ticket + §9 #3 condense crossfade ----------
+   Two stacked layers (expanded ticket / condensed bar). The threshold flip
+   swaps which layer is in flow (height snaps instantly — allowed; height is
+   never animated) while opacity/transform crossfade: the ENTERING layer
+   settles 240ms --ease-spring, the exiting layer leaves with --ease. */
+
+.iv-cand__ticket {
+  position: sticky;
+  top: calc(48px + var(--space-2)); /* below the 48px TopBar */
+  z-index: 10;
+  margin-bottom: var(--space-4);
+}
+
+.iv-cand__ticket-full {
+  opacity: 1;
+  transform: none;
+  /* entering (leaving condensed): spring */
+  transition: opacity var(--motion-sheet) var(--ease-spring),
+    transform var(--motion-sheet) var(--ease-spring);
+}
+
+.iv-cand__ticket-mini {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  /* exiting (not condensed): --ease */
+  transition: opacity var(--motion-sheet) var(--ease),
+    transform var(--motion-sheet) var(--ease);
+}
+
+.is-condensed .iv-cand__ticket-full {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  opacity: 0;
+  transform: scale(0.98);
+  pointer-events: none;
+  /* exiting: --ease */
+  transition: opacity var(--motion-sheet) var(--ease),
+    transform var(--motion-sheet) var(--ease);
+}
+
+.is-condensed .iv-cand__ticket-mini {
+  position: static;
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  /* entering: spring settle (§9 #3) */
+  transition: opacity var(--motion-sheet) var(--ease-spring),
+    transform var(--motion-sheet) var(--ease-spring);
+}
+
+/* Give the condensed bar the ticket's ink border treatment on a light bg
+   so it reads as the same artifact while sticky. */
+.iv-cand__ticket-mini .ui-ticket--condensed {
+  border: 1.5px solid var(--text-1);
+  border-radius: var(--radius-ticket);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
+}
+
+/* ---------- Zones ---------- */
+
+.iv-cand__zone {
+  margin-bottom: var(--space-6);
+}
+
+.iv-cand__micro-label {
+  font-size: var(--text-12);
+  font-weight: 600;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: var(--space-2);
+}
+
+/* ---------- Zone A — details ---------- */
+
+.iv-cand__details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.iv-cand__details--edit {
+  align-items: stretch;
+}
+
+.iv-cand__dl {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.iv-cand__dl-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.iv-cand__dl-row dt {
+  flex: 0 0 88px;
+  font-size: var(--text-13);
+  font-weight: 600;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.iv-cand__dl-row dd {
+  margin: 0;
+  font-size: var(--text-16);
+  color: var(--text-1);
+  overflow-wrap: anywhere;
+}
+
+.iv-cand__mono {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.iv-cand__walkin-note {
+  font-size: var(--text-13);
+  color: var(--text-2);
+  line-height: var(--leading-body);
+}
+
+/* ---------- Zone B — preferences ---------- */
+
+.iv-cand__pref-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.iv-cand__pref-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--space-8);
+}
+
+.iv-cand__pref-comm {
+  flex: 0 0 88px;
+  font-size: var(--text-13);
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.iv-cand__pref-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.iv-cand__pref-none {
+  color: var(--text-3);
+}
+
+.iv-cand__pref-edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* ---------- Zone C — questions ---------- */
+
+.iv-cand__questions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.iv-cand__question-list {
+  margin: 0;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--text-14);
+  color: var(--text-2);
+  line-height: var(--leading-body);
+}
+
+/* ---------- Zone D — verdict ---------- */
+
+.iv-cand__verdict-group {
+  margin-bottom: var(--space-4);
+}
+
+.iv-cand__group-label {
+  font-size: var(--text-13);
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: var(--space-2);
+}
+
+.iv-cand__toggles {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.iv-cand__verdict-group--negative {
+  margin-top: var(--space-5);
+  margin-bottom: 0;
+}
+
+/* §2 #10 one-line inline confirm-on-clear */
+.iv-cand__clear-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--warning-tint);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-input);
+}
+
+.iv-cand__clear-question {
+  font-size: var(--text-14);
+  font-weight: 500;
+  color: var(--warning-ink);
+}
+
+.iv-cand__clear-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* ---------- Zone E — comments ---------- */
+
+.iv-cand__template {
+  margin-top: var(--space-2);
+}
+
+/* ---------- Errors + ActionBar ---------- */
+
+.iv-cand__errors {
+  margin-bottom: var(--space-4);
+}
+
+.iv-cand__error-list {
+  margin: 0;
+  padding-left: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* Sticky ActionBar needs to bleed to the viewport edges of the centered
+   column's padding so its border spans the screen at 375px. */
+.iv-cand .ui-action-bar {
+  margin: 0 calc(-1 * var(--space-4));
+}
+
+/* ---------- Overflow menu sheet ---------- */
+
+.iv-cand__menu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}

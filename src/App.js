@@ -12,9 +12,11 @@ import {
 import QRCode from 'react-qr-code';
 import { FirebaseSecurity } from './security';
 import { buildCandidatePayload } from './candidatePayload';
-import { ToastHost } from './ui';
+import { canUndo } from './undoGuard';
+import { ConfirmSheet, ToastHost, toast } from './ui';
 import Login from './screens/interviewer/Login';
 import Search from './screens/interviewer/Search';
+import Candidate from './screens/interviewer/Candidate';
 import InterviewerChrome, { ScreenEnter } from './screens/interviewer/Chrome';
 import {
   throttle,
@@ -54,6 +56,19 @@ const filterCandidates = (candidates, queryText) => {
       candidate.name?.toLowerCase().includes(q) ||
       candidate.regNo?.toLowerCase().startsWith(q)
   );
+};
+
+// Maps FirebaseSecurity.validator.validateCandidateData's exact message
+// strings (validation logic untouched, §2 #43) to Candidate-screen fields so
+// they render as inline errors instead of the deleted alert().
+const SECURITY_ERROR_FIELDS = {
+  'Invalid name': 'name',
+  'Invalid registration number': 'regNo',
+  'Invalid year': 'year',
+  'Invalid phone number': 'whatsappNumber',
+  'College name too long': 'college',
+  'Branch name too long': 'branch',
+  'Comments too long': 'comments',
 };
 
 // "My recent" storage (§6.2): last 5 candidates this interviewer touched.
@@ -156,6 +171,16 @@ function App() {
   const [lastQRGeneration, setLastQRGeneration] = useState(0);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isManualEntry, setIsManualEntry] = useState(false);
+  // §2 #30: "Not selected" is display-local only (no DB field pre-Phase-7).
+  // Mutually exclusive with domain selections (§2 #10, confirmed in-screen).
+  const [notSelected, setNotSelected] = useState(false);
+  // Inline submit validation errors ({field: message}) — replaces the
+  // deleted validation alert()s (§6.3: inline errors, never modal).
+  const [submitErrors, setSubmitErrors] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  // §6.6 / sanctioned exception (e): the walk-in window.confirm guard
+  // becomes a ConfirmSheet — same condition, same write.
+  const [walkInConfirmOpen, setWalkInConfirmOpen] = useState(false);
   const [selectedUpiId, setSelectedUpiId] = useState(0); // Index of selected UPI ID
   const [paymentTimeLeft, setPaymentTimeLeft] = useState(0); // Time left for payment
 
@@ -1004,6 +1029,8 @@ function App() {
 
     setFormData(updatedData);
     pushRecent(cand);
+    setNotSelected(false);
+    setSubmitErrors(null);
     setScreen("candidate");
   };
 
@@ -1029,15 +1056,26 @@ function App() {
     }
   };
 
-  // Walk-in entry from Search (empty state / quiet link): same clear-form
-  // behavior as the old "Start Manual Entry" button; the candidate screen
-  // (old mega-page until 3d) renders in manual-entry mode.
+  // Walk-in entry from Search (§6.6): Candidate screen in create mode. The
+  // temp regNo is auto-generated ON ENTRY then locked (§2 #23) and becomes
+  // the captured doc key.
+  //
+  // DISCREPANCY (reported, minimal fix): the old generator produced
+  // `WALKIN_${Date.now()}`, but the PRESERVED validator
+  // (SecurityUtils.validateRegNo, /^[A-Z0-9]{5,20}$/) rejects the
+  // underscore — the old UI survived because regNo stayed editable; §2 #23
+  // now locks it, which would make walk-in saves impossible. The generator
+  // (not under §12 preservation) drops the underscore; the validator is
+  // untouched.
   const startWalkIn = () => {
-    candidateDocKeyRef.current = null; // key exists only after generation (§2 #23)
+    const tempRegNo = `WALKIN${Date.now()}`;
+    candidateDocKeyRef.current = tempRegNo; // locked post-generation (§2 #23)
     setIsManualEntry(true);
+    setNotSelected(false);
+    setSubmitErrors(null);
     setFormData({
       name: "",
-      regNo: "",
+      regNo: tempRegNo,
       year: "",
       college: "",
       branch: "",
@@ -1074,6 +1112,8 @@ function App() {
     // Existing candidates are keyed by regNo, so the draft's regNo IS the
     // doc key it was loaded under.
     candidateDocKeyRef.current = formData.regNo;
+    setNotSelected(false);
+    setSubmitErrors(null);
     setScreen("candidate");
   };
 
@@ -1107,134 +1147,287 @@ function App() {
       lastUpdatedAt: ""
     });
     localStorage.removeItem("formData");
-    
+    candidateDocKeyRef.current = null;
+    setNotSelected(false);
+    setSubmitErrors(null);
+
     // Exit manual entry mode when clearing form
     if (isManualEntry) {
       setIsManualEntry(false);
     }
   };
 
-  const handleSubmit = async () => {
-    try {
-      // Additional validation for manual entry
-      if (isManualEntry) {
-        const manualValidationErrors = [];
-        
-        // Check required fields for manual entry
-        if (!formData.name.trim()) {
-          manualValidationErrors.push("• Name is required for manual entry");
-        }
-        if (!formData.regNo.trim()) {
-          manualValidationErrors.push("• Registration number is required for manual entry");
-        }
-        if (!formData.year.trim()) {
-          manualValidationErrors.push("• Academic year is required for manual entry");
-        }
-        if (!formData.college.trim()) {
-          manualValidationErrors.push("• College is required for manual entry");
-        }
-        if (!formData.branch.trim()) {
-          manualValidationErrors.push("• Branch is required for manual entry");
-        }
-        if (!formData.whatsappNumber.trim()) {
-          manualValidationErrors.push("• WhatsApp number is required for manual entry");
-        }
-        
-        // Validate year format
-        const yearLower = formData.year.toLowerCase();
-        if (!yearLower.includes('1st year') && !yearLower.includes('2nd year')) {
-          manualValidationErrors.push("• Academic year must be '1st Year' or '2nd Year'");
-        }
-        
-        // Validate preferences based on year
-        if (yearLower.includes('1st year')) {
-          if (!formData.preferences.talentComm.pref1.trim()) {
-            manualValidationErrors.push("• TalentComm Preference 1 is required for 1st year students");
-          }
-          if (!formData.preferences.workComm.pref1.trim()) {
-            manualValidationErrors.push("• WorkComm Preference 1 is required for 1st year students");
-          }
-        } else if (yearLower.includes('2nd year')) {
-          if (!formData.preferences.talentComm.pref1.trim()) {
-            manualValidationErrors.push("• TalentComm Preference 1 is required for 2nd year students");
-          }
-        }
-        
-        if (manualValidationErrors.length > 0) {
-          alert("❌ Manual Entry Validation Errors:\n" + manualValidationErrors.join("\n"));
-          return;
-        }
-        
-        // Confirm manual entry
-        const confirmManual = window.confirm(
-          "⚠️ Manual Entry Confirmation\n\n" +
-          "You are about to create a new candidate record for:\n" +
-          `• Name: ${formData.name}\n` +
-          `• Reg No: ${formData.regNo}\n` +
-          `• Year: ${formData.year}\n\n` +
-          "This will be saved to the database. Continue?"
-        );
-        
-        if (!confirmManual) {
-          return;
-        }
+  // ---------- Candidate-screen field handlers (§6.3) ----------
+  // Screens are presentational; every formData mutation lives here.
+
+  const setCandidateField = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // Year change keeps the existing 2nd-year clearing side effect (the old
+  // year <select> handler, byte-identical logic).
+  const setCandidateYear = (selectedYear) => {
+    setFormData((prev) => ({
+      ...prev,
+      year: selectedYear,
+      // Clear WorkComm preferences for 2nd year students
+      preferences: {
+        ...prev.preferences,
+        workComm:
+          selectedYear === "2nd Year" || selectedYear === "2nd year"
+            ? { pref1: "", pref2: "", pref3: "" }
+            : prev.preferences.workComm,
+      },
+      // Clear WorkComm verdict for 2nd year students
+      verdict: {
+        ...prev.verdict,
+        workComm:
+          selectedYear === "2nd Year" || selectedYear === "2nd year"
+            ? []
+            : prev.verdict.workComm,
+      },
+    }));
+  };
+
+  const setCandidatePreference = (comm, key, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      preferences: {
+        ...prev.preferences,
+        [comm]: {
+          ...prev.preferences[comm],
+          [key]: value,
+        },
+      },
+    }));
+  };
+
+  // Domain rows ARE the verdict (§2 #9): a domain tap goes through the
+  // existing handleVerdictChange semantics; it also clears the local
+  // "Not selected" flag (mutual exclusion, §2 #10 — the other direction,
+  // clearing domains, is confirmed in-screen before onMarkNotSelected).
+  const toggleVerdictDomain = (type, domain) => {
+    setNotSelected(false);
+    handleVerdictChange(type, domain);
+  };
+
+  const markNotSelected = () => {
+    // Not-selected submits the existing empty arrays (§2 #30).
+    setFormData((prev) => ({
+      ...prev,
+      verdict: { talentComm: [], workComm: [] },
+    }));
+    setNotSelected(true);
+  };
+
+  const unmarkNotSelected = () => setNotSelected(false);
+
+  // ---------- Submit (§6.3 / §13 3d — the surgical zone, landmine #1) ----------
+
+  // The old manual-entry required-field checks, conditions unchanged, now
+  // producing a field→message map for inline errors instead of the alert.
+  const buildManualEntryErrors = () => {
+    const fields = {};
+
+    if (!formData.name.trim()) {
+      fields.name = "Name is required for manual entry";
+    }
+    if (!formData.regNo.trim()) {
+      fields.regNo = "Registration number is required for manual entry";
+    }
+    if (!formData.year.trim()) {
+      fields.year = "Academic year is required for manual entry";
+    }
+    if (!formData.college.trim()) {
+      fields.college = "College is required for manual entry";
+    }
+    if (!formData.branch.trim()) {
+      fields.branch = "Branch is required for manual entry";
+    }
+    if (!formData.whatsappNumber.trim()) {
+      fields.whatsappNumber = "WhatsApp number is required for manual entry";
+    }
+
+    // Validate year format
+    const yearLower = formData.year.toLowerCase();
+    if (!yearLower.includes('1st year') && !yearLower.includes('2nd year')) {
+      fields.year = fields.year || "Academic year must be '1st Year' or '2nd Year'";
+    }
+
+    // Validate preferences based on year
+    if (yearLower.includes('1st year')) {
+      if (!formData.preferences.talentComm.pref1.trim()) {
+        fields.talentPref1 = "TalentComm Preference 1 is required for 1st year students";
       }
-      
-      // Validate candidate data before saving
-      const validationErrors = FirebaseSecurity.validator.validateCandidateData(formData);
-      if (validationErrors.length > 0) {
-        alert("❌ Validation errors:\n" + validationErrors.join("\n"));
+      if (!formData.preferences.workComm.pref1.trim()) {
+        fields.workPref1 = "WorkComm Preference 1 is required for 1st year students";
+      }
+    } else if (yearLower.includes('2nd year')) {
+      if (!formData.preferences.talentComm.pref1.trim()) {
+        fields.talentPref1 = "TalentComm Preference 1 is required for 2nd year students";
+      }
+    }
+
+    return Object.keys(fields).length > 0 ? fields : null;
+  };
+
+  // §2 #12 / sanctioned exception (f): undo re-issues the captured pre-write
+  // snapshot through the same write path, guarded by the pure stale-check
+  // (fresh read → canUndo → write; no transaction).
+  const undoVerdictSubmit = async (captured) => {
+    try {
+      const ref = doc(db, "candidates", captured.docKey);
+      const freshSnap = await getDoc(ref);
+      const freshData = freshSnap.exists() ? freshSnap.data() : null;
+      const freshMeta = freshData
+        ? {
+            lastUpdatedAt: freshData.lastUpdatedAt,
+            lastUpdatedBy: freshData.lastUpdatedBy,
+          }
+        : null;
+
+      if (!canUndo(captured.writtenMeta, freshMeta)) {
+        const who =
+          (freshMeta && freshMeta.lastUpdatedBy) || "another interviewer";
+        toast({
+          tone: "error",
+          message: `Changed by ${who} just now — not undone.`,
+        });
         return;
       }
 
-      const ref = doc(db, "candidates", formData.regNo);
+      await setDoc(ref, captured.snapshot);
+      toast({ tone: "success", message: `Undone · ${captured.name}` });
+    } catch (err) {
+      toast({ tone: "error", message: "Undo failed: " + err.message });
+    }
+  };
+
+  // The routed transition that replaces the old silent post-save wipe: the
+  // draft is cleared on successful submit so §6.2 never offers a stale
+  // resume for a finished interview.
+  const resetAfterSubmit = () => {
+    clearForm();
+  };
+
+  // The write itself. The doc key is the one CAPTURED AT LOAD in
+  // candidateDocKeyRef (landmine #2) — never live formData.regNo (for
+  // loaded candidates regNo is not editable, and walk-ins lock the
+  // generated key, so the fallback only covers pre-3c drafts).
+  const performSubmit = async () => {
+    setWalkInConfirmOpen(false);
+
+    // Validate candidate data before saving (existing logic, inline errors)
+    const validationErrors = FirebaseSecurity.validator.validateCandidateData(formData);
+    if (validationErrors.length > 0) {
+      const fields = {};
+      validationErrors.forEach((msg, i) => {
+        fields[SECURITY_ERROR_FIELDS[msg] || `error_${i}`] = msg;
+      });
+      setSubmitErrors(fields);
+      return;
+    }
+    setSubmitErrors(null);
+    setIsSubmitting(true);
+
+    try {
+      const docKey = candidateDocKeyRef.current || formData.regNo;
+
+      // Pre-write snapshot for Undo (§2 #12): the candidate doc as the live
+      // snapshot last saw it, id stripped. New docs (walk-ins) have no
+      // pre-write snapshot — setDoc cannot delete, so their save toast
+      // carries no Undo.
+      const prior = candidates.find((c) => c.id === docKey);
+      let priorSnapshot = null;
+      if (prior) {
+        const { id: _docId, ...rest } = prior;
+        priorSnapshot = rest;
+      }
+
+      const ref = doc(db, "candidates", docKey);
       const payload = buildCandidatePayload(formData, {
-        docKey: formData.regNo,
+        docKey,
         nowIso: new Date().toISOString(),
         userEmail: user?.email,
       });
       // Final payload logged securely
       await setDoc(ref, payload);
-      
+
       // Log security event
       FirebaseSecurity.auditLogger.logEvent('candidate_data_saved', {
         candidateId: formData.regNo,
         interviewer: user?.email
       });
-      
-      alert("✅ Data saved successfully!");
-      setFormData({
-        name: "",
-        regNo: "",
-        year: "",
-        college: "",
-        branch: "",
-        whatsappNumber: "",
-        preferences: {
-          talentComm: {
-            pref1: "",
-            pref2: ""
-          },
-          workComm: {
-            pref1: "",
-            pref2: "",
-            pref3: ""
-          }
-        },
-        verdict: {
-          talentComm: [],
-          workComm: [],
-        },
-        comments: "",
-        paid: false,
-        paymentDetails: null,
-        lastUpdatedBy: "",
-        lastUpdatedAt: ""
+
+      const savedName = formData.name;
+      pushRecent({
+        id: docKey,
+        name: formData.name,
+        regNo: formData.regNo,
+        year: formData.year,
       });
-      localStorage.removeItem("formData");
+
+      if (priorSnapshot) {
+        const captured = {
+          docKey,
+          snapshot: priorSnapshot,
+          writtenMeta: {
+            lastUpdatedAt: payload.lastUpdatedAt,
+            lastUpdatedBy: payload.lastUpdatedBy,
+          },
+          name: savedName,
+        };
+        toast({
+          message: `Saved · ${savedName}`,
+          undo: {
+            label: "Undo",
+            ms: 10000,
+            onUndo: () => undoVerdictSubmit(captured),
+          },
+        });
+      } else {
+        toast({ tone: "success", message: `Saved · ${savedName}` });
+      }
+
+      // Route (§6.3): domains selected + unpaid → Payment (form kept — the
+      // QR flow reads it); otherwise → Done via the routed transition.
+      const hasDomains =
+        (Array.isArray(payload.verdict?.talentComm)
+          ? payload.verdict.talentComm.length
+          : 0) +
+          (Array.isArray(payload.verdict?.workComm)
+            ? payload.verdict.workComm.length
+            : 0) >
+        0;
+
+      if (hasDomains && !formData.paid) {
+        setScreen("payment");
+      } else {
+        resetAfterSubmit();
+        setScreen("done");
+      }
     } catch (err) {
-      alert("Error saving data: " + err.message);
+      toast({ tone: "error", message: "Error saving data: " + err.message });
+    } finally {
+      setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = () => {
+    // Additional validation for manual entry (walk-ins), then the
+    // ConfirmSheet guard — same condition, same write as the old
+    // window.confirm (sanctioned exception e).
+    if (isManualEntry) {
+      const manualErrors = buildManualEntryErrors();
+      if (manualErrors) {
+        setSubmitErrors(manualErrors);
+        return;
+      }
+      setSubmitErrors(null);
+      setWalkInConfirmOpen(true);
+      return;
+    }
+    performSubmit();
   };
 
   // ---------- Render: the §6 screen state machine ----------
@@ -1256,13 +1449,14 @@ function App() {
     );
   }
 
-  // Signed in. Candidate/payment still render the OLD mega-page JSX until
-  // 3d/3e replace those screens whole (landmine #12).
-  const onMegaScreen = screen === "candidate" || screen === "payment";
+  // Signed in. Candidate renders the new §6.3 screen (3d); payment still
+  // renders the OLD mega-page JSX until 3e replaces it whole (landmine #12);
+  // "done" transitionally renders Search until 3f builds the Done screen.
+  const onWorkScreen = screen === "candidate" || screen === "payment";
   // Draft banner data (§2 #46): a persisted formData draft that identifies
   // a candidate → offer Resume/Discard on Search, never silently reopen.
   const draft =
-    !onMegaScreen && formData.name && formData.regNo
+    !onWorkScreen && formData.name && formData.regNo
       ? { name: formData.name, regNo: formData.regNo }
       : null;
   // Resolve "My recent" stubs against the live snapshot so pills stay live.
@@ -1276,14 +1470,37 @@ function App() {
         user={user}
         isOnline={isOnline}
         onSignOut={logout}
-        onBack={onMegaScreen ? () => setScreen("search") : undefined}
+        onBack={onWorkScreen ? () => setScreen("search") : undefined}
         ticket={
-          onMegaScreen
+          onWorkScreen
             ? { name: formData.name, regNo: formData.regNo }
             : null
         }
       />
-      {!onMegaScreen ? (
+      {screen === "candidate" ? (
+        <ScreenEnter id="candidate">
+          <Candidate
+            formData={formData}
+            isWalkIn={isManualEntry}
+            notSelected={notSelected}
+            errors={submitErrors}
+            submitting={isSubmitting}
+            onChangeField={setCandidateField}
+            onChangeYear={setCandidateYear}
+            onChangePreference={setCandidatePreference}
+            onToggleDomain={toggleVerdictDomain}
+            onMarkNotSelected={markNotSelected}
+            onUnmarkNotSelected={unmarkNotSelected}
+            onChangeComments={(value) => setCandidateField("comments", value)}
+            onSubmit={handleSubmit}
+            onClear={() => {
+              clearForm();
+              setScreen("search");
+            }}
+            onCancel={() => setScreen("search")}
+          />
+        </ScreenEnter>
+      ) : screen !== "payment" ? (
         <ScreenEnter id="search">
           <Search
             query={searchName}
@@ -1301,8 +1518,8 @@ function App() {
           />
         </ScreenEnter>
       ) : (
-        <ScreenEnter id="candidate">
-        {/* OLD mega-page candidate/payment JSX — replaced whole by 3d/3e */}
+        <ScreenEnter id="payment">
+        {/* OLD mega-page JSX — payment only now; replaced whole by 3e */}
         <div style={{
           background: "var(--color-surface)",
           color: "var(--color-text-primary)",
@@ -2094,6 +2311,19 @@ function App() {
         </div>
         </ScreenEnter>
       )}
+      {/* §6.6 / sanctioned exception (e): the walk-in window.confirm guard,
+          now a ConfirmSheet — same condition (manual entry, post-validation),
+          same write (performSubmit → the existing setDoc path). Mounted at
+          App level so it works wherever handleSubmit fires. */}
+      <ConfirmSheet
+        open={walkInConfirmOpen}
+        onClose={() => setWalkInConfirmOpen(false)}
+        title="Create walk-in candidate?"
+        message={`You are about to create a new candidate record for ${formData.name} (${formData.regNo}), ${formData.year}. This will be saved to the database.`}
+        confirmLabel="Save walk-in"
+        busy={isSubmitting}
+        onConfirm={performSubmit}
+      />
       <ToastHost position="bottom-center" />
     </div>
   );
