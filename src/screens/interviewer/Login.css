@@ -1,0 +1,94 @@
+/* Login (§6.1) — the one full-brand dark stage. Scoped data-theme="dark".
+   The pure #000000 stage and white lettering are §6.1's own named values
+   (the tokens carry no pure black/white surface) — the ONLY sanctioned raw
+   hex in the interviewer screens. */
+
+.iv-login {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #000000; /* §6.1: pure-black stage (spec-literal) */
+  overflow: hidden;
+}
+
+/* Single radial --glow-deep wash at <= 8% opacity behind the lettering —
+   no other decoration (§6.1, §11.7). */
+.iv-login__glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at 50% 38%,
+    color-mix(in srgb, var(--glow-deep) 8%, transparent) 0%,
+    transparent 62%
+  );
+  pointer-events: none;
+}
+
+/* Centered column, top-anchored at 375px (§6.1). */
+.iv-login__column {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(100% - var(--space-12), 340px);
+  margin: 0 auto;
+  padding-top: clamp(64px, 14vh, 128px);
+  padding-bottom: calc(var(--space-8) + var(--safe-bottom));
+  text-align: center;
+}
+
+.iv-login__wordmark {
+  font-family: var(--font-display);
+  font-weight: 400; /* Bakbak One's only weight — never faux-bold (§4) */
+  font-size: var(--text-40);
+  line-height: var(--leading-display);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: #ffffff; /* §6.1: "MAFIA" in white on the pure-black stage */
+  margin-bottom: var(--space-4);
+}
+
+.iv-login__lettering {
+  width: 280px;
+  max-width: 100%;
+  height: auto;
+  margin-top: var(--space-6);
+  /* The art ships on an opaque black ground; screen-blending sinks it into
+     the pure-black stage (§2 #49). */
+  mix-blend-mode: screen;
+}
+
+.iv-login__tagline {
+  margin-top: var(--space-6);
+  font-size: var(--text-13);
+  font-weight: 600;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+
+.iv-login__cta {
+  width: 100%;
+  margin-top: var(--space-8);
+}
+
+.iv-login__error {
+  width: 100%;
+  margin-top: var(--space-4);
+  text-align: left;
+}
+
+.iv-login__help {
+  margin-top: var(--space-8);
+  font-family: var(--font-mono);
+  font-size: var(--text-14);
+  font-weight: 500;
+  color: var(--text-2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.iv-login__help:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}

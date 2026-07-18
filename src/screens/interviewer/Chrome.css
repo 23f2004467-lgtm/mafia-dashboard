@@ -1,0 +1,119 @@
+/* InterviewerChrome — §6 global chrome (connection dot, avatar button,
+   account sheet) + the §9.1 screen-transition wrapper. */
+
+/* TRANSITIONAL — delete with Phase 4's stylesheet teardown.
+   The old mobile blankets (index.css / globals.css: `button { min-height:
+   44px !important }` at <= 768px) clamp the new 56px interviewer primaries
+   and 72px result rows. Equal !important with higher (class) specificity
+   restores the §6 sizes until those sheets die. */
+.ui-button--lg {
+  min-height: var(--touch-primary) !important;
+}
+.ui-result-row {
+  min-height: 72px !important;
+}
+
+/* ---------- Connection dot ---------- */
+
+.iv-conn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.iv-conn__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+}
+
+.iv-conn--online .iv-conn__dot {
+  background: var(--success-ink);
+}
+
+.iv-conn--offline .iv-conn__dot {
+  background: var(--warning-ink);
+}
+
+.iv-conn__label {
+  font-size: var(--text-12);
+  font-weight: 600;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+
+.iv-conn--online .iv-conn__label {
+  color: var(--text-3);
+}
+
+.iv-conn--offline .iv-conn__label {
+  color: var(--warning-ink);
+}
+
+/* ---------- Avatar button (44px target around the 32px disc) ---------- */
+
+.iv-chrome__avatar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--touch-min);
+  min-height: var(--touch-min);
+  margin-right: calc(-1 * var(--space-1));
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.iv-chrome__avatar-btn:active {
+  transform: scale(0.96);
+}
+
+.iv-chrome__avatar-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ---------- Account sheet body ---------- */
+
+.iv-account {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.iv-account__email {
+  font-size: var(--text-16);
+  font-weight: 500;
+  color: var(--text-1);
+  word-break: break-all;
+}
+
+.iv-account__help {
+  font-family: var(--font-mono);
+  font-size: var(--text-14);
+  font-weight: 500;
+  color: var(--text-2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.iv-account__help:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ---------- §9.1 screen transition (incoming screen) ---------- */
+
+.iv-screen {
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity var(--motion-screen) var(--ease),
+    transform var(--motion-screen) var(--ease);
+}
+
+.iv-screen--in {
+  opacity: 1;
+  transform: none;
+}

@@ -12,6 +12,10 @@ import {
 import QRCode from 'react-qr-code';
 import { FirebaseSecurity } from './security';
 import { buildCandidatePayload } from './candidatePayload';
+import { ToastHost } from './ui';
+import Login from './screens/interviewer/Login';
+import Search from './screens/interviewer/Search';
+import InterviewerChrome, { ScreenEnter } from './screens/interviewer/Chrome';
 import {
   throttle,
   DataCache,
@@ -50,6 +54,19 @@ const filterCandidates = (candidates, queryText) => {
       candidate.name?.toLowerCase().includes(q) ||
       candidate.regNo?.toLowerCase().startsWith(q)
   );
+};
+
+// "My recent" storage (§6.2): last 5 candidates this interviewer touched.
+const RECENTS_KEY = "mafia.recentCandidates";
+
+const readRecents = () => {
+  try {
+    const raw = localStorage.getItem(RECENTS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 };
 
 function App() {
@@ -97,11 +114,35 @@ function App() {
 
   const [searchName, setSearchName] = useState("");
   const [searchResults, setSearchResults] = useState([]);
-  const [visibleCount, setVisibleCount] = useState(3);
   // The app-level in-memory candidates array (sanctioned exception d, §13 3b).
   // Fed by the ONE candidates onSnapshot below; docs keep their Firestore doc
   // id alongside their data. All search is a client-side filter over this.
   const [candidates, setCandidates] = useState([]);
+  // True once the first candidates snapshot has arrived (drives the §6.2
+  // skeleton-grace loading state; reset on sign-out).
+  const [candidatesLoaded, setCandidatesLoaded] = useState(false);
+  // The §6 screen state machine. Route "/" stays; screens are presentational
+  // components — all Firebase handlers remain here in App.js.
+  const [screen, setScreen] = useState("login"); // login|search|candidate|payment|done
+  // False until the first onAuthStateChanged callback fires on cold load;
+  // while false, "/" shows the §6.1 boot splash (never the login form), so
+  // restored sessions go splash → Search and never see Login.
+  const [authResolved, setAuthResolved] = useState(false);
+  // Inline login error (§6.1): the mapped message from the existing error
+  // table in login() renders as a Banner on the Login screen — never alert().
+  const [loginError, setLoginError] = useState("");
+  // Connection dot state for the global chrome (§6).
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+  // "My recent" (§6.2): last 5 candidates touched, persisted per device.
+  const [recents, setRecents] = useState(readRecents);
+  // §2 #45: Search autofocuses ONLY when arriving via "Next candidate" —
+  // plumbed as a prop now; 3f's Done screen adds the setter when it wires
+  // the next-candidate route (cold load never autofocuses).
+  const [searchAutoFocus] = useState(false);
+  // Landmine #2 prep: the Firestore doc key of the loaded candidate is
+  // captured HERE at load time. 3d's submit path must use this ref, never
+  // live formData.regNo.
+  const candidateDocKeyRef = useRef(null);
   const [paymentAmount] = useState("300"); // Fixed at ₹300
   const [paymentStatus, setPaymentStatus] = useState("pending"); // pending, processing, completed, failed
   const [showQRCode, setShowQRCode] = useState(false);
@@ -148,16 +189,23 @@ function App() {
         // stays registered for future sign-ins.
         postLoginSetupDoneRef.current = false;
         setUser(null);
+        setScreen("login");
+        setAuthResolved(true);
         return;
       }
 
       // Mirror the popup path's email validation; never hydrate a session
       // whose email fails it.
       if (!FirebaseSecurity.utils.validateEmail(firebaseUser.email)) {
+        setAuthResolved(true);
         return;
       }
 
       setUser(firebaseUser);
+      // Signed in (popup or restored): land on Search. Functional update so
+      // a listener re-fire mid-interview never yanks the screen back.
+      setScreen((s) => (s === "login" ? "search" : s));
+      setAuthResolved(true);
 
       // Once-per-session guard: skip if the popup path already ran (or has
       // claimed) session registration.
@@ -181,6 +229,19 @@ function App() {
     });
 
     return () => unsubscribe();
+  }, []);
+
+  // Connection dot (§6 global chrome): navigator.onLine listeners feeding
+  // the green "Synced" / amber "Offline" indicator in the TopBar.
+  useEffect(() => {
+    const goOnline = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
   }, []);
 
   // Optimized form data saving with throttling
@@ -238,6 +299,7 @@ function App() {
   useEffect(() => {
     if (!user || !user.email) {
       setCandidates([]);
+      setCandidatesLoaded(false);
       return;
     }
 
@@ -247,6 +309,7 @@ function App() {
         setCandidates(
           snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
         );
+        setCandidatesLoaded(true);
       },
       (error) => {
         console.error("Candidates listener error:", error);
@@ -263,13 +326,11 @@ function App() {
     const q = searchName.trim();
     if (q.length < 2) {
       setSearchResults([]);
-      setVisibleCount(3);
       return;
     }
 
     const timer = setTimeout(() => {
       setSearchResults(filterCandidates(candidates, q));
-      setVisibleCount(3);
     }, 250);
 
     return () => clearTimeout(timer);
@@ -723,16 +784,17 @@ function App() {
 
   const login = async () => {
     if (isLoggingIn) return;
+    setLoginError("");
 
-    // Check rate limiting
+    // Check rate limiting — inline Banner, never alert() (§6.1)
     if (!FirebaseSecurity.rateLimiter.checkLimit('login', 5, 60000)) {
-      alert('Too many login attempts. Please try again later.');
+      setLoginError('Too many login attempts. Please try again later.');
       return;
     }
 
-    // Check if user is locked out
+    // Check if user is locked out — inline Banner, never alert() (§6.1)
     if (FirebaseSecurity.sessionManager.isLockedOut('login')) {
-      alert('Account temporarily locked due to too many failed attempts.');
+      setLoginError('Account temporarily locked due to too many failed attempts.');
       return;
     }
 
@@ -774,6 +836,7 @@ function App() {
           });
           
           setUser(user);
+          setScreen("search");
           return; // Success, exit retry loop
         } catch (error) {
           lastError = error;
@@ -827,8 +890,9 @@ function App() {
         default:
           errorMessage += error.message;
       }
-      
-      alert(errorMessage);
+
+      // Inline Banner on the Login screen (§6.1) — never alert()
+      setLoginError(errorMessage);
     } finally {
       setIsLoggingIn(false);
     }
@@ -895,19 +959,122 @@ function App() {
 
 
 
-  // The Search button (stays until 3c replaces this screen) now applies the
-  // same client-side filter immediately — no listener, no reads. The live
-  // debounced filter above makes it redundant but harmless.
-  const handleSearch = () => {
-    const q = searchName.trim();
-    if (q.length < 2) return;
-    setSearchResults(filterCandidates(candidates, q));
-    setVisibleCount(3);
+  // Push a candidate onto "My recent" (§6.2): newest first, deduped by doc
+  // key, capped at 5, persisted under mafia.recentCandidates.
+  const pushRecent = (cand) => {
+    const key = cand.id || cand.regNo;
+    if (!key) return;
+    setRecents((prev) => {
+      const entry = {
+        id: key,
+        name: cand.name || "",
+        regNo: cand.regNo || "",
+        year: cand.year || "",
+      };
+      const next = [entry, ...prev.filter((r) => r.id !== key)].slice(0, 5);
+      try {
+        localStorage.setItem(RECENTS_KEY, JSON.stringify(next));
+      } catch (error) {
+        console.warn("Failed to save recent candidates:", error);
+      }
+      return next;
+    });
   };
 
-  const clearSearch = () => {
-    setSearchResults([]);
-    setSearchName("");
+  // Open a candidate from Search (replaces the old "Load to Form" button).
+  // The Firestore doc key is captured NOW (landmine #2): 3d's submit must
+  // write with this key, never live formData.regNo. The doc id is stripped
+  // from form state so it can never leak into the candidates write payload.
+  const openCandidate = (cand) => {
+    candidateDocKeyRef.current = cand.id || cand.regNo;
+    const { id: _docId, ...updatedData } = cand;
+
+    // Clear WorkComm data for 2nd year students (existing load logic;
+    // non-mutating so the in-memory snapshot doc stays untouched)
+    if (cand.year === "2nd Year" || cand.year === "2nd year") {
+      updatedData.preferences = {
+        ...(updatedData.preferences || {}),
+        workComm: { pref1: "", pref2: "", pref3: "" },
+      };
+      updatedData.verdict = {
+        ...(updatedData.verdict || {}),
+        workComm: [],
+      };
+    }
+
+    setFormData(updatedData);
+    pushRecent(cand);
+    setScreen("candidate");
+  };
+
+  // "My recent" tap: resolve the stored stub against the live snapshot so
+  // the loaded form (and pills) carry current data.
+  const openRecent = (recent) => {
+    const live = candidates.find((c) => c.id === recent.id);
+    if (live) {
+      openCandidate(live);
+    } else if (!candidatesLoaded) {
+      openCandidate(recent);
+    } else {
+      // Loaded snapshot has no such doc (deleted since it was touched)
+      setRecents((prev) => {
+        const next = prev.filter((r) => r.id !== recent.id);
+        try {
+          localStorage.setItem(RECENTS_KEY, JSON.stringify(next));
+        } catch (error) {
+          console.warn("Failed to save recent candidates:", error);
+        }
+        return next;
+      });
+    }
+  };
+
+  // Walk-in entry from Search (empty state / quiet link): same clear-form
+  // behavior as the old "Start Manual Entry" button; the candidate screen
+  // (old mega-page until 3d) renders in manual-entry mode.
+  const startWalkIn = () => {
+    candidateDocKeyRef.current = null; // key exists only after generation (§2 #23)
+    setIsManualEntry(true);
+    setFormData({
+      name: "",
+      regNo: "",
+      year: "",
+      college: "",
+      branch: "",
+      whatsappNumber: "",
+      preferences: {
+        talentComm: {
+          pref1: "",
+          pref2: ""
+        },
+        workComm: {
+          pref1: "",
+          pref2: "",
+          pref3: ""
+        }
+      },
+      verdict: {
+        talentComm: [],
+        workComm: [],
+      },
+      comments: "",
+      paid: false,
+      paymentDetails: null,
+      lastUpdatedBy: user?.displayName || user?.email || "Manual Entry",
+      lastUpdatedAt: new Date().toISOString()
+    });
+    setScreen("candidate");
+  };
+
+  // Draft resume/discard (§2 #46): the localStorage draft mechanism is
+  // untouched (formData still hydrates from and throttle-saves to the
+  // "formData" key) — but the draft is never silently reopened: Search
+  // shows a Banner and the interviewer explicitly resumes or discards.
+  const resumeDraft = () => {
+    // Existing candidates are keyed by regNo, so the draft's regNo IS the
+    // doc key it was loaded under.
+    candidateDocKeyRef.current = formData.regNo;
+    setScreen("candidate");
   };
 
   const clearForm = () => {
@@ -1070,378 +1237,83 @@ function App() {
     }
   };
 
+  // ---------- Render: the §6 screen state machine ----------
+
+  // Boot splash (§6.1): while onAuthStateChanged resolves on cold load, "/"
+  // shows the black stage with the six-dot loader — restored sessions go
+  // splash → Search and never see the Login form.
+  if (!authResolved) {
+    return <Login booting />;
+  }
+
+  // Signed out → the §6.1 Login stage.
+  if (!user) {
+    return (
+      <>
+        <Login onLogin={login} loading={isLoggingIn} error={loginError} />
+        <ToastHost position="bottom-center" />
+      </>
+    );
+  }
+
+  // Signed in. Candidate/payment still render the OLD mega-page JSX until
+  // 3d/3e replace those screens whole (landmine #12).
+  const onMegaScreen = screen === "candidate" || screen === "payment";
+  // Draft banner data (§2 #46): a persisted formData draft that identifies
+  // a candidate → offer Resume/Discard on Search, never silently reopen.
+  const draft =
+    !onMegaScreen && formData.name && formData.regNo
+      ? { name: formData.name, regNo: formData.regNo }
+      : null;
+  // Resolve "My recent" stubs against the live snapshot so pills stay live.
+  const recentRows = recents.map(
+    (r) => candidates.find((c) => c.id === r.id) || r
+  );
+
   return (
-    <div style={{
-      background: "var(--color-surface)",
-      color: "var(--color-text-primary)",
-      minHeight: "100vh",
-      padding: window.innerWidth <= 768 ? "1rem" : "2rem"
-    }}>
-      {!user ? (
-        <div style={styles.loginContainer}>
-          <div style={{
-            ...styles.loginCard, 
-            className: "login-card-animate",
-            maxWidth: window.innerWidth <= 768 ? "95vw" : "450px",
-            padding: window.innerWidth <= 768 ? "2rem" : "3.5rem"
-          }}>
-            <div style={styles.loginHeader}>
-              <div style={styles.logoContainer}>
-                <div style={styles.brandLogo} className="brand-logo">
-                  <img 
-                    src="/mafia-logo.png" 
-                    alt="MAFIA Logo" 
-                    style={styles.logoImage}
-                    className="logo-image"
-                  />
-                  <h1 style={styles.loginTitle} className="login-title">MAFIA</h1>
-                  <div style={styles.logoSubtitle}>TalentComm & WorkComm</div>
-                </div>
-                <div style={styles.logoGlow}></div>
-              </div>
-              <p style={styles.loginSubtitle}>Recruitment Interviewer Dashboard</p>
-            </div>
-            
-            <div style={styles.loginContent}>
-              <p style={styles.loginDescription}>
-                Welcome to the MAFIA recruitment system. Access the interviewer dashboard to manage candidate applications, update verdicts, and verify payments.
-              </p>
-              
-              <button
-                onClick={login}
-                disabled={isLoggingIn}
-                className="login-button"
-                style={{
-                  ...styles.loginButton,
-                  backgroundColor: isLoggingIn ? "#666" : "var(--color-primary)",
-                  cursor: isLoggingIn ? "not-allowed" : "pointer",
-                  opacity: isLoggingIn ? 0.7 : 1,
-                  transition: "all var(--transition-base)",
-                  boxShadow: "var(--shadow-glow-sm)"
-                }}
-              >
-                <span style={styles.googleIcon}>
-                  {isLoggingIn ? "⏳" : "🔐"}
-                </span>
-                {isLoggingIn ? "Signing In..." : "Login with Gmail"}
-              </button>
-              
-              <div style={styles.loginFeatures}>
-                <div style={styles.feature} className="feature">
-                  <span style={styles.featureIcon} className="feature-icon">🔍</span>
-                  <span>Search & Filter Candidates</span>
-                </div>
-                <div style={styles.feature} className="feature">
-                  <span style={styles.featureIcon} className="feature-icon">📝</span>
-                  <span>Update Interview Verdicts</span>
-                </div>
-                <div style={styles.feature} className="feature">
-                  <span style={styles.featureIcon} className="feature-icon">💳</span>
-                  <span>Payment Verification</span>
-                </div>
-                <div style={styles.feature} className="feature">
-                  <span style={styles.featureIcon} className="feature-icon">📊</span>
-                  <span>Real-time Analytics</span>
-                </div>
-              </div>
-              
-              <div style={styles.contactInfo} className="contact-info">
-                <div style={styles.contactHeader}>
-                  <span style={styles.contactIcon}>📞</span>
-                  <span style={styles.contactTitle}>Need Help?</span>
-                </div>
-                <p style={styles.contactText}>
-                  If you have any issues or questions, contact us at: 
-                  <br />
-                  <span style={styles.contactNumber}>📱 9591185310</span>
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+    <div className="iv-app">
+      <InterviewerChrome
+        user={user}
+        isOnline={isOnline}
+        onSignOut={logout}
+        onBack={onMegaScreen ? () => setScreen("search") : undefined}
+        ticket={
+          onMegaScreen
+            ? { name: formData.name, regNo: formData.regNo }
+            : null
+        }
+      />
+      {!onMegaScreen ? (
+        <ScreenEnter id="search">
+          <Search
+            query={searchName}
+            onQueryChange={setSearchName}
+            results={searchResults}
+            loading={!candidatesLoaded}
+            draft={draft}
+            onResumeDraft={resumeDraft}
+            onDiscardDraft={clearForm}
+            recents={recentRows}
+            onSelect={openCandidate}
+            onSelectRecent={openRecent}
+            onAddWalkIn={startWalkIn}
+            autoFocus={searchAutoFocus}
+          />
+        </ScreenEnter>
       ) : (
-        <div style={{ 
-          maxWidth: window.innerWidth <= 768 ? "100%" : "800px", 
+        <ScreenEnter id="candidate">
+        {/* OLD mega-page candidate/payment JSX — replaced whole by 3d/3e */}
+        <div style={{
+          background: "var(--color-surface)",
+          color: "var(--color-text-primary)",
+          minHeight: "100vh",
+          padding: window.innerWidth <= 768 ? "1rem" : "2rem"
+        }}>
+        <div style={{
+          maxWidth: window.innerWidth <= 768 ? "100%" : "800px",
           margin: "auto",
           padding: window.innerWidth <= 768 ? "0" : "0 1rem"
         }}>
-          <div style={{
-            ...styles.dashboardHeader,
-            flexDirection: window.innerWidth <= 768 ? "column" : "row",
-            gap: window.innerWidth <= 768 ? "1rem" : "0",
-            padding: window.innerWidth <= 768 ? "1rem" : "2rem"
-          }}>
-            <div>
-              <div style={styles.dashboardBrand} className="dashboard-brand">
-                <div style={styles.dashboardLogo}>
-                  <img 
-                    src="/mafia-logo.png" 
-                    alt="MAFIA Logo" 
-                    style={styles.dashboardLogoImage}
-                    className="dashboard-logo-image"
-                  />
-                  <h1 style={styles.dashboardTitle} className="dashboard-title">MAFIA</h1>
-                </div>
-                <div style={styles.dashboardSubtitle}>Recruitment Interviewer Dashboard</div>
-              </div>
-              <p style={styles.welcomeText}>
-                Welcome, <span style={styles.userName}>{user.displayName || user.email}</span>
-              </p>
-            </div>
-            <div style={{
-              ...styles.headerActions,
-              flexDirection: window.innerWidth <= 768 ? "row" : "column",
-              alignItems: window.innerWidth <= 768 ? "center" : "flex-end",
-              gap: window.innerWidth <= 768 ? "1rem" : "1rem"
-            }}>
-              <div style={{
-                ...styles.userInfo,
-                fontSize: window.innerWidth <= 768 ? "0.8rem" : "0.9rem"
-              }}>
-                <span style={styles.userIcon}>👤</span>
-                <span style={{
-                  ...styles.userEmail,
-                  display: window.innerWidth <= 768 ? "none" : "inline"
-                }}>{user.email}</span>
-                <span style={{
-                  display: window.innerWidth <= 768 ? "inline" : "none",
-                  color: "var(--color-text-secondary)",
-                  fontSize: "0.8rem"
-                }}>{user.email.split('@')[0]}</span>
-              </div>
-              <button
-                onClick={logout}
-                className="logout-button mobile-btn mobile-btn-danger"
-                style={{
-                  ...styles.logoutButton,
-                  padding: window.innerWidth <= 768 ? "0.6rem 1rem" : "0.8rem 1.5rem",
-                  fontSize: window.innerWidth <= 768 ? "0.9rem" : "1rem"
-                }}
-              >
-                🚪 {window.innerWidth <= 768 ? "Logout" : "Logout"}
-              </button>
-            </div>
-          </div>
-
-          <div style={{
-            ...styles.searchSection,
-            padding: window.innerWidth <= 768 ? "1rem" : "1.5rem"
-          }}>
-            <h2 style={{
-              ...styles.sectionTitle,
-              fontSize: window.innerWidth <= 768 ? "1.3rem" : "1.5rem"
-            }}>🔍 Search Candidate by Name</h2>
-            <div className="mobile-search">
-              <span className="mobile-search-icon">🔍</span>
-              <input
-                className="mobile-form-input"
-                style={{
-                  ...styles.input,
-                  fontSize: "16px",
-                  minHeight: "44px"
-                }}
-                placeholder="Enter name to search"
-                value={searchName}
-                onChange={(e) => setSearchName(e.target.value)}
-              />
-            </div>
-            <div style={{ 
-              display: "flex", 
-              gap: "1rem",
-              flexDirection: window.innerWidth <= 768 ? "column" : "row"
-            }}>
-              <button
-                className="mobile-btn mobile-btn-primary"
-                style={{ 
-                  ...styles.button, 
-                  backgroundColor: "var(--color-surface-elevated)",
-                  width: window.innerWidth <= 768 ? "100%" : "auto"
-                }}
-                onClick={handleSearch}
-              >
-                🔍 Search
-              </button>
-              <button
-                className="mobile-btn mobile-btn-secondary"
-                style={{ 
-                  ...styles.button, 
-                  backgroundColor: "var(--color-surface-input)",
-                  width: window.innerWidth <= 768 ? "100%" : "auto"
-                }}
-                onClick={clearSearch}
-              >
-                ❌ Cancel
-              </button>
-            </div>
-
-          {searchResults.length > 0 && (
-            <div style={{ marginTop: "1rem" }}>
-              <h3 style={{
-                fontSize: window.innerWidth <= 768 ? "1.2rem" : "1.5rem",
-                marginBottom: "1rem"
-              }}>Matching Candidates:</h3>
-              {searchResults.slice(0, visibleCount).map((cand, idx) => (
-                <div
-                  key={idx}
-                  className="mobile-candidate-item"
-                  style={{
-                    padding: window.innerWidth <= 768 ? "1rem" : "0.5rem",
-                    marginBottom: "0.5rem",
-                    backgroundColor: "var(--color-surface-card)",
-                    border: "1px solid #333",
-                    borderRadius: "8px",
-                  }}
-                >
-                  <div className="mobile-candidate-header">
-                    <div className="mobile-candidate-name">{cand.name}</div>
-                    <div className="mobile-candidate-regno">{cand.regNo}</div>
-                  </div>
-                  <div className="mobile-candidate-details">
-                    <div className="mobile-candidate-detail">
-                      <span className="mobile-candidate-label">Year:</span>
-                      <span className="mobile-candidate-value">{cand.year || "Not specified"}</span>
-                    </div>
-                    <div className="mobile-candidate-detail">
-                      <span className="mobile-candidate-label">College:</span>
-                      <span className="mobile-candidate-value">{cand.college || "N/A"}</span>
-                    </div>
-                    <div className="mobile-candidate-detail">
-                      <span className="mobile-candidate-label">Branch:</span>
-                      <span className="mobile-candidate-value">{cand.branch || "N/A"}</span>
-                    </div>
-                    <div className="mobile-candidate-detail">
-                      <span className="mobile-candidate-label">WhatsApp:</span>
-                      <span className="mobile-candidate-value">{cand.whatsappNumber || "N/A"}</span>
-                    </div>
-                    <div className="mobile-candidate-detail">
-                      <span className="mobile-candidate-label">TalentComm:</span>
-                      <span className="mobile-candidate-value">{cand.preferences?.talentComm?.pref1 || "Not specified"}{cand.preferences?.talentComm?.pref2 ? `, ${cand.preferences.talentComm.pref2}` : ""}</span>
-                    </div>
-                    <div className="mobile-candidate-detail">
-                      <span className="mobile-candidate-label">WorkComm:</span>
-                      <span className="mobile-candidate-value">{cand.preferences?.workComm?.pref1 || "Not specified"}{cand.preferences?.workComm?.pref2 ? `, ${cand.preferences.workComm.pref2}` : ""}{cand.preferences?.workComm?.pref3 ? `, ${cand.preferences.workComm.pref3}` : ""}</span>
-                    </div>
-                    <div className="mobile-candidate-detail">
-                      <span className="mobile-candidate-label">TalentComm Verdict:</span>
-                      <span className="mobile-candidate-value">{Array.isArray(cand.verdict?.talentComm) ? cand.verdict.talentComm.join(", ") : ""}</span>
-                    </div>
-                    <div className="mobile-candidate-detail">
-                      <span className="mobile-candidate-label">WorkComm Verdict:</span>
-                      <span className="mobile-candidate-value">{Array.isArray(cand.verdict?.workComm) ? cand.verdict.workComm.join(", ") : ""}</span>
-                    </div>
-                    <div className="mobile-candidate-detail">
-                      <span className="mobile-candidate-label">Paid:</span>
-                      <span className="mobile-candidate-value">{cand.paid ? "✅" : "❌"}</span>
-                    </div>
-                    {cand.paymentDetails && (
-                      <>
-                        <div className="mobile-candidate-detail">
-                          <span className="mobile-candidate-label">Payment Method:</span>
-                          <span className="mobile-candidate-value">{cand.paymentDetails.method}</span>
-                        </div>
-                        {cand.paymentDetails.transactionId && (
-                          <div className="mobile-candidate-detail">
-                            <span className="mobile-candidate-label">Transaction ID:</span>
-                            <span className="mobile-candidate-value">{cand.paymentDetails.transactionId}</span>
-                          </div>
-                        )}
-                        {cand.paymentDetails.verificationCode && (
-                          <div className="mobile-candidate-detail">
-                            <span className="mobile-candidate-label">Verification Code:</span>
-                            <span className="mobile-candidate-value">{cand.paymentDetails.verificationCode}</span>
-                          </div>
-                        )}
-                        {cand.paymentDetails.amount && (
-                          <div className="mobile-candidate-detail">
-                            <span className="mobile-candidate-label">Amount:</span>
-                            <span className="mobile-candidate-value">₹{cand.paymentDetails.amount}</span>
-                          </div>
-                        )}
-                      </>
-                    )}
-                    <div className="mobile-candidate-detail">
-                      <span className="mobile-candidate-label">Last Updated By:</span>
-                      <span className="mobile-candidate-value">{cand.lastUpdatedBy || "N/A"}</span>
-                    </div>
-                    <div className="mobile-candidate-detail">
-                      <span className="mobile-candidate-label">Last Updated At:</span>
-                      <span className="mobile-candidate-value">{cand.lastUpdatedAt ? new Date(cand.lastUpdatedAt).toLocaleString() : "N/A"}</span>
-                    </div>
-                  </div>
-                  <button
-                    className="mobile-btn mobile-btn-primary"
-                    style={{ 
-                      ...styles.button, 
-                      backgroundColor: "var(--color-primary)", 
-                      marginTop: "0.5rem",
-                      width: window.innerWidth <= 768 ? "100%" : "auto"
-                    }}
-                    onClick={() => {
-                      // Load candidate data and handle year-specific logic.
-                      // Strip the snapshot doc id: formData is spread into the
-                      // Firestore write payload (buildCandidatePayload) and must
-                      // keep its pre-3b shape — no `id` field may leak into it.
-                      const { id: _docId, ...updatedData } = cand;
-
-                      // Clear WorkComm data for 2nd year students
-                      if (cand.year === "2nd Year" || cand.year === "2nd year") {
-                        updatedData.preferences.workComm = {
-                          pref1: "",
-                          pref2: "",
-                          pref3: ""
-                        };
-                        updatedData.verdict.workComm = [];
-                      }
-                      
-                      setFormData(updatedData);
-                    }}
-                  >
-                    📝 Load to Form
-                  </button>
-                </div>
-              ))}
-              {visibleCount < searchResults.length && (
-                <button
-                  className="mobile-btn mobile-btn-secondary"
-                  onClick={() => setVisibleCount((prev) => prev + 3)}
-                  style={{ 
-                    ...styles.button, 
-                    backgroundColor: "#555",
-                    width: window.innerWidth <= 768 ? "100%" : "auto",
-                    marginTop: "1rem"
-                  }}
-                >
-                  📄 Load More
-                </button>
-              )}
-            </div>
-          )}
-          </div>
-
-          {/* Mobile Navigation */}
-          {window.innerWidth <= 768 && (
-            <div className="mobile-nav">
-              <div className="mobile-nav-content">
-                <div className="mobile-nav-item active">
-                  <span className="mobile-nav-icon">🔍</span>
-                  <span>Search</span>
-                </div>
-                <div className="mobile-nav-item">
-                  <span className="mobile-nav-icon">📝</span>
-                  <span>Manual Entry</span>
-                </div>
-                <div className="mobile-nav-item">
-                  <span className="mobile-nav-icon">💳</span>
-                  <span>Payment</span>
-                </div>
-                <div className="mobile-nav-item">
-                  <span className="mobile-nav-icon">✅</span>
-                  <span>Submit</span>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Manual Entry Section */}
           <div className="mobile-card" style={{ 
             marginTop: "2rem", 
@@ -2219,26 +2091,10 @@ function App() {
             </button>
           </div>
         </div>
-      )}
-      
-      {/* Footer with Branding */}
-      <div style={styles.footer}>
-        <div style={styles.footerContent}>
-                      <div style={styles.footerBrand}>
-              <img 
-                src="/mafia-logo.png" 
-                alt="MAFIA Logo" 
-                style={styles.footerLogoImage}
-                className="footer-logo-image"
-              />
-              <span style={styles.footerTitle}>MAFIA</span>
-            </div>
-          <div style={styles.footerInfo}>
-            <span style={styles.footerText}>TalentComm & WorkComm Recruitment System</span>
-            <span style={styles.footerContact}>📞 Contact: 9591185310</span>
-          </div>
         </div>
-      </div>
+        </ScreenEnter>
+      )}
+      <ToastHost position="bottom-center" />
     </div>
   );
 }
