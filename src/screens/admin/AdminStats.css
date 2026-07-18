@@ -1,0 +1,30 @@
+/* AdminStats (§7.3) — auto-fit stat-tile grid + count-up digit lock.
+   Tokens only. */
+
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-4);
+}
+
+/* §4 digit-uniformity: Bakbak One digits are NOT uniform-width, so animated
+   display numerals get the per-digit inline-block width lock — tiles never
+   jitter during the §9 #6 count-up. */
+.admin-stats .digit {
+  display: inline-block;
+  min-width: 0.62em;
+  text-align: center;
+}
+
+.admin-stats__countup {
+  white-space: nowrap;
+}
+
+.admin-stats__fraction {
+  white-space: nowrap;
+}
+
+.admin-stats__slash {
+  color: var(--text-3);
+  margin: 0 2px;
+}

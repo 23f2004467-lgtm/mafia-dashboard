@@ -1,11 +1,13 @@
-import React, { useCallback, useEffect, useState, useMemo } from "react";
+import React, { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { db } from "./firebaseConfig";
 import { FirebaseSecurity } from './security';
 import { SecureAdminAuth } from './secureAdminAuth';
 import { ConfirmDialog } from './components/common';
-import { ToastHost } from './ui';
+import { ToastHost, toast } from './ui';
 import AdminLogin from './screens/admin/AdminLogin';
 import AdminTopBar from './screens/admin/AdminTopBar';
+import AdminStats from './screens/admin/AdminStats';
+import AdminCandidatesTable from './screens/admin/AdminCandidatesTable';
 import './AdminPortal.css';
 import {
   collection,
@@ -20,23 +22,51 @@ import {
 } from "firebase/firestore";
 import * as ExcelJS from "exceljs";
 import { buildExportRows } from "./exportRows";
-import { DataCache, PerformanceMonitor } from './performanceOptimizations';
+import { PerformanceMonitor } from './performanceOptimizations';
 import {
   VaultTokens as T,
-  VaultStat,
-  VaultPill,
   VaultCard,
   VaultSectionHeader,
-  VaultFunnel,
 } from './components/admin/VaultChrome';
 
 /**
  * MAFIA Recruitment Admin Portal — House Lights dark stage (§7).
- * Phase 5a: dark shell + §7.1 login + §7.2 topbar. All Firestore
- * logic/writes/listeners live here; rendering moves to src/ui/ +
- * src/screens/admin/ presentational pieces. Dashboard body cards are
- * still Vault-styled until 5b–5d.
+ * Phase 5a: dark shell + §7.1 login + §7.2 topbar. Phase 5b: §7.3 stat
+ * strip + §7.4 candidates table (funnel card and duplicate Export
+ * deleted, §2 #25/#27). All Firestore logic/writes/listeners live here;
+ * rendering moves to src/ui/ + src/screens/admin/ presentational pieces.
+ * The interviewers card stays Vault-styled until its §7.6 sub-step.
  */
+
+// ---------- §7.4 filter model (search + one state filter) ----------
+// Shared by the table memo AND the export scope so "export filtered"
+// always means exactly what the table shows (§2 #27). Search semantics
+// are byte-identical to the old inline predicate.
+const matchesSearch = (cand, search) =>
+  !search ||
+  cand.name?.toLowerCase().includes(search.toLowerCase()) ||
+  cand.regNo?.toLowerCase().includes(search.toLowerCase());
+
+const hasSelectedVerdict = (cand) =>
+  (Array.isArray(cand.verdict?.talentComm) && cand.verdict.talentComm.length > 0) ||
+  (Array.isArray(cand.verdict?.workComm) && cand.verdict.workComm.length > 0);
+
+// filter ∈ "all" | "unpaid" | "paid_unverified" | "verified" | "selected"
+// (§5 derivations; replaces the old all/paid/unpaid <select>).
+const matchesStateFilter = (cand, filter) => {
+  switch (filter) {
+    case "unpaid":
+      return !cand.paid;
+    case "paid_unverified":
+      return Boolean(cand.paid) && !cand.manuallyVerified;
+    case "verified":
+      return Boolean(cand.manuallyVerified);
+    case "selected":
+      return hasSelectedVerdict(cand);
+    default:
+      return true;
+  }
+};
 
 // §7.1: the admin rate limit (3 attempts / 5 min) — the same literals the
 // checkLimit call has always used, lifted to consts so the login Banner
@@ -63,7 +93,6 @@ function lockoutRetryAt() {
 }
 function AdminPortal() {
   const performanceMonitor = useMemo(() => new PerformanceMonitor(), []);
-  const dataCache = useMemo(() => new DataCache(100), []);
 
   // State
   const [email, setEmail] = useState("");
@@ -71,12 +100,30 @@ function AdminPortal() {
   const [authenticated, setAuthenticated] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [candidates, setCandidates] = useState([]);
+  // §7.3/§7.4: first-snapshot flag — tiles/rows skeleton until it flips;
+  // "No candidates match your filters" may only appear after it.
+  const [candidatesReady, setCandidatesReady] = useState(false);
   const [interviewers, setInterviewers] = useState([]);
   const [search, setSearch] = useState("");
   const [filterPaid, setFilterPaid] = useState("all");
   const [isForceLogoutLoading, setIsForceLogoutLoading] = useState(false);
   const [isClearDataLoading, setIsClearDataLoading] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(new Date());
+
+  // §7.4 optimistic row feedback: regNo currently flashing green.
+  const [flashRegNo, setFlashRegNo] = useState(null);
+  const flashTimerRef = useRef(null);
+  const flashRow = useCallback((regNo) => {
+    setFlashRegNo(regNo);
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    // Hold the flash class ~150 ms (120 ms fade-in), then let the
+    // 800 ms fade-out run (TableRow.css).
+    flashTimerRef.current = setTimeout(() => setFlashRegNo(null), 160);
+  }, []);
+  useEffect(() => () => clearTimeout(flashTimerRef.current), []);
+
+  // §7.3 tile 3 → apply the Paid·unverified filter + scroll to the table.
+  const tableCardRef = useRef(null);
 
   const [showClearDataModal, setShowClearDataModal] = useState(false);
   const [showDeleteDataModal, setShowDeleteDataModal] = useState(false);
@@ -90,12 +137,24 @@ function AdminPortal() {
   // Payment analytics
   const total = candidates.length;
   const paid = candidates.filter((c) => c.paid).length;
-  const unpaid = total - paid;
   const percentPaid = total > 0 ? Math.round((paid / total) * 100) : 0;
-  const manuallyVerified = candidates.filter((c) => c.manuallyVerified).length;
+  // §7.3 tile 3: paid claims not yet verified by the board.
+  const awaitingVerification = candidates.filter(
+    (c) => c.paid && !c.manuallyVerified
+  ).length;
 
   const totalAmount = candidates.reduce((sum, c) => {
     if (c.paid) {
+      const amount = c.paymentDetails?.amount ? Number(c.paymentDetails.amount) : 300;
+      return sum + amount;
+    }
+    return sum;
+  }, 0);
+
+  // §2 #37 sub-line "of which ₹X verified" — same per-candidate amount
+  // logic as totalAmount, scoped to verified payments (display only).
+  const verifiedAmount = candidates.reduce((sum, c) => {
+    if (c.paid && c.manuallyVerified) {
       const amount = c.paymentDetails?.amount ? Number(c.paymentDetails.amount) : 300;
       return sum + amount;
     }
@@ -276,22 +335,20 @@ function AdminPortal() {
           ? { ...c, manuallyVerified: true, manualVerificationDetails: { verifiedBy: 'Admin', verifiedAt: new Date().toISOString() } }
           : c
       ));
+      flashRow(candidate.regNo); // §7.4 optimistic green row flash
     } catch (error) {
       console.error('Error manually verifying payment:', error);
-      alert('Failed to manually verify payment: ' + error.message);
+      toast({ tone: 'error', message: 'Failed to manually verify payment: ' + error.message });
     }
   };
 
   const exportToExcel = async () => {
-    const filteredCandidates = candidates.filter((cand) => {
-      const matchesSearch = !search ||
-        cand.name?.toLowerCase().includes(search.toLowerCase()) ||
-        cand.regNo?.toLowerCase().includes(search.toLowerCase());
-      const matchesPaid = filterPaid === "all" ||
-        (filterPaid === "paid" && cand.paid) ||
-        (filterPaid === "unpaid" && !cand.paid);
-      return matchesSearch && matchesPaid;
-    });
+    // Scope = exactly what the table shows (same shared predicates the
+    // §7.4 memo uses). ExcelJS internals + buildExportRows below stay
+    // byte-identical (landmines #9/#10).
+    const filteredCandidates = candidates.filter(
+      (cand) => matchesSearch(cand, search) && matchesStateFilter(cand, filterPaid)
+    );
 
     const rows = buildExportRows(filteredCandidates);
 
@@ -318,6 +375,7 @@ function AdminPortal() {
     const unsub = onSnapshot(q, (snapshot) => {
       const data = snapshot.docs.map((doc) => doc.data());
       setCandidates(data);
+      setCandidatesReady(true); // §7.3/§7.4: skeletons end at the FIRST snapshot
       setLastUpdate(new Date()); // §7.2 sync pill: candidates-snapshot receipt timestamp
       const fetchTime = performanceMonitor.endTimer(startTime);
       performanceMonitor.logMetric('adminCandidatesFetchTime', fetchTime);
@@ -378,26 +436,44 @@ function AdminPortal() {
     };
   }, [authenticated, performanceMonitor]);
 
-  // Filtered candidates
-  const filteredCandidates = useMemo(() => {
-    const cacheKey = `filter_${search}_${filterPaid}_${candidates.length}`;
-    const cachedResult = dataCache.get(cacheKey);
+  // Filtered candidates (§7.4). The old DataCache wrapper is gone: its
+  // 30 s TTL keyed on candidates.length served stale rows after any
+  // field-level change (e.g. a verify flip) — useMemo over the live
+  // snapshot array is both correct and cheap at ≤ 1000 docs.
+  const searchedCandidates = useMemo(
+    () => candidates.filter((cand) => matchesSearch(cand, search)),
+    [candidates, search]
+  );
 
-    if (cachedResult) return cachedResult;
+  // Live chip counts over the current search scope (§7.4 toolbar).
+  const stateCounts = useMemo(
+    () => ({
+      all: searchedCandidates.length,
+      unpaid: searchedCandidates.filter((c) => !c.paid).length,
+      paid_unverified: searchedCandidates.filter((c) => c.paid && !c.manuallyVerified).length,
+      verified: searchedCandidates.filter((c) => Boolean(c.manuallyVerified)).length,
+      selected: searchedCandidates.filter(hasSelectedVerdict).length,
+    }),
+    [searchedCandidates]
+  );
 
-    const result = candidates.filter((cand) => {
-      const matchesSearch = !search ||
-        cand.name?.toLowerCase().includes(search.toLowerCase()) ||
-        cand.regNo?.toLowerCase().includes(search.toLowerCase());
-      const matchesPaid = filterPaid === "all" ||
-        (filterPaid === "paid" && cand.paid) ||
-        (filterPaid === "unpaid" && !cand.paid);
-      return matchesSearch && matchesPaid;
-    });
+  const filteredCandidates = useMemo(
+    () => searchedCandidates.filter((cand) => matchesStateFilter(cand, filterPaid)),
+    [searchedCandidates, filterPaid]
+  );
 
-    dataCache.set(cacheKey, result, 30 * 1000);
-    return result;
-  }, [candidates, search, filterPaid, dataCache]);
+  // §7.3 tile 3 (Awaiting verification) is actionable: apply the
+  // Paid·unverified filter and scroll to the table card.
+  const jumpToAwaiting = useCallback(() => {
+    setFilterPaid("paid_unverified");
+    const node = tableCardRef.current;
+    if (node) {
+      const reduce =
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      node.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+    }
+  }, []);
 
   // ---------- Login screen (§7.1) ----------
   if (!authenticated) {
@@ -418,13 +494,6 @@ function AdminPortal() {
   }
 
   // ---------- Dashboard ----------
-  const funnelSteps = [
-    { label: "Checked in", value: total,             color: T.text },
-    { label: "Paid",       value: paid,              color: T.green },
-    { label: "Verified",   value: manuallyVerified,  color: T.purple },
-    { label: "Unpaid",     value: unpaid,            color: T.red },
-  ];
-
   return (
     <div className="admin-root" data-theme="dark">
       <AdminTopBar
@@ -433,206 +502,88 @@ function AdminPortal() {
         onForceLogout={() => setShowForceLogoutModal(true)}
         forceLogoutBusy={isForceLogoutLoading}
         onDangerReset={() => setShowClearDataModal(true)}
+        dangerResetBusy={isClearDataLoading}
         onDangerDelete={() => setShowDeleteDataModal(true)}
         onSignOut={handleLogout}
         userEmail={email}
       />
 
       <main className="admin-main">
-          {/* Stats row */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
-            <VaultStat
-              label="Checked-in"
-              value={total}
-              sub="registered candidates"
-            />
-            <VaultStat
-              label="Paid"
-              value={`${paid}/${total || 0}`}
-              sub={`${percentPaid}% conversion`}
-              accent={T.green}
-            />
-            <VaultStat
-              label="Verified"
-              value={manuallyVerified}
-              sub={`${Math.max(0, paid - manuallyVerified)} awaiting review`}
-              accent={T.purple}
-            />
-            <VaultStat
-              label="Revenue"
-              value={`₹${(totalAmount / 1000).toFixed(1)}k`}
-              sub={`${paid} payments collected`}
-            />
-          </div>
+        {/* §7.3 stat strip (funnel card deleted, §2 #25) */}
+        <AdminStats
+          loading={!candidatesReady}
+          total={total}
+          paid={paid}
+          percentPaid={percentPaid}
+          awaiting={awaitingVerification}
+          revenue={totalAmount}
+          verifiedRevenue={verifiedAmount}
+          onAwaitingClick={jumpToAwaiting}
+        />
 
-          {/* Funnel + Active interviewers */}
-          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 14 }}>
-            <VaultCard>
-              <VaultSectionHeader title="Payment funnel" meta="live" />
-              <VaultFunnel steps={funnelSteps} />
-            </VaultCard>
+        {/* §7.4 candidates table — the workhorse card */}
+        <AdminCandidatesTable
+          rows={filteredCandidates}
+          ready={candidatesReady}
+          search={search}
+          onSearchChange={(e) => setSearch(e.target.value)}
+          onClearSearch={() => setSearch("")}
+          filter={filterPaid}
+          onFilterChange={setFilterPaid}
+          counts={stateCounts}
+          onClearFilters={() => {
+            setSearch("");
+            setFilterPaid("all");
+          }}
+          flashRegNo={flashRegNo}
+          onVerify={manuallyVerifyPayment}
+          scrollRef={tableCardRef}
+          filterKey={`${search}|${filterPaid}`}
+          formatWhen={(stamp) => formatRelativeTime(toDate(stamp))}
+        />
 
-            <VaultCard>
-              <VaultSectionHeader
-                title="Active interviewers"
-                meta={`${interviewers.length} online`}
-              />
+        {/* Active interviewers — still Vault-styled until its §7.6 sub-step */}
+        <VaultCard>
+          <VaultSectionHeader
+            title="Active interviewers"
+            meta={`${interviewers.length} online`}
+          />
+          <div style={{
+            display: "flex", flexDirection: "column", gap: 8,
+            maxHeight: 240, overflow: "auto",
+          }}>
+            {interviewers.length === 0 ? (
               <div style={{
-                display: "flex", flexDirection: "column", gap: 8,
-                maxHeight: 240, overflow: "auto",
+                padding: 16, fontSize: 12, color: T.textMute,
+                fontStyle: "italic", textAlign: "center",
+              }}>No active interviewers</div>
+            ) : interviewers.map((iv, idx) => (
+              <div key={idx} style={{
+                padding: "10px 12px", borderRadius: 8,
+                background: T.surface2,
+                border: `1px solid ${T.border}`,
+                display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10,
               }}>
-                {interviewers.length === 0 ? (
+                <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{
-                    padding: 16, fontSize: 12, color: T.textMute,
-                    fontStyle: "italic", textAlign: "center",
-                  }}>No active interviewers</div>
-                ) : interviewers.map((iv, idx) => (
-                  <div key={idx} style={{
-                    padding: "10px 12px", borderRadius: 8,
-                    background: T.surface2,
-                    border: `1px solid ${T.border}`,
-                    display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10,
+                    fontSize: 12, color: T.text, fontWeight: 600,
+                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                  }}>{iv.email}</div>
+                  <div style={{
+                    fontSize: 10, color: T.textMute,
+                    fontFamily: T.fontMono, marginTop: 2,
                   }}>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{
-                        fontSize: 12, color: T.text, fontWeight: 600,
-                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                      }}>{iv.email}</div>
-                      <div style={{
-                        fontSize: 10, color: T.textMute,
-                        fontFamily: T.fontMono, marginTop: 2,
-                      }}>
-                        {iv.lastActive ? `active ${formatRelativeTime(toDate(iv.lastActive))}` : "—"}
-                      </div>
-                    </div>
-                    <span style={{
-                      width: 6, height: 6, borderRadius: "50%",
-                      background: T.green, flexShrink: 0,
-                    }} />
+                    {iv.lastActive ? `active ${formatRelativeTime(toDate(iv.lastActive))}` : "—"}
                   </div>
-                ))}
+                </div>
+                <span style={{
+                  width: 6, height: 6, borderRadius: "50%",
+                  background: T.green, flexShrink: 0,
+                }} />
               </div>
-            </VaultCard>
+            ))}
           </div>
-
-          {/* Candidates table */}
-          <VaultCard padding={0}>
-            <div style={{
-              display: "flex", justifyContent: "space-between", alignItems: "center",
-              padding: "16px 22px", borderBottom: `1px solid ${T.border}`,
-            }}>
-              <div style={{ fontSize: 14, fontWeight: 600 }}>
-                Candidates{" "}
-                <span style={{ color: T.textMute, fontFamily: T.fontMono, fontSize: 12 }}>
-                  · {filteredCandidates.length}/{total}
-                </span>
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  placeholder="Search reg no or name…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  style={{ ...inputStyle, padding: "7px 12px", width: 220, fontSize: 12 }}
-                />
-                <select
-                  value={filterPaid}
-                  onChange={(e) => setFilterPaid(e.target.value)}
-                  style={{ ...inputStyle, padding: "7px 12px", fontSize: 12 }}
-                >
-                  <option value="all">All status</option>
-                  <option value="paid">Paid</option>
-                  <option value="unpaid">Unpaid</option>
-                </select>
-              </div>
-            </div>
-
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                <thead>
-                  <tr style={{ background: T.surface2 }}>
-                    {["Reg No", "Name", "Branch", "Preference", "Verdict", "Payment", "Updated", ""].map((h) => (
-                      <th key={h} style={{
-                        padding: "10px 16px", textAlign: "left",
-                        fontWeight: 600, color: T.textMute,
-                        fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase",
-                      }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredCandidates.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} style={{
-                        padding: 32, textAlign: "center",
-                        color: T.textMute, fontSize: 12,
-                      }}>No candidates match your filters.</td>
-                    </tr>
-                  ) : filteredCandidates.map((c, idx) => (
-                    <tr key={c.regNo || idx} style={{ borderTop: `1px solid ${T.borderSoft}` }}>
-                      <td style={{ padding: "12px 16px", fontFamily: T.fontMono, color: T.textDim }}>
-                        {c.regNo}
-                      </td>
-                      <td style={{ padding: "12px 16px", fontWeight: 500 }}>{c.name}</td>
-                      <td style={{ padding: "12px 16px", color: T.textDim }}>{c.branch || "—"}</td>
-                      <td style={{ padding: "12px 16px", color: T.textDim }}>
-                        {c.preferences?.talentComm?.pref1 || "—"}
-                      </td>
-                      <td style={{ padding: "12px 16px" }}>
-                        {Array.isArray(c.verdict?.talentComm) && c.verdict.talentComm.length > 0
-                          ? <VaultPill variant="info">{c.verdict.talentComm[0]}</VaultPill>
-                          : <span style={{ color: T.textMute }}>—</span>}
-                      </td>
-                      <td style={{ padding: "12px 16px" }}>
-                        {c.manuallyVerified
-                          ? <VaultPill variant="verified">verified</VaultPill>
-                          : c.paid
-                            ? <VaultPill variant="paid">paid</VaultPill>
-                            : <VaultPill variant="unpaid">unpaid</VaultPill>}
-                      </td>
-                      <td style={{
-                        padding: "12px 16px", fontFamily: T.fontMono,
-                        color: T.textMute, fontSize: 11,
-                      }}>{c.lastUpdatedBy || "—"}</td>
-                      <td style={{ padding: "12px 16px", textAlign: "right" }}>
-                        {c.paid && !c.manuallyVerified && (
-                          <button
-                            onClick={() => manuallyVerifyPayment(c)}
-                            style={ghostBtnStyle(T.purple)}
-                          >Verify</button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </VaultCard>
-
-          {/* Admin actions */}
-          <VaultCard>
-            <VaultSectionHeader
-              title="Administrative actions"
-              meta="destructive · audited"
-            />
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <button onClick={exportToExcel} style={primaryBtnStyle()}>
-                Export to Excel
-              </button>
-              <button
-                onClick={() => setShowClearDataModal(true)}
-                disabled={isClearDataLoading}
-                style={dangerBtnStyle()}
-              >
-                {isClearDataLoading ? "Clearing…" : "Clear interviewer data"}
-              </button>
-              <button
-                onClick={() => setShowDeleteDataModal(true)}
-                style={dangerBtnStyle()}
-              >
-                Clear all candidate data
-              </button>
-            </div>
-          </VaultCard>
+        </VaultCard>
       </main>
 
       {/* Confirmation modals — old ConfirmDialog survives until 5e (landmine #8) */}
@@ -669,49 +620,6 @@ function AdminPortal() {
       <ToastHost position="bottom-right" />
     </div>
   );
-}
-
-// ---------- Local style helpers ----------
-const inputStyle = {
-  padding: "10px 14px",
-  borderRadius: 8,
-  border: `1px solid ${T.border}`,
-  background: T.surface2,
-  color: T.text,
-  fontFamily: T.fontSans,
-  fontSize: 13,
-  outline: "none",
-  boxSizing: "border-box",
-  width: "100%",
-};
-
-function primaryBtnStyle() {
-  return {
-    padding: "9px 14px", borderRadius: 8,
-    background: T.purple, color: "white", border: "none",
-    fontWeight: 600, fontSize: 12, cursor: "pointer",
-    fontFamily: T.fontSans,
-  };
-}
-
-function dangerBtnStyle() {
-  return {
-    padding: "9px 14px", borderRadius: 8,
-    background: T.redSoft, color: T.red,
-    border: `1px solid rgba(239,68,68,0.3)`,
-    fontWeight: 600, fontSize: 12, cursor: "pointer",
-    fontFamily: T.fontSans,
-  };
-}
-
-function ghostBtnStyle(color) {
-  return {
-    padding: "5px 10px", borderRadius: 6,
-    background: "transparent", color: color || T.textDim,
-    border: `1px solid ${color === T.red ? "rgba(239,68,68,0.3)" : T.border}`,
-    fontWeight: 600, fontSize: 11, cursor: "pointer",
-    fontFamily: T.fontSans,
-  };
 }
 
 // Small util — relative time without pulling a date library

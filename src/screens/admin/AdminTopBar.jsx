@@ -22,6 +22,7 @@ export default function AdminTopBar({
   onForceLogout,
   forceLogoutBusy = false,
   onDangerReset,
+  dangerResetBusy = false,
   onDangerDelete,
   onSignOut,
   userEmail,
@@ -138,9 +139,12 @@ export default function AdminTopBar({
                       type="button"
                       role="menuitem"
                       className="admin-menu__item admin-menu__item--destructive admin-menu__item--sub"
+                      disabled={dangerResetBusy}
                       onClick={pick(onDangerReset)}
                     >
-                      Reset interview data…
+                      {dangerResetBusy
+                        ? "Reset interview data… (working)"
+                        : "Reset interview data…"}
                     </button>
                     <button
                       type="button"
