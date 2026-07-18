@@ -5,25 +5,20 @@ import {
   doc,
   setDoc,
   getDoc,
-  getDocs,
   collection,
   onSnapshot,
-  serverTimestamp,
-  query,
-  limit,
-  orderBy
+  serverTimestamp
 } from "firebase/firestore";
 import QRCode from 'react-qr-code';
 import { FirebaseSecurity } from './security';
 import { buildCandidatePayload } from './candidatePayload';
-import { 
-  debounce, 
-  throttle, 
-  DataCache, 
-  PerformanceMonitor, 
-  ConnectionPool, 
+import {
+  throttle,
+  DataCache,
+  PerformanceMonitor,
+  ConnectionPool,
   MemoryManager,
-  AdvancedRateLimiter 
+  AdvancedRateLimiter
 } from './performanceOptimizations';
 
 // UPI config - using Bhuta's and Dheera's UPI IDs
@@ -43,6 +38,18 @@ const UPI_CONFIG = {
   ],
   merchantName: "MAFIA Recruitments",
   merchantCode: "MAFIA2025" // for tracking payments
+};
+
+// Client-side candidate filter (§2 #21): case-insensitive name substring OR
+// regNo prefix over the app-level in-memory candidates array. Pure; min-2-chars
+// gating is the callers' job.
+const filterCandidates = (candidates, queryText) => {
+  const q = queryText.trim().toLowerCase();
+  return candidates.filter(
+    (candidate) =>
+      candidate.name?.toLowerCase().includes(q) ||
+      candidate.regNo?.toLowerCase().startsWith(q)
+  );
 };
 
 function App() {
@@ -91,55 +98,10 @@ function App() {
   const [searchName, setSearchName] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [visibleCount, setVisibleCount] = useState(3);
-  
-  // Search with debouncing - prevents too many API calls
-  const debouncedSearch = useCallback(
-    debounce(async (searchTerm) => {
-      if (!searchTerm.trim()) {
-        setSearchResults([]);
-        return;
-      }
-      
-      // Check cache first
-      const cacheKey = `search_${searchTerm}`;
-      const cachedResults = dataCache.get(cacheKey);
-      
-      if (cachedResults) {
-        setSearchResults(cachedResults);
-        return;
-      }
-      
-      try {
-        const startTime = performanceMonitor.startTimer();
-        
-        const candidatesRef = collection(db, "candidates");
-        const q = query(
-          candidatesRef,
-          orderBy("name"),
-          limit(10)
-        );
-        
-        const snapshot = await connectionPool.execute(() => getDocs(q));
-        const results = snapshot.docs
-          .map(doc => ({ id: doc.id, ...doc.data() }))
-          .filter(candidate => 
-            candidate.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            candidate.regNo?.toLowerCase().includes(searchTerm.toLowerCase())
-          )
-          .slice(0, 5);
-        
-        const responseTime = performanceMonitor.endTimer(startTime);
-        performanceMonitor.logMetric('searchResponseTime', responseTime);
-        
-        dataCache.set(cacheKey, results, 2 * 60 * 1000); // 2 minutes cache
-        setSearchResults(results);
-      } catch (error) {
-        console.error('Search error:', error);
-        setSearchResults([]);
-      }
-    }, 300),
-    [dataCache, performanceMonitor, connectionPool]
-  );
+  // The app-level in-memory candidates array (sanctioned exception d, §13 3b).
+  // Fed by the ONE candidates onSnapshot below; docs keep their Firestore doc
+  // id alongside their data. All search is a client-side filter over this.
+  const [candidates, setCandidates] = useState([]);
   const [paymentAmount] = useState("300"); // Fixed at ₹300
   const [paymentStatus, setPaymentStatus] = useState("pending"); // pending, processing, completed, failed
   const [showQRCode, setShowQRCode] = useState(false);
@@ -267,6 +229,51 @@ function App() {
 
     return () => clearInterval(interval);
   }, [user, rateLimiter, connectionPool]);
+
+  // The ONE candidates listener (sanctioned exception d, §13 3b): a single
+  // app-level onSnapshot opened once per signed-in session (popup or 3a
+  // hydration — both set `user`), unsubscribed by this effect's cleanup when
+  // `user` goes null (logout) or the app unmounts. The old per-press search
+  // onSnapshot and the broken first-10-docs debounced search are deleted.
+  useEffect(() => {
+    if (!user || !user.email) {
+      setCandidates([]);
+      return;
+    }
+
+    const unsubscribe = onSnapshot(
+      collection(db, "candidates"),
+      (snapshot) => {
+        setCandidates(
+          snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+        );
+      },
+      (error) => {
+        console.error("Candidates listener error:", error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // Live search (§13 3b): fresh 250 ms debounce, min 2 chars, filtering the
+  // in-memory candidates array client-side. Results also refresh when the
+  // snapshot updates (candidates dep) — no per-keystroke reads.
+  useEffect(() => {
+    const q = searchName.trim();
+    if (q.length < 2) {
+      setSearchResults([]);
+      setVisibleCount(3);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setSearchResults(filterCandidates(candidates, q));
+      setVisibleCount(3);
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [searchName, candidates]);
 
   // QR Code and Payment Verification Functions
   const generateQRCode = useCallback(async () => {
@@ -888,22 +895,14 @@ function App() {
 
 
 
+  // The Search button (stays until 3c replaces this screen) now applies the
+  // same client-side filter immediately — no listener, no reads. The live
+  // debounced filter above makes it redundant but harmless.
   const handleSearch = () => {
-    if (!searchName) return;
-
-    const ref = collection(db, "candidates");
-
-    const unsubscribe = onSnapshot(ref, (snapshot) => {
-      const filtered = snapshot.docs
-        .map((doc) => doc.data())
-        .filter((candidate) =>
-          candidate.name?.toLowerCase().includes(searchName.toLowerCase())
-        );
-      setSearchResults(filtered);
-      setVisibleCount(3);
-    });
-
-    return () => unsubscribe();
+    const q = searchName.trim();
+    if (q.length < 2) return;
+    setSearchResults(filterCandidates(candidates, q));
+    setVisibleCount(3);
   };
 
   const clearSearch = () => {
@@ -1378,9 +1377,12 @@ function App() {
                       width: window.innerWidth <= 768 ? "100%" : "auto"
                     }}
                     onClick={() => {
-                      // Load candidate data and handle year-specific logic
-                      const updatedData = { ...cand };
-                      
+                      // Load candidate data and handle year-specific logic.
+                      // Strip the snapshot doc id: formData is spread into the
+                      // Firestore write payload (buildCandidatePayload) and must
+                      // keep its pre-3b shape — no `id` field may leak into it.
+                      const { id: _docId, ...updatedData } = cand;
+
                       // Clear WorkComm data for 2nd year students
                       if (cand.year === "2nd Year" || cand.year === "2nd year") {
                         updatedData.preferences.workComm = {
