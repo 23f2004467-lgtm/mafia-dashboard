@@ -1,0 +1,122 @@
+:root {
+  /* ---------- Fonts ---------- */
+  --font-display: "Bakbak One", "Inter", system-ui, sans-serif;   /* single weight 400, CAPS display only */
+  --font-ui: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* ---------- Type scale ---------- */
+  --text-12: 0.75rem;    /* admin captions, uppercase micro-labels */
+  --text-13: 0.8125rem;  /* meta, helper text */
+  --text-14: 0.875rem;   /* secondary; ADMIN BODY/TABLE (min) */
+  --text-16: 1rem;       /* INTERVIEWER BODY + ALL INPUTS (iOS-zoom floor) */
+  --text-18: 1.125rem;   /* card titles, wordmark in top bar */
+  --text-20: 1.25rem;    /* section titles */
+  --text-24: 1.5rem;     /* screen titles, status banners */
+  --text-30: 1.875rem;   /* candidate name */
+  --text-40: 2.5rem;     /* ₹ amount, stat numerals, green-room text */
+  --leading-display: 1.15;
+  --leading-body: 1.45;
+  --tracking-display: 0.02em;   /* Bakbak One is condensed — open it slightly at display sizes */
+  --tracking-caps: 0.06em;   /* 11–12px uppercase micro-labels, weight 600 */
+
+  /* ---------- Neutrals (LIGHT = interviewer default) ---------- */
+  --bg: #F7F5F2;
+  --surface: #FFFFFF;
+  --surface-sunken: #EFECE7;
+  --border: #E3DFD8;
+  --border-strong: #C9C3B9;
+  --text-1: #211C26;   /* ~15:1 on surface */
+  --text-2: #5C5563;   /* ~7:1  */
+  --text-3: #837B8A;   /* ~4.6:1 — never below 14px */
+
+  /* ---------- Brand: MAFIA violet (measured; jacket violet is a SURFACE, never an accent) ---------- */
+  --brand-700: #37297B;   /* pressed (interpolated #453499 → jacket lit #2E1351); 11.9:1 under white */
+  --brand-600: #453499;   /* PRIMARY fill + light-theme text/links — canonical spectrum violet (9.5:1 white-on-fill; 8.8:1 as text on #F7F5F2) */
+  --brand-400: #6A5BC4;   /* dark-theme borders/charts (3.5:1 non-text on #140B26) */
+  --brand-300: #9C8CEA;   /* dark-theme accent text (6.6:1 on #140B26; 7.0:1 on #0A0612) */
+  --brand-100: #ECE9F8;   /* light tint fills (brand-700 text on it: 10:1; brand-600: 8:1) */
+  --brand-a12: rgba(69, 52, 153, 0.12);
+  --brand: var(--brand-600);
+  --brand-text: var(--brand-600);
+  --on-brand: #FFFFFF;
+
+  /* ---------- Spectrum (the six canonical dots — §2 #50 placements ONLY, never state/semantic) ---------- */
+  --spectrum-red: #C60505;  --spectrum-orange: #E84C07;  --spectrum-amber: #F7B808;
+  --spectrum-green: #3B9103;  --spectrum-blue: #057CDD;  --spectrum-violet: #453499;
+
+  /* ---------- Stage glow (Instagram event-poster violets — dark gradients only, NEVER text) ---------- */
+  --glow-deep: #580888;
+  --glow-bright: #8828A8;
+
+  /* ---------- Candidate-state colors (see §5) ---------- */
+  --state-dormant-ink: #5C5563;  --state-dormant-tint: #EFECE7;   /* Registered / Unpaid */
+  --state-ready-ink:   #1D5FBF;  --state-ready-tint:   #E4EDFB;   /* Checked in */
+  --state-claim-ink:   #8A5A00;  --state-claim-tint:   #FCEFCE;   /* Paid·unverified, walk-in, pending ₹ */
+  --state-good-ink:    #1E7F4F;  --state-good-tint:    #DFF3E7;   /* Selected, Verified */
+  --state-no-ink:      #211C26;                                    /* Not selected: ink OUTLINE pill */
+
+  /* ---------- Semantic ---------- */
+  --success-ink: #1E7F4F;  --success-tint: #DFF3E7;
+  --warning-ink: #8A5A00;  --warning-tint: #FCEFCE;
+  --error-ink:   #B3261E;  --error-tint:   #FBEAEA;
+  --destructive: #C22B2B;  --on-destructive: #FFFFFF;
+  --focus-ring: var(--brand-600);
+
+  /* ---------- Spacing (4px scale) ---------- */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px;
+
+  /* ---------- Radii (semantic, deliberately non-uniform) ---------- */
+  --radius-input: 8px;
+  --radius-card: 12px;
+  --radius-sheet: 16px;
+  --radius-pill: 999px;
+  --radius-ticket: 12px 2px 2px 12px;   /* asymmetric: the ticket edge */
+
+  /* ---------- Shadows (light theme; dark uses borders) ---------- */
+  --shadow-1: 0 1px 2px rgba(16, 24, 40, 0.06);
+  --shadow-2: 0 4px 12px rgba(16, 24, 40, 0.10);
+  --shadow-sheet: 0 -8px 32px rgba(16, 24, 40, 0.16);
+
+  /* ---------- Motion ---------- */
+  --motion-micro: 120ms;     /* hover, press, chips, pills */
+  --motion-screen: 180ms;    /* screen/step transitions */
+  --motion-sheet: 240ms;     /* sheets, drawers, dialogs, toasts */
+  --motion-takeover: 350ms;  /* green-room payment flip ONLY */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --ease-spring: cubic-bezier(0.34, 1.35, 0.4, 1);  /* the ONE spring: entrances only (§9); exits always use --ease */
+  --stagger: 24ms;           /* the ONE stagger constant: list entrances (§9) */
+
+  /* ---------- Ergonomics ---------- */
+  --touch-min: 44px;
+  --touch-primary: 56px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+[data-theme="dark"] {
+  --bg: #0A0612;             /* stage black with the jacket's violet cast */
+  --surface: #140B26;
+  --surface-sunken: #1D1140;
+  --border: #2B1D4E;
+  --border-strong: #3C2C66;
+  --text-1: #F5F2FA;   /* ~17:1 on surface */
+  --text-2: #B9B1CC;   /* solid, ~9.3:1 on surface */
+  --text-3: #8D84A6;   /* solid, ~5.4:1 — never below 14px */
+
+  --brand-text: var(--brand-300);
+  --focus-ring: var(--brand-300);
+
+  --state-dormant-ink: #A9A4B2;  --state-dormant-tint: rgba(255,255,255,0.06);
+  --state-ready-ink:   #7BA7F7;  --state-ready-tint:   rgba(96,138,247,0.12);
+  --state-claim-ink:   #F5C044;  --state-claim-tint:   rgba(245,182,46,0.12);
+  --state-good-ink:    #4ADE80;  --state-good-tint:    rgba(34,197,94,0.12);
+  --state-no-ink:      #F3F1F6;
+
+  --success-ink: #4ADE80;  --success-tint: rgba(34,197,94,0.12);
+  --warning-ink: #F5C044;  --warning-tint: rgba(245,182,46,0.12);
+  --error-ink:   #F87171;  --error-tint:   rgba(248,113,113,0.12);
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-sheet: 0 -8px 32px rgba(0, 0, 0, 0.6);
+}

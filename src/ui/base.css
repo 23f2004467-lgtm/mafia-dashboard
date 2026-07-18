@@ -1,0 +1,80 @@
+/* base.css — loaded after tokens.css. Global resets, element defaults, and the app's ONLY keyframes. */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text-1);
+  font-family: var(--font-ui);
+  line-height: var(--leading-body);
+  font-feature-settings: "cv05", "cv11";
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- The app's ONLY keyframes ---------- */
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 1; }
+}
+
+@keyframes dot-pulse {
+  0%, 100% { opacity: 0.3; }
+  50%      { opacity: 1; }
+}
+
+/* spectrum-seq — the six-dot loader: each dot animates this with a stagger delay */
+@keyframes spectrum-seq {
+  0%       { opacity: 0.25; }
+  16.667%  { opacity: 1; }
+  33.333%  { opacity: 0.25; }
+  100%     { opacity: 0.25; }
+}
+
+/* arc-spin — the record-arc spinner's rotation */
+@keyframes arc-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 80ms !important;
+    animation-iteration-count: 1 !important;
+    transition-property: opacity !important;
+    transition-duration: 80ms !important;
+    scroll-behavior: auto !important;
+  }
+}
