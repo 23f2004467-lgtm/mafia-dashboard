@@ -40,3 +40,6 @@ serviceAccountKey.json
 secrets/
 keys/
 .gstack/
+
+# Data exports with applicant PII
+*.xlsx
