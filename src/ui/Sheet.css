@@ -74,6 +74,7 @@
   font-weight: 600;
   line-height: var(--leading-display);
   color: var(--text-1);
+  margin-bottom: var(--space-4); /* Phase 4: was implicit via old globals.css h-rule */
 }
 
 .ui-sheet--danger .ui-sheet__title {

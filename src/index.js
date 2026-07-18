@@ -1,6 +1,5 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import './styles/globals.css';
 import './index.css';
 import './ui/tokens.css';  // Redesign tokens (new namespace: --bg, --text-1, ...)
 import './ui/base.css';    // Redesign base — must load LAST (fixes body font + Arial buttons)

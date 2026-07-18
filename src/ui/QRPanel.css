@@ -110,6 +110,7 @@
 .ui-qr-panel__value {
   font-size: var(--text-13);
   color: var(--text-2);
+  margin-bottom: var(--space-4); /* Phase 4: was implicit via old globals.css `p` rule */
 }
 
 .ui-qr-panel__value-mono {
@@ -130,4 +131,5 @@
   font-weight: 500;
   color: var(--text-2);
   font-variant-numeric: tabular-nums;
+  margin-bottom: var(--space-4); /* Phase 4: was implicit via old globals.css `p` rule */
 }

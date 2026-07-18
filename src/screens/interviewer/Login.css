@@ -60,6 +60,8 @@
 
 .iv-login__tagline {
   margin-top: var(--space-6);
+  /* Phase 4: was implicit via the old globals.css `p` rule — now explicit. */
+  margin-bottom: var(--space-4);
   font-size: var(--text-13);
   font-weight: 600;
   letter-spacing: var(--tracking-caps);

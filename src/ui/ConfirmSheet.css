@@ -10,6 +10,7 @@
   font-size: var(--text-16);
   line-height: var(--leading-body);
   color: var(--text-1);
+  margin-bottom: var(--space-4); /* Phase 4: was implicit via old globals.css `p` rule */
 }
 
 .ui-confirm-sheet__actions {

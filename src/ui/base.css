@@ -17,6 +17,9 @@ body {
   line-height: var(--leading-body);
   font-feature-settings: "cv05", "cv11";
   -webkit-font-smoothing: antialiased;
+  /* Phase 4: carried over from the deleted globals.css body rule */
+  min-height: 100vh;
+  overflow-x: hidden;
 }
 
 button,
