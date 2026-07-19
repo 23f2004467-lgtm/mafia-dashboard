@@ -189,10 +189,13 @@
 
 /* ---------- Stage-canvas chrome (owner call 2026-07-20) ---------- */
 
-/* The candidate screen joins the stage: canvas painted on the transition
-   wrapper (the .iv-cand column stays a centered stack of paper panels). */
+/* The candidate AND payment screens join the stage: canvas painted on the
+   transition wrapper (the .iv-cand / .pay-screen columns stay centered
+   stacks of paper panels; Payment joined 2026-07-20 — the white QR card
+   floats on the night). */
 @media (min-width: 900px) {
-  .iv-screen--candidate {
+  .iv-screen--candidate,
+  .iv-screen--payment {
     background: var(--stage-bg);
     min-height: calc(100vh - 49px);
     min-height: calc(100dvh - 49px);

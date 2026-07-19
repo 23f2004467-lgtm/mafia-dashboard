@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
+  ActionBar,
   Banner,
   Button,
   ConfirmSheet,
@@ -7,33 +8,51 @@ import {
   Pill,
   QRPanel,
   Sheet,
+  formatRegNo,
 } from "../../ui";
 import "./Payment.css";
 
 /**
- * Payment — §6.4. Pure white (--surface) full screen; reached only after a
- * Selected verdict (or via the pending chip / already-paid recap).
- * Presentational: the QR session, the 30 s poll, the mark-paid write and
- * every Firestore touch live in App.js — this screen renders props and
- * reports intents.
+ * Payment — §6.4, reworked per the owner flow correction (2026-07-20):
+ * there is NO automatic payment confirmation in reality — no gateway, no
+ * bank sync; the 30 s paymentSessions poll never receives external writes.
+ * The INTERVIEWER is the confirmer: they watch the payment land (club UPI
+ * app / candidate's success screen) and mark it. Manual confirm-by-
+ * interviewer is therefore the PRIMARY action — the old §2 #15 "Other
+ * options" burial assumed QR auto-confirm was primary; that assumption is
+ * retired. Presentational: the QR session, the 30 s poll, the mark-paid
+ * write and every Firestore touch live in App.js — this screen renders
+ * props and reports intents (all handlers byte-identical to the old flow;
+ * only their UI seats moved).
  *
- * - ₹300 header: 40 px mono tabular + "MAFIA membership fee" (§4:
- *   the Payment header amount is mono — money a human cross-checks).
- * - Two UPI radio cards (56 px), labels from the EXISTING UPI account
- *   config strings; last-used preselected (App owns the localStorage key).
- * - "Show QR" (idempotent, §2 #17 — App reuses the live session) →
- *   QRPanel with the caller-owned react-qr-code element as children.
- * - Status Banner (§2 #19): neutral waiting with the mono ticking
- *   "last check m:ss" line; timeout = amber + "Regenerate QR (n tries
- *   left)" + "Other options"; error = red + Retry. No countdown headline.
- * - Exits (§2 #18): exactly "Back" and ghost-destructive "Cancel payment"
- *   (ConfirmSheet — App passes the paymentId to cleanup, the bugfix).
- * - "Other options" → Sheet: restatement + UPI selector + 600 ms
- *   HoldButton wrapping the existing mark-paid write (§2 #15). Result
- *   pill is amber "Paid · unverified", never green.
+ * The screen joins the stage format (≥ 900px night canvas via
+ * .iv-screen--payment in Chrome.css; phones keep the paper canvas) and
+ * reads as zone panels — the candidate screen's zone language:
+ * - AMOUNT zone: condensed identity (name + mono regNo, [data-iv-ticket]
+ *   so the Chrome TopBar dedups it) + the ₹300 mono display (§4: money a
+ *   human cross-checks is mono) + "MAFIA membership fee".
+ * - ACCOUNT zone: the two UPI radio cards (56 px), labels from the
+ *   EXISTING UPI config strings; last-used preselected (App owns the
+ *   localStorage key).
+ * - QR zone: "Show QR" primary (idempotent, §2 #17 — App reuses the live
+ *   session; Regenerate only in timeout/error, tries-left capped) →
+ *   QRPanel with its WHITE CARD preserved exactly (scan contrast is law);
+ *   on the ≥ 900px stage the live zone panel dissolves so the white QR
+ *   card floats on the night. Status banner stays with the QR zone,
+ *   worded honestly: the poll line never implies auto-confirm is the
+ *   primary path.
+ * - Sticky ActionBar: the PRIMARY is the 600 ms HoldButton ("Hold to
+ *   confirm — ₹300 received", money-touch friction preserved) wired to
+ *   the exact same mark-paid handler the buried sheet used; the
+ *   {name} + ₹300 restatement sits directly above the hold (evidence-on-
+ *   screen law). Always available while the screen shows (mirrors the old
+ *   always-rendered "Other options" link). Result pill stays amber
+ *   "Paid · unverified", never green — the board still verifies.
+ *   The "⋯" overflow menu holds Cancel payment (ConfirmSheet — App passes
+ *   the paymentId to cleanup, the bugfix). Back is the TopBar chevron.
  * - Green room (§9 #10): full-viewport 350 ms opacity crossfade to
  *   success tint; auto-advance 2.5 s or tap.
- * - Already-paid: static receipt state with "Continue".
+ * - Already-paid: static receipt state (paper card) with "Continue".
  */
 
 /** §5 Track 2 — payment pill state from existing paid/manuallyVerified. */
@@ -69,7 +88,6 @@ export default function Payment({
   onShowQR,
   onRegenerate,
   onMarkPaid,
-  onBack,
   onCancelPayment,
   cancelBusy = false,
   greenRoom = null,
@@ -77,7 +95,7 @@ export default function Payment({
   onContinue,
 }) {
   const [cancelOpen, setCancelOpen] = useState(false);
-  const [otherOpen, setOtherOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // Mono ticking "last check m:ss" (server truth is the poll; this only
   // renders honesty about when it last ran — JS-driven text, no keyframes).
@@ -193,6 +211,8 @@ export default function Payment({
   }
 
   // ---------- Status banner (inside the QRPanel slot) ----------
+  // Honest wording (owner call 2026-07-20): the poll line never implies
+  // automatic confirmation is the primary path — the interviewer is.
   let statusBanner = null;
   if (qrVisible) {
     if (isTimeout) {
@@ -211,17 +231,10 @@ export default function Payment({
                 Regenerate QR ({triesLeft} {triesLeft === 1 ? "try" : "tries"}{" "}
                 left)
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setOtherOpen(true)}
-              >
-                Other options
-              </Button>
             </div>
           }
         >
-          Payment not confirmed yet.
+          Auto-check stopped — if the payment landed, confirm below.
         </Banner>
       );
     } else if (isError) {
@@ -242,7 +255,7 @@ export default function Payment({
         <Banner tone="payment-status">
           <span className="pay-wait">
             <span className="pay-wait__dot" aria-hidden="true" />
-            Waiting for payment — checks every 30 s ·{" "}
+            QR shown — confirm below once you see the payment land ·{" "}
             <span className="pay-wait__tick">
               last check {formatElapsed(lastCheckAt, now)}
             </span>
@@ -252,72 +265,129 @@ export default function Payment({
     }
   }
 
+  const subjectName = subject ? subject.name || subject.regNo : "";
+
   return (
     <main className="pay-screen">
-      <header className="pay-amount">
-        <div className="pay-amount__value tnum">₹{amount}</div>
-        <div className="pay-amount__label">MAFIA membership fee</div>
-      </header>
+      {/* ---------- Amount zone: condensed identity + the mono ₹300 ----------
+          [data-iv-ticket]: the Chrome TopBar's IntersectionObserver
+          sentinel — the condensed bar identity appears only once this
+          scrolls out of view (ticket dedup — never both at once). */}
+      <section className="pay-zone" aria-label="Amount">
+        <div className="pay-zone__head">
+          <h2 className="pay-zone__label">Amount</h2>
+        </div>
+        {subject && (subject.name || subject.regNo) ? (
+          <div className="pay-who" data-iv-ticket="">
+            {subject.name ? (
+              <span className="pay-who__name">{subject.name}</span>
+            ) : null}
+            {subject.regNo ? (
+              <span className="pay-who__regno">
+                {formatRegNo(subject.regNo)}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+        <header className="pay-amount">
+          <div className="pay-amount__value tnum">₹{amount}</div>
+          <div className="pay-amount__label">MAFIA membership fee</div>
+        </header>
+      </section>
 
-      {upiSelector("main")}
+      {/* ---------- Account zone: the two UPI radio cards ---------- */}
+      <section className="pay-zone" aria-label="UPI account">
+        <div className="pay-zone__head">
+          <h2 className="pay-zone__label">Account</h2>
+          <span className="pay-zone__helper">collecting to</span>
+        </div>
+        {upiSelector("main")}
+      </section>
 
-      {!qrVisible ? (
-        <div className="pay-generate">
-          {errorMessage ? (
-            <Banner
-              tone="error"
-              action={
-                <Button variant="secondary" size="sm" onClick={onShowQR}>
-                  Retry
-                </Button>
-              }
+      {/* ---------- QR zone: the white card on the stage ----------
+          On the ≥ 900px night canvas the LIVE zone panel dissolves
+          (pay-zone--live) so the white QR card floats on the night. */}
+      <section
+        className={"pay-zone pay-zone--qr" + (qrVisible ? " pay-zone--live" : "")}
+        aria-label="Payment QR"
+      >
+        <div className="pay-zone__head">
+          <h2 className="pay-zone__label">Payment QR</h2>
+          <span className="pay-zone__helper">scan with any UPI app</span>
+        </div>
+        {!qrVisible ? (
+          <div className="pay-generate">
+            {errorMessage ? (
+              <Banner
+                tone="error"
+                action={
+                  <Button variant="secondary" size="sm" onClick={onShowQR}>
+                    Retry
+                  </Button>
+                }
+              >
+                {errorMessage}
+              </Banner>
+            ) : null}
+            <Button
+              variant="primary"
+              size="lg"
+              fullWidth
+              loading={generating}
+              onClick={onShowQR}
             >
-              {errorMessage}
-            </Banner>
-          ) : null}
-          <Button
-            variant="primary"
-            size="lg"
-            fullWidth
-            loading={generating}
-            onClick={onShowQR}
+              Show QR
+            </Button>
+          </div>
+        ) : (
+          <QRPanel
+            value={sessionUpiId}
+            code={verificationCode}
+            status={isTimeout ? "timeout" : isError ? "error" : "active"}
+            banner={statusBanner}
           >
-            Show QR
+            {qrElement}
+          </QRPanel>
+        )}
+      </section>
+
+      {/* ---------- Sticky ActionBar: hold-to-confirm is THE primary ----------
+          Owner call 2026-07-20: the interviewer is the confirmer. The
+          {name} + ₹300 restatement is visible at the moment of holding;
+          onMarkPaid is the EXACT handler the buried sheet used. */}
+      <ActionBar busy={cancelBusy} onOverflow={() => setMenuOpen(true)}>
+        <div className="pay-confirm">
+          <p className="pay-confirm__evidence">
+            <span className="pay-confirm__amount tnum">₹{amount}</span> from{" "}
+            {subjectName} · board verifies later
+          </p>
+          <HoldButton
+            label={`Hold to confirm — ₹${amount} received`}
+            onConfirm={() => {
+              if (onMarkPaid) onMarkPaid();
+            }}
+          />
+        </div>
+      </ActionBar>
+
+      {/* "⋯" overflow → Cancel payment (the only exit besides the TopBar
+          back chevron — the old mid-page Back card and red link are gone). */}
+      <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title="Options">
+        <div className="pay-menu">
+          <Button
+            variant="secondary"
+            size="md"
+            fullWidth
+            destructive
+            onClick={() => {
+              setMenuOpen(false);
+              setCancelOpen(true);
+            }}
+          >
+            Cancel payment
           </Button>
         </div>
-      ) : (
-        <QRPanel
-          value={sessionUpiId}
-          code={verificationCode}
-          status={isTimeout ? "timeout" : isError ? "error" : "active"}
-          banner={statusBanner}
-        >
-          {qrElement}
-        </QRPanel>
-      )}
-
-      <div className="pay-exits">
-        <Button variant="secondary" size="lg" fullWidth onClick={onBack}>
-          Back
-        </Button>
-        <Button
-          variant="ghost"
-          size="lg"
-          fullWidth
-          destructive
-          onClick={() => setCancelOpen(true)}
-        >
-          Cancel payment
-        </Button>
-      </div>
-
-      <button
-        type="button"
-        className="pay-other-link"
-        onClick={() => setOtherOpen(true)}
-      >
-        Other options
-      </button>
+      </Sheet>
 
       {/* §2 #18 exit two: Cancel payment — App passes paymentId to cleanup */}
       <ConfirmSheet
@@ -333,31 +403,6 @@ export default function Payment({
         busy={cancelBusy}
         onConfirm={onCancelPayment}
       />
-
-      {/* §2 #15: manual mark-paid behind Other options — restatement +
-          UPI selector + 600 ms hold wrapping the existing write. */}
-      <Sheet
-        open={otherOpen}
-        onClose={() => setOtherOpen(false)}
-        title="Mark as paid"
-      >
-        <div className="pay-markpaid">
-          <p className="pay-markpaid__text">
-            Mark {subject ? subject.name : ""} as paid{" "}
-            <span className="pay-markpaid__amount tnum">₹{amount}</span>? Only
-            do this if you can see the payment received in the UPI app. The
-            board will verify it later.
-          </p>
-          {upiSelector("sheet")}
-          <HoldButton
-            label="Hold to confirm — I saw the payment"
-            onConfirm={() => {
-              setOtherOpen(false);
-              if (onMarkPaid) onMarkPaid();
-            }}
-          />
-        </div>
-      </Sheet>
 
       {/* §9 #10: the green room — full-viewport opacity crossfade to the
           success tint; legible from two meters; tap or 2.5 s to advance. */}
