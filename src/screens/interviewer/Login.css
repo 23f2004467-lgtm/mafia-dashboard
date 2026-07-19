@@ -22,7 +22,8 @@
   user-select: none;
 }
 
-.iv-login__stage img {
+.iv-login__stage img,
+.iv-login__stage video {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -84,16 +85,6 @@
   text-transform: uppercase;
   color: #ffffff; /* §6.1: "MAFIA" in white on the pure-black stage */
   margin-bottom: var(--space-4);
-}
-
-.iv-login__lettering {
-  width: 280px;
-  max-width: 100%;
-  height: auto;
-  margin-top: var(--space-6);
-  /* The art ships on an opaque black ground; screen-blending sinks it into
-     the pure-black stage (§2 #49). */
-  mix-blend-mode: screen;
 }
 
 .iv-login__tagline {

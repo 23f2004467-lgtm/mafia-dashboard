@@ -26,6 +26,19 @@ export default function Login({
 }) {
   const [slowBoot, setSlowBoot] = useState(false);
 
+  // The drone flight plays only where it earns its bytes: >= 768px and no
+  // reduced-motion preference. Phones and reduced-motion get the graded
+  // Cadenza still (also the video's poster) — same scene, zero cost.
+  const [useVideo, setUseVideo] = useState(false);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const wide = window.matchMedia("(min-width: 768px)").matches;
+    const reduced = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    setUseVideo(wide && !reduced);
+  }, []);
+
   useEffect(() => {
     if (!booting) {
       setSlowBoot(false);
@@ -38,7 +51,19 @@ export default function Login({
   return (
     <div className="iv-login" data-theme="dark">
       <div className="iv-login__stage" aria-hidden="true">
-        <img src="/brand/login-stage-a.jpg" alt="" draggable={false} />
+        {useVideo ? (
+          <video
+            src="/brand/login-stage.mp4"
+            poster="/brand/login-stage-a.jpg"
+            autoPlay
+            muted
+            loop
+            playsInline
+            disablePictureInPicture
+          />
+        ) : (
+          <img src="/brand/login-stage-a.jpg" alt="" draggable={false} />
+        )}
       </div>
       <div className="iv-login__glow" aria-hidden="true" />
       <main className="iv-login__column">
@@ -59,12 +84,6 @@ export default function Login({
           ) : null
         ) : (
           <>
-            <img
-              className="iv-login__lettering"
-              src="/brand/showbill-lettering.png"
-              alt="The Music and Fine Arts Club"
-              width="280"
-            />
             <p className="iv-login__tagline">
               Recruitment interviews · 2025–26
             </p>
