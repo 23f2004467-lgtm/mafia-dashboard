@@ -204,3 +204,47 @@
     position: static;
   }
 }
+
+/* ---------- Collapse toggle (owner call 2026-07-20: reach the live
+   sessions without scrolling past 640 names) ---------- */
+
+.admin-table-card__collapse {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-left: auto;
+  min-height: var(--touch-min);
+  padding: 0 var(--space-3);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-input);
+  color: var(--text-2);
+  font-size: var(--text-13);
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color var(--motion-micro) var(--ease);
+}
+
+.admin-table-card__collapse:hover {
+  border-color: var(--border-strong);
+}
+
+.admin-table-card__collapse:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.admin-table-card__collapse-chevron {
+  display: inline-block;
+  transition: transform var(--motion-micro) var(--ease);
+}
+
+.admin-table-card__collapse-chevron.is-collapsed {
+  transform: rotate(-90deg);
+}
+
+.admin-table-card__collapsed-note {
+  padding: var(--space-4);
+  font-size: var(--text-13);
+  color: var(--text-3);
+}

@@ -81,6 +81,8 @@ export default function AdminCandidatesTable({
   scrollRef,
   filterKey,
   formatWhen,
+  collapsed = false,
+  onToggleCollapsed,
 }) {
   // 150 ms skeleton grace (§9 loading rules).
   const [graceOver, setGraceOver] = useState(false);
@@ -227,9 +229,35 @@ export default function AdminCandidatesTable({
             </Chip>
           ))}
         </div>
+        {onToggleCollapsed ? (
+          <button
+            type="button"
+            className="admin-table-card__collapse"
+            onClick={onToggleCollapsed}
+            aria-expanded={!collapsed}
+            aria-controls="admin-table-body"
+          >
+            <span
+              className={
+                "admin-table-card__collapse-chevron" +
+                (collapsed ? " is-collapsed" : "")
+              }
+              aria-hidden="true"
+            >
+              ⌄
+            </span>
+            {collapsed ? "Show table" : "Collapse"}
+          </button>
+        ) : null}
       </div>
 
-      <div className="admin-table-card__scroll">
+      {collapsed ? (
+        <div className="admin-table-card__collapsed-note" id="admin-table-body">
+          Table collapsed · {rows.length} candidate
+          {rows.length === 1 ? "" : "s"} match — live sessions below
+        </div>
+      ) : (
+      <div className="admin-table-card__scroll" id="admin-table-body">
         <table className="admin-table">
           <thead>
             <tr>
@@ -263,8 +291,9 @@ export default function AdminCandidatesTable({
           )
         ) : null}
       </div>
+      )}
 
-      {hasMore ? (
+      {!collapsed && hasMore ? (
         <div
           className="admin-table-card__sentinel"
           ref={sentinelRef}
