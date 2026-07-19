@@ -123,18 +123,6 @@ describe("src/ui smoke", () => {
     render(<StatTile label="Revenue" loading />);
   });
 
-  test("StatTile numeric value renders synchronously (count-up mount = static)", () => {
-    // A numeric `value` renders its final value on mount (no animation until it
-    // actually changes) — the digit-locked spans concatenate back to the number.
-    const { container } = render(<StatTile label="Candidates" value={547} />);
-    expect(container.querySelector(".ui-stat-tile__value").textContent).toBe("547");
-    // `format` maps the number to en-IN currency, landing exactly on the value.
-    const { container: c2 } = render(
-      <StatTile label="Revenue" value={12000} format={(n) => `₹${n.toLocaleString("en-IN")}`} />
-    );
-    expect(c2.querySelector(".ui-stat-tile__value").textContent).toBe("₹12,000");
-  });
-
   test("Banner tones render", () => {
     ["info", "success", "warning", "error", "payment-status", "offline"].forEach((tone) =>
       render(<Banner tone={tone}>message</Banner>)

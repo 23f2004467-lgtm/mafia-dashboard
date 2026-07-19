@@ -32,15 +32,6 @@
   color: var(--text-1);
 }
 
-/* §9 #6 count-up digit lock — Bakbak One numerals are proportional, so each
-   animated digit gets a fixed cell (Phase 1 digit-uniformity check) and the
-   tile never jitters as the number ticks up. */
-.ui-stat-tile .digit {
-  display: inline-block;
-  min-width: 0.62em;
-  text-align: center;
-}
-
 .ui-stat-tile__sub {
   font-size: var(--text-13);
   color: var(--text-2);
