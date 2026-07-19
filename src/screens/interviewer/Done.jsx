@@ -14,6 +14,11 @@ import "./Done.css";
  * - Payment pill (§5 track 2, from the latched paid/manuallyVerified).
  * - One 56px primary "Next candidate" → Search, cleared, autofocused
  *   (§2 #45: the ONLY route that autofocuses Search).
+ * - Below the primary, ONLY while `canUndoVerdict`: a quiet 48px ghost
+ *   "Undo verdict" (owner decision 2026-07-20 — the persistent button that
+ *   replaced the 10 s undo toast). App.js owns the capability and clears
+ *   it on any route away or any payment activity for the candidate; the
+ *   tap just fires `onUndoVerdict`.
  * - Beneath the primary: the static light-theme lockup wordmark-black.png
  *   (~140px, decorative alt="") — a constant brand mark, NEVER a tick row
  *   or counter of any kind (§2 #33/#34: no interviewer-visible counts).
@@ -36,7 +41,7 @@ const derivePaymentState = (recap) =>
       : "paid_unverified"
     : "unpaid";
 
-export default function Done({ recap, onNext }) {
+export default function Done({ recap, onNext, canUndoVerdict, onUndoVerdict }) {
   const talent = Array.isArray(recap?.verdict?.talentComm)
     ? recap.verdict.talentComm
     : [];
@@ -72,6 +77,11 @@ export default function Done({ recap, onNext }) {
         <Button variant="primary" size="lg" fullWidth onClick={onNext}>
           Next candidate
         </Button>
+        {canUndoVerdict ? (
+          <Button variant="ghost" size="md" fullWidth onClick={onUndoVerdict}>
+            Undo verdict
+          </Button>
+        ) : null}
       </div>
 
       <img

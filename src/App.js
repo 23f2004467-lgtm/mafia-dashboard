@@ -193,6 +193,38 @@ function App() {
   // clearForm) wipes it — the recap is display-local, like §2 #30's
   // "Not selected" state.
   const [doneRecap, setDoneRecap] = useState(null);
+  // Owner decision (2026-07-20): the verdict-submit undo is a PERSISTENT
+  // "Undo verdict" button on the Done screen — the 10 s toast countdown is
+  // gone (admin's verify toasts are untouched). This is the capability:
+  // {docKey, regNo, snapshot, writtenMeta, name, form, notSelected,
+  // isManualEntry}, captured by performSubmit for existing docs. Alive only
+  // while the interviewer is still looking at the result (Done, or the
+  // routed Payment screen for that candidate); cleared by every route away
+  // and by ANY payment activity for that candidate. In-memory only — a
+  // reload drops it, exactly as the old toast did.
+  const [verdictUndo, setVerdictUndo] = useState(null);
+
+  // Route-away clear: leaving the done/payment context abandons the
+  // capability (Next candidate, opening a candidate or walk-in or draft,
+  // back to Search, sign-out, chip-hop to another candidate's payment).
+  const clearVerdictUndo = () => setVerdictUndo(null);
+
+  // THE PAYMENT HAZARD: the captured snapshot predates payment writes —
+  // undoing after one would wipe the candidate's payment fields
+  // (paid/paymentDetails). Any payment activity for the capability's
+  // candidate (QR session created, manual mark-paid, payment-confirmed
+  // poll event) kills the offer here; the undoGuard stale-check stays as
+  // the second line of defense regardless. Functional update so interval
+  // closures (the 30 s poll) always see the fresh capability.
+  const clearVerdictUndoFor = (...candidateKeys) => {
+    const keys = candidateKeys.filter(Boolean);
+    if (keys.length === 0) return;
+    setVerdictUndo((prev) =>
+      prev && keys.some((k) => k === prev.regNo || k === prev.docKey)
+        ? null
+        : prev
+    );
+  };
   // Landmine #2 prep: the Firestore doc key of the loaded candidate is
   // captured HERE at load time. 3d's submit path must use this ref, never
   // live formData.regNo.
@@ -283,6 +315,7 @@ function App() {
         setScreen("login");
         setSearchAutoFocus(false); // next session's Search is a cold load
         setDoneRecap(null);
+        clearVerdictUndo(); // sign-out leaves the done/payment context
         setAuthResolved(true);
         return;
       }
@@ -527,6 +560,18 @@ function App() {
         console.warn('Failed to persist payment session:', storageError);
       }
 
+      // Payment activity — QR session created for this candidate: the
+      // Done-screen undo capability (if it is his) dies here (owner
+      // decision 2026-07-20). Inline setter, not clearVerdictUndoFor, so
+      // this useCallback's dependency warning set stays byte-identical.
+      setVerdictUndo((prev) =>
+        prev &&
+        (prev.regNo === sessionRecord.regNo ||
+          prev.docKey === sessionRecord.docKey)
+          ? null
+          : prev
+      );
+
       // Start automatic verification
       startPaymentVerification(sessionData.paymentId);
 
@@ -587,6 +632,12 @@ function App() {
           if (data.status === 'completed') {
             clearInterval(checkInterval);
             setPaymentStatus("completed");
+            // Payment-confirmed event: the Done-screen undo capability for
+            // this candidate dies here — persistPaymentToCandidate below
+            // writes payment truth the captured snapshot predates (owner
+            // decision 2026-07-20). Functional clear: this interval closure
+            // was created at QR-generation time.
+            clearVerdictUndoFor(data.candidateId);
             const paymentDetails = {
               transactionId: data.transactionId || paymentId,
               amount: paymentAmount,
@@ -1144,6 +1195,7 @@ function App() {
     pushRecent(cand);
     setNotSelected(false);
     setSubmitErrors(null);
+    clearVerdictUndo(); // opening a candidate leaves the done/payment context
     setSearchAutoFocus(false); // consumed — next Search visit is a back-nav
     setScreen("candidate");
   };
@@ -1187,6 +1239,7 @@ function App() {
     setIsManualEntry(true);
     setNotSelected(false);
     setSubmitErrors(null);
+    clearVerdictUndo(); // walk-in entry leaves the done/payment context
     setSearchAutoFocus(false);
     setFormData({
       name: "",
@@ -1229,6 +1282,7 @@ function App() {
     candidateDocKeyRef.current = formData.regNo;
     setNotSelected(false);
     setSubmitErrors(null);
+    clearVerdictUndo(); // resuming a draft leaves the done/payment context
     setSearchAutoFocus(false);
     setScreen("candidate");
   };
@@ -1389,7 +1443,10 @@ function App() {
 
   // §2 #12 / sanctioned exception (f): undo re-issues the captured pre-write
   // snapshot through the same write path, guarded by the pure stale-check
-  // (fresh read → canUndo → write; no transaction).
+  // (fresh read → canUndo → write; no transaction). Owner decision
+  // 2026-07-20: fired from the persistent Done-screen button instead of the
+  // 10 s toast; returns true only when the restore write landed, so the
+  // Done tap handler knows whether to walk back to the Candidate screen.
   const undoVerdictSubmit = async (captured) => {
     try {
       const ref = doc(db, "candidates", captured.docKey);
@@ -1409,14 +1466,38 @@ function App() {
           tone: "error",
           message: `Changed by ${who} just now — not undone.`,
         });
-        return;
+        return false;
       }
 
       await setDoc(ref, captured.snapshot);
-      toast({ tone: "success", message: `Undone · ${captured.name}` });
+      toast({ tone: "success", message: "Verdict undone" });
+      return true;
     } catch (err) {
       toast({ tone: "error", message: "Undo failed: " + err.message });
+      return false;
     }
+  };
+
+  // Done-screen "Undo verdict" tap (owner decision 2026-07-20). One shot:
+  // the capability is consumed on tap, so a stale-abort leaves the existing
+  // abort toast and no button. On success the interviewer walks BACK to the
+  // Candidate screen with the form exactly as it was pre-submit: the routed
+  // reset (clearForm) wiped the live draft and the doc-key ref when Done
+  // was entered, so the capability carries the restore payload captured at
+  // submit time (form + notSelected + isManualEntry + docKey).
+  const undoVerdictFromDone = async () => {
+    const captured = verdictUndo;
+    if (!captured) return;
+    setVerdictUndo(null);
+    const undone = await undoVerdictSubmit(captured);
+    if (!undone) return;
+    candidateDocKeyRef.current = captured.docKey;
+    setFormData(captured.form);
+    setNotSelected(captured.notSelected);
+    setIsManualEntry(captured.isManualEntry);
+    setSubmitErrors(null);
+    setDoneRecap(null);
+    setScreen("candidate");
   };
 
   // The routed transition that replaces the old silent post-save wipe: the
@@ -1510,27 +1591,31 @@ function App() {
         year: formData.year,
       });
 
+      // Owner decision 2026-07-20: the capture feeds the persistent
+      // Done-screen "Undo verdict" button — the save toast is plain
+      // (default ttl, no undo countdown). form/notSelected/isManualEntry
+      // are the pre-submit state the undo restores to the Candidate
+      // screen. A submit REPLACES any previous capability ("another
+      // submit" clears it). New docs (walk-ins) still have no pre-write
+      // snapshot — setDoc cannot delete, so they carry no undo.
       if (priorSnapshot) {
-        const captured = {
+        setVerdictUndo({
           docKey,
+          regNo: formData.regNo,
           snapshot: priorSnapshot,
           writtenMeta: {
             lastUpdatedAt: payload.lastUpdatedAt,
             lastUpdatedBy: payload.lastUpdatedBy,
           },
           name: savedName,
-        };
-        toast({
-          message: `Saved · ${savedName}`,
-          undo: {
-            label: "Undo",
-            ms: 10000,
-            onUndo: () => undoVerdictSubmit(captured),
-          },
+          form: formData,
+          notSelected,
+          isManualEntry,
         });
       } else {
-        toast({ tone: "success", message: `Saved · ${savedName}` });
+        setVerdictUndo(null);
       }
+      toast({ tone: "success", message: `Saved · ${savedName}` });
 
       // Route (§6.3): domains selected + unpaid → Payment (form kept — the
       // QR flow reads it); otherwise → Done via the routed transition.
@@ -1628,6 +1713,17 @@ function App() {
   // Payment screen for the session's candidate.
   const openPendingPayment = () => {
     if (!paymentSession) return;
+    // Chip-hop rule (owner decision 2026-07-20): re-entering the capability
+    // candidate's OWN payment context keeps the undo alive (the
+    // SELECTED→payment route — only payment WRITES kill it there); hopping
+    // to ANOTHER candidate's payment leaves the Done context, so it clears.
+    setVerdictUndo((prev) =>
+      prev &&
+      (prev.regNo === paymentSession.regNo ||
+        prev.docKey === paymentSession.docKey)
+        ? prev
+        : null
+    );
     enterPayment(paymentSession.regNo);
   };
 
@@ -1660,10 +1756,16 @@ function App() {
   const leavePaymentFinished = (subjectRegNo) => {
     setPaymentFor(null);
     if (subjectRegNo === formData.regNo) {
+      // Backing out to Done KEEPS the undo capability: if no payment
+      // activity happened, no payment writes exist for the snapshot to
+      // wipe — undo may still be offered (owner decision 2026-07-20).
       latchDoneRecap(formData);
       resetAfterSubmit();
       setScreen("done");
     } else {
+      // Chip re-entry backout to Search: away from the done/payment
+      // context — the capability clears.
+      clearVerdictUndo();
       setScreen("search");
     }
   };
@@ -1672,8 +1774,17 @@ function App() {
   // the ONE route that autofocuses Search (§2 #45).
   const goNextCandidate = () => {
     setDoneRecap(null);
+    clearVerdictUndo(); // "Next candidate" — the interviewer moved on
     setSearchName("");
     setSearchAutoFocus(true);
+    setScreen("search");
+  };
+
+  // Work-screen back-outs (§6 chrome back, Payment back, Candidate cancel/
+  // clear): landing on Search leaves the done/payment context, so the undo
+  // capability clears with it (owner decision 2026-07-20).
+  const backToSearch = () => {
+    clearVerdictUndo();
     setScreen("search");
   };
 
@@ -1705,6 +1816,10 @@ function App() {
   const confirmManualPaid = () => {
     const paymentDetails = { method: 'Manual', timestamp: new Date().toISOString() };
     const subject = resolvePaymentSubject();
+    // Payment activity — manual mark-paid fired for this candidate: the
+    // Done-screen undo capability (if it is his) dies here (owner decision
+    // 2026-07-20).
+    clearVerdictUndoFor(subject.data.regNo, subject.docKey);
     if (subject.isForm) {
       setFormData({ ...formData, paid: true, paymentDetails });
     }
@@ -1800,7 +1915,7 @@ function App() {
         stage={
           screen === "search" || screen === "candidate" || screen === "payment"
         }
-        onBack={onWorkScreen ? () => setScreen("search") : undefined}
+        onBack={onWorkScreen ? backToSearch : undefined}
         ticket={
           onWorkScreen
             ? screen === "payment" && paymentSubject
@@ -1835,14 +1950,19 @@ function App() {
             onSubmit={handleSubmit}
             onClear={() => {
               clearForm();
-              setScreen("search");
+              backToSearch();
             }}
-            onCancel={() => setScreen("search")}
+            onCancel={backToSearch}
           />
         </ScreenEnter>
       ) : screen === "done" && doneRecap ? (
         <ScreenEnter id="done">
-          <Done recap={doneRecap} onNext={goNextCandidate} />
+          <Done
+            recap={doneRecap}
+            onNext={goNextCandidate}
+            canUndoVerdict={!!verdictUndo}
+            onUndoVerdict={undoVerdictFromDone}
+          />
         </ScreenEnter>
       ) : screen !== "payment" ? (
         <ScreenEnter id="search">
@@ -1885,7 +2005,7 @@ function App() {
             onShowQR={showPaymentQR}
             onRegenerate={generateQRCode}
             onMarkPaid={confirmManualPaid}
-            onBack={() => setScreen("search")}
+            onBack={backToSearch}
             onCancelPayment={cancelPayment}
             cancelBusy={isCancellingPayment}
             greenRoom={greenRoom}
