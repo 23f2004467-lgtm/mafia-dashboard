@@ -73,5 +73,23 @@
     "verdictStatus": "selected",
     "comments": "Walk-in, manual entry",
     "lastUpdatedBy": "Manual Entry"
+  },
+  {
+    "name": "Esha Menon",
+    "regNo": "230911004",
+    "year": "2nd Year",
+    "college": "MIT Manipal",
+    "branch": "IT",
+    "whatsappNumber": "+91 9800000004",
+    "paid": true,
+    "manuallyVerified": false,
+    "paymentDetails": { "amount": 300, "method": "UPI" },
+    "preferences": {
+      "talentComm": { "pref1": "Photography" },
+      "workComm": { "pref1": "Content" }
+    },
+    "activated": true,
+    "comments": "Checked in, awaiting interview",
+    "lastUpdatedBy": "admin@example.com"
   }
 ]
