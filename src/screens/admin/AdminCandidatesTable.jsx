@@ -76,6 +76,7 @@ export default function AdminCandidatesTable({
   onClearFilters,
   flashRegNo,
   onOpenRow,
+  onQuickCheckIn,
   selectedRegNo,
   scrollRef,
   filterKey,
@@ -173,6 +174,24 @@ export default function AdminCandidatesTable({
             )}
           </td>
           <td className="admin-table__actions">
+            {/* Quick check-in (§2 #28, Phase 7b): a per-row fast path for
+                venue check-in — one tap sets `activated` with an Undo toast,
+                without opening the drawer. Hidden once explicitly checked in;
+                a missing field still shows it (permissive, landmine #11).
+                stopPropagation so it never triggers the row's drawer-open. */}
+            {onQuickCheckIn && c.activated !== true ? (
+              <button
+                type="button"
+                className="admin-table__checkin"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onQuickCheckIn(c);
+                }}
+                aria-label={`Check in ${c.name || c.regNo}`}
+              >
+                Check in
+              </button>
+            ) : null}
             <span className="admin-table__chevron" aria-hidden="true">
               ›
             </span>

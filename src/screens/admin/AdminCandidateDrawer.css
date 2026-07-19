@@ -169,6 +169,16 @@
   display: block;
 }
 
+/* ---------- Check-in (§7.5, Phase 7b) ---------- */
+
+/* Quiet "already checked in" state — a fact, not an action (ready-ink,
+   same journey-pill language). Never an alarm, never a second button. */
+.acd__checkin-done {
+  font-size: var(--text-14);
+  font-weight: 600;
+  color: var(--state-ready-ink);
+}
+
 /* ---------- Updated ---------- */
 
 .acd__updated {

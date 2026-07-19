@@ -14,9 +14,10 @@ describe("buildExportRows", () => {
     expect(buildExportRows(sampleCandidates)).toEqual(expectedRows);
   });
 
-  it("keeps the 16-column header order fixed", () => {
+  it("keeps the 16 legacy columns fixed, then appends the 2 Phase-7 columns", () => {
     const [header] = buildExportRows(sampleCandidates);
     expect(header).toEqual([
+      // 16 legacy columns — order byte-identical to pre-Phase-7 (landmines #9/#10)
       "Name",
       "RegNo",
       "Year",
@@ -33,6 +34,9 @@ describe("buildExportRows", () => {
       "WorkCommVerdict",
       "Comments",
       "LastUpdatedBy",
+      // 2 additive Phase-7 columns, appended at the end
+      "VerdictStatus",
+      "CheckedIn",
     ]);
   });
 

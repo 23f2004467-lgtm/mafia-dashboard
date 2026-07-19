@@ -18,6 +18,8 @@
       "talentComm": ["Selected", "Music"],
       "workComm": ["Waitlist"]
     },
+    "verdictStatus": "selected",
+    "activated": true,
     "comments": "Strong vocalist, callback for band audition",
     "lastUpdatedBy": "interviewer1@example.com"
   },
@@ -38,6 +40,8 @@
     "verdict": {
       "talentComm": []
     },
+    "verdictStatus": "not_selected",
+    "activated": false,
     "comments": "",
     "lastUpdatedBy": "interviewer2@example.com"
   },
@@ -66,6 +70,7 @@
     "verdict": {
       "workComm": ["Selected"]
     },
+    "verdictStatus": "selected",
     "comments": "Walk-in, manual entry",
     "lastUpdatedBy": "Manual Entry"
   }

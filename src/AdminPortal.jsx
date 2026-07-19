@@ -11,7 +11,7 @@ import AdminCandidateDrawer from './screens/admin/AdminCandidateDrawer';
 import AdminInterviewers from './screens/admin/AdminInterviewers';
 import AdminActivity from './screens/admin/AdminActivity';
 import { canUndo } from './undoGuard';
-import { deriveJourneyState } from './candidateState';
+import { deriveJourneyState, isCheckedIn } from './candidateState';
 import './AdminPortal.css';
 import {
   collection,
@@ -21,6 +21,7 @@ import {
   doc,
   setDoc,
   deleteDoc,
+  deleteField,
   getDoc,
   getDocs,
   limit
@@ -167,6 +168,11 @@ function AdminPortal() {
 
   // Payment analytics
   const total = candidates.length;
+  // §7.3 tile 1 (Phase 7b): "Checked in X/Y" — X counts ONLY docs explicitly
+  // checked in (activated === true), via the honest isCheckedIn predicate.
+  // Old docs missing the field stay fully operable but are NOT counted as
+  // checked-in (landmine #11: permissive to operate, never miscounted).
+  const checkedIn = candidates.filter(isCheckedIn).length;
   const paid = candidates.filter((c) => c.paid).length;
   const percentPaid = total > 0 ? Math.round((paid / total) * 100) : 0;
   // §7.3 tile 3: paid claims not yet verified by the board.
@@ -508,6 +514,110 @@ function AdminPortal() {
     }
   };
 
+  // ---------- §2 #28 / §7.5 check-in (Phase 7b) ----------
+  // The additive `activated` write: the ONLY record field touched (plus the
+  // shared updated-meta the undo stale-check reads). Fully additive — a doc
+  // that never had `activated` simply gains it here; nothing else changes and
+  // nothing is ever blocked (landmine #11). Returns the captured undo context.
+  const checkInCandidate = async (candidate) => {
+    const nowIso = new Date().toISOString();
+    const candidateRef = doc(db, 'candidates', candidate.regNo);
+    // Capture the PRIOR value so undo can restore it faithfully (a missing
+    // field → missing again, never a spurious activated:false that would
+    // downgrade an old permissive doc into "Registered").
+    const priorActivated = candidate.activated;
+    await setDoc(candidateRef, {
+      activated: true,
+      lastUpdatedBy: 'Admin',
+      lastUpdatedAt: nowIso
+    }, { merge: true });
+
+    setCandidates(prev => prev.map(c =>
+      c.regNo === candidate.regNo
+        ? { ...c, activated: true, lastUpdatedBy: 'Admin', lastUpdatedAt: nowIso }
+        : c
+    ));
+    flashRow(candidate.regNo); // §7.4 optimistic green row flash
+    return {
+      regNo: candidate.regNo,
+      name: candidate.name,
+      priorActivated,
+      writtenMeta: { lastUpdatedAt: nowIso, lastUpdatedBy: 'Admin' }
+    };
+  };
+
+  // Undo restores the prior activation EXACTLY: an absent field is deleteField()
+  // back to absent (old docs stay field-less — landmine #11); an explicit false
+  // is restored to false. Never leaves a state the field never actually held.
+  const revertCheckIn = async (regNo, priorActivated) => {
+    const nowIso = new Date().toISOString();
+    const candidateRef = doc(db, 'candidates', regNo);
+    const restoreFalse = priorActivated === false;
+    await setDoc(candidateRef, {
+      activated: restoreFalse ? false : deleteField(),
+      lastUpdatedBy: 'Admin',
+      lastUpdatedAt: nowIso
+    }, { merge: true });
+
+    setCandidates(prev => prev.map(c => {
+      if (c.regNo !== regNo) return c;
+      const next = { ...c, lastUpdatedBy: 'Admin', lastUpdatedAt: nowIso };
+      if (restoreFalse) next.activated = false;
+      else delete next.activated;
+      return next;
+    }));
+    flashRow(regNo);
+  };
+
+  // Drawer action AND per-row quick-check-in: single tap → existing update
+  // path → optimistic → Toast with Undo (10 s). No confirm — it is reversible
+  // and built for rapid venue check-in (§2 #28).
+  const handleCheckIn = async (candidate) => {
+    if (!candidate || candidate.activated === true) return;
+    try {
+      const captured = await checkInCandidate(candidate);
+      toast({
+        message: `Checked in · ${captured.name}`,
+        undo: { label: 'Undo', ms: 10000, onUndo: () => undoCheckIn(captured) }
+      });
+    } catch (error) {
+      console.error('Error checking in candidate:', error);
+      toast({ tone: 'error', message: 'Failed to check in: ' + error.message });
+    }
+  };
+
+  // Undo = the faithful revert, guarded by the §2 #12 stale-check (fresh read →
+  // canUndo over lastUpdatedAt/lastUpdatedBy → write). Aborts if someone else
+  // wrote in between.
+  const undoCheckIn = async (captured) => {
+    try {
+      const ref = doc(db, 'candidates', captured.regNo);
+      const freshSnap = await getDoc(ref);
+      const freshData = freshSnap.exists() ? freshSnap.data() : null;
+      const freshMeta = freshData
+        ? {
+            lastUpdatedAt: freshData.lastUpdatedAt,
+            lastUpdatedBy: freshData.lastUpdatedBy,
+          }
+        : null;
+
+      if (!canUndo(captured.writtenMeta, freshMeta)) {
+        const who = (freshMeta && freshMeta.lastUpdatedBy) || 'another user';
+        toast({
+          tone: 'error',
+          message: `Changed by ${who} just now — not undone.`,
+        });
+        return;
+      }
+
+      await revertCheckIn(captured.regNo, captured.priorActivated);
+      toast({ tone: 'success', message: `Check-in undone · ${captured.name}` });
+    } catch (error) {
+      console.error('Error undoing check-in:', error);
+      toast({ tone: 'error', message: 'Undo failed: ' + error.message });
+    }
+  };
+
   const exportToExcel = async (scope = "all") => {
     if (isExporting) return;
     setIsExporting(true);
@@ -788,6 +898,7 @@ function AdminPortal() {
         <AdminStats
           loading={!candidatesReady}
           total={total}
+          checkedIn={checkedIn}
           paid={paid}
           percentPaid={percentPaid}
           awaiting={awaitingVerification}
@@ -812,6 +923,7 @@ function AdminPortal() {
           }}
           flashRegNo={flashRegNo}
           onOpenRow={openDrawer}
+          onQuickCheckIn={handleCheckIn}
           selectedRegNo={drawerOpen ? drawerRegNo : null}
           scrollRef={tableCardRef}
           filterKey={`${search}|${filterPaid}`}
@@ -842,6 +954,7 @@ function AdminPortal() {
         onClose={closeDrawer}
         onVerify={handleVerifyConfirmed}
         onReverse={(candidate) => setReverseRegNo(candidate.regNo)}
+        onCheckIn={handleCheckIn}
         formatWhen={(stamp) => formatRelativeTime(toDate(stamp))}
       />
 

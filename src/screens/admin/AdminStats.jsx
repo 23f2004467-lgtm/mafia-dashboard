@@ -6,7 +6,10 @@ import "./AdminStats.css";
  * AdminStats (§7.3) — the 4-tile stat strip. Presentational: every number
  * is computed in AdminPortal.jsx and passed down.
  *
- * 1. Candidates {total} — honest label pre-Phase-7 (§2 #36).
+ * 1. Checked in {x}/{y} + "at venue" (§2 #36, Phase 7b) — X counts ONLY docs
+ *    explicitly checked in (activated === true); the label became true once the
+ *    check-in flow shipped. Falls back to "Candidates {total}" if no
+ *    checkedIn prop is supplied (defensive — the label must never lie).
  * 2. Paid {x}/{y} + "% of candidates".
  * 3. Awaiting verification {n} — amber, ACTIONABLE: click applies the
  *    Paid·unverified filter and scrolls to the table.
@@ -98,6 +101,7 @@ const inr = (n) => n.toLocaleString("en-IN");
 export default function AdminStats({
   loading = false,
   total = 0,
+  checkedIn = null,
   paid = 0,
   percentPaid = 0,
   awaiting = 0,
@@ -107,11 +111,28 @@ export default function AdminStats({
 }) {
   return (
     <div className="admin-stats">
-      <StatTile
-        label="Candidates"
-        loading={loading}
-        value={<CountUp value={total} />}
-      />
+      {checkedIn == null ? (
+        <StatTile
+          label="Candidates"
+          loading={loading}
+          value={<CountUp value={total} />}
+        />
+      ) : (
+        <StatTile
+          label="Checked in"
+          loading={loading}
+          value={
+            <span className="admin-stats__fraction">
+              <CountUp value={checkedIn} />
+              <span className="admin-stats__slash" aria-hidden="true">
+                /
+              </span>
+              <CountUp value={total} />
+            </span>
+          }
+          sub="at venue"
+        />
+      )}
       <StatTile
         label="Paid"
         loading={loading}

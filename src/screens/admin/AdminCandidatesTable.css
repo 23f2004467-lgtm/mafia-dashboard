@@ -124,6 +124,41 @@
 
 .admin-table__actions {
   text-align: right;
+  white-space: nowrap;
+}
+
+/* Quick check-in (§2 #28, Phase 7b): a compact per-row action. Ready-ink
+   outline (the "Checked in" journey language) — quiet by default, brighter
+   on hover/focus, never blocking. */
+.admin-table__checkin {
+  display: inline-block;
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid var(--state-ready-ink);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--state-ready-ink);
+  font-size: var(--text-12);
+  font-weight: 600;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--motion-micro) var(--ease),
+    color var(--motion-micro) var(--ease);
+}
+
+.admin-table__checkin:hover {
+  background: var(--state-ready-tint);
+}
+
+.admin-table__checkin:focus-visible {
+  outline: 2px solid var(--state-ready-ink);
+  outline-offset: 2px;
+}
+
+.admin-table__checkin:active {
+  background: var(--state-ready-ink);
+  color: var(--surface);
 }
 
 .admin-table__chevron {

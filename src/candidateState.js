@@ -68,6 +68,24 @@ export function deriveJourneyState(candidate) {
 }
 
 /**
+ * §5 stat-tile numerator (Phase 7b): is this candidate EXPLICITLY checked in?
+ *
+ * ONLY `activated === true` counts. A missing field is permissive for OPERATION
+ * (deriveJourneyState renders it "Checked in", nothing blocks) but it is NOT an
+ * explicit check-in — an old doc that predates the venue check-in flow was never
+ * scanned at the door, so it must not inflate the "Checked in X/Y" numerator.
+ * `activated === false` (explicitly Registered, not yet arrived) is also false.
+ *
+ * This keeps the tile HONEST: X = people the board actually checked in.
+ *
+ * @param {object} candidate - a candidate doc shape.
+ * @returns {boolean}
+ */
+export function isCheckedIn(candidate) {
+  return Boolean(candidate) && candidate.activated === true;
+}
+
+/**
  * Phase-7 WRITE helper: the additive `verdictStatus` the verdict-submit payload
  * should carry, or `undefined` when the field must stay ABSENT.
  *

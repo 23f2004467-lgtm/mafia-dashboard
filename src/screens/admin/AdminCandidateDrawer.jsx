@@ -98,6 +98,7 @@ export default function AdminCandidateDrawer({
   onClose,
   onVerify,
   onReverse,
+  onCheckIn,
   formatWhen,
 }) {
   const verifyAnchorRef = useRef(null);
@@ -162,6 +163,29 @@ export default function AdminCandidateDrawer({
     >
       {candidate ? (
         <div className="acd">
+          {/* ---------- Check-in (§2 #28 / §7.5, Phase 7b) ----------
+              Additive `activated`: a single tap sets it true (optimistic +
+              Undo toast in the parent). Already checked-in → a quiet state,
+              never a second write. A missing field shows "Check in" and is
+              fully operable — nothing here blocks (landmine #11). */}
+          {onCheckIn ? (
+            <section className="acd__section acd__checkin">
+              <h3 className="acd__label">Check-in</h3>
+              {candidate.activated === true ? (
+                <p className="acd__checkin-done">✓ Checked in</p>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  fullWidth
+                  onClick={() => onCheckIn(candidate)}
+                >
+                  Check in
+                </Button>
+              )}
+            </section>
+          ) : null}
+
           {/* ---------- Identity (read-only definition list) ---------- */}
           <section className="acd__section">
             <h3 className="acd__label">Details</h3>

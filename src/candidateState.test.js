@@ -7,6 +7,7 @@ import {
   hasAnyDomain,
   deriveJourneyState,
   deriveVerdictStatusForWrite,
+  isCheckedIn,
 } from './candidateState';
 
 describe('deriveJourneyState (§5 Track-1)', () => {
@@ -61,6 +62,14 @@ describe('deriveJourneyState (§5 Track-1)', () => {
     expect(deriveJourneyState({ activated: true })).toBe(JOURNEY.CHECKED_IN);
   });
 
+  it('a truthy-but-not-true `activated` never renders Registered and never blocks (landmine #11)', () => {
+    // Only the EXPLICIT boolean false is Registered; any other shape is permissive.
+    expect(deriveJourneyState({ activated: 0 })).toBe(JOURNEY.CHECKED_IN);
+    expect(deriveJourneyState({ activated: null })).toBe(JOURNEY.CHECKED_IN);
+    expect(deriveJourneyState({ activated: undefined })).toBe(JOURNEY.CHECKED_IN);
+    expect(deriveJourneyState({ activated: 'true' })).toBe(JOURNEY.CHECKED_IN);
+  });
+
   it('verdict / verdictStatus outrank activated===false (a decided candidate is never Registered)', () => {
     expect(
       deriveJourneyState({ activated: false, verdict: { talentComm: ['x'], workComm: [] } })
@@ -92,6 +101,28 @@ describe('hasAnyDomain', () => {
     expect(hasAnyDomain(null)).toBe(false);
     expect(hasAnyDomain({})).toBe(false);
     expect(hasAnyDomain({ talentComm: 'nope' })).toBe(false);
+  });
+});
+
+describe('isCheckedIn (Phase 7b stat numerator — honest count)', () => {
+  it('is true ONLY for an explicit activated === true', () => {
+    expect(isCheckedIn({ activated: true })).toBe(true);
+  });
+
+  it('is false for a missing field (old doc: permissive to OPERATE, never counted)', () => {
+    expect(isCheckedIn({})).toBe(false);
+    expect(isCheckedIn({ verdict: { talentComm: ['Music'], workComm: [] } })).toBe(false);
+  });
+
+  it('is false for an explicit activated === false (Registered, not yet arrived)', () => {
+    expect(isCheckedIn({ activated: false })).toBe(false);
+  });
+
+  it('is false for any non-true truthy/garbage value and for nullish inputs', () => {
+    expect(isCheckedIn({ activated: 1 })).toBe(false);
+    expect(isCheckedIn({ activated: 'true' })).toBe(false);
+    expect(isCheckedIn(undefined)).toBe(false);
+    expect(isCheckedIn(null)).toBe(false);
   });
 });
 

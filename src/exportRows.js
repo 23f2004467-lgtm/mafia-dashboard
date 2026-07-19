@@ -27,6 +27,13 @@ export function buildExportRows(candidates) {
     WorkCommVerdict: Array.isArray(cand.verdict?.workComm) ? cand.verdict.workComm.join(", ") : "",
     Comments: cand.comments || "",
     LastUpdatedBy: cand.lastUpdatedBy || "",
+    // Phase 7 additive columns (landmine #9): appended AFTER the 16 legacy
+    // columns so legacy order stays byte-identical. Both mirror the raw
+    // additive field and stay EMPTY on old docs that lack it — never derived,
+    // never inferred (a blank cell is the honest "not recorded", not a state).
+    VerdictStatus: cand.verdictStatus || "",
+    CheckedIn:
+      cand.activated === true ? "Yes" : cand.activated === false ? "No" : "",
   }));
 
   return [

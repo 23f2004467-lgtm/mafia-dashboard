@@ -15,7 +15,9 @@
     "TalentCommVerdict",
     "WorkCommVerdict",
     "Comments",
-    "LastUpdatedBy"
+    "LastUpdatedBy",
+    "VerdictStatus",
+    "CheckedIn"
   ],
   [
     "Asha Rao",
@@ -33,7 +35,9 @@
     "Selected, Music",
     "Waitlist",
     "Strong vocalist, callback for band audition",
-    "interviewer1@example.com"
+    "interviewer1@example.com",
+    "selected",
+    "Yes"
   ],
   [
     "Bharat Iyer",
@@ -51,7 +55,9 @@
     "",
     "",
     "",
-    "interviewer2@example.com"
+    "interviewer2@example.com",
+    "not_selected",
+    "No"
   ],
   [
     "Chitra Nair",
@@ -69,7 +75,9 @@
     "",
     "",
     "Left before payment",
-    "interviewer1@example.com"
+    "interviewer1@example.com",
+    "",
+    ""
   ],
   [
     "Walk-in Dev",
@@ -87,6 +95,8 @@
     "",
     "Selected",
     "Walk-in, manual entry",
-    "Manual Entry"
+    "Manual Entry",
+    "selected",
+    ""
   ]
 ]
