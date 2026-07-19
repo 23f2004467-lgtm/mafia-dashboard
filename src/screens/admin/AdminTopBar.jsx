@@ -14,9 +14,10 @@ import "./AdminTopBar.css";
  *   filters active → scope popover "Export {M} filtered" / "Export all {N}".
  *   `exportBusy` shows the width-locked progress spinner on the button.
  * - overflow "⋯" menu: Check-in desk… (desk feature 2026-07-20: the
- *   allowlist Dialog in AdminPortal.jsx) · Force logout all… · Danger
- *   zone… (§7.8: amber Reset / red Delete, each opening its typed-confirm
- *   Dialog in AdminPortal.jsx) · Sign out
+ *   allowlist Dialog in AdminPortal.jsx) · Import time slots… (stage B
+ *   2026-07-20: the slot-sheet import Dialog in AdminPortal.jsx) · Force
+ *   logout all… · Danger zone… (§7.8: amber Reset / red Delete, each
+ *   opening its typed-confirm Dialog in AdminPortal.jsx) · Sign out
  * - user chip: Avatar initials + email
  */
 export default function AdminTopBar({
@@ -27,6 +28,7 @@ export default function AdminTopBar({
   totalCount = 0,
   filteredCount = 0,
   onManageDesk,
+  onImportSlots,
   onForceLogout,
   onDangerReset,
   onDangerDelete,
@@ -201,6 +203,14 @@ export default function AdminTopBar({
                   onClick={pick(onManageDesk)}
                 >
                   Check-in desk…
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="admin-menu__item"
+                  onClick={pick(onImportSlots)}
+                >
+                  Import time slots…
                 </button>
                 <div className="admin-menu__divider" aria-hidden="true" />
                 <button

@@ -25,10 +25,12 @@ import {
   getDoc,
   getDocs,
   limit,
-  serverTimestamp
+  serverTimestamp,
+  writeBatch
 } from "firebase/firestore";
 import * as ExcelJS from "exceljs";
 import { buildExportRows } from "./exportRows";
+import { parseCsv, cellToString, matchSlots } from "./slotImport";
 import { PerformanceMonitor } from './performanceOptimizations';
 
 /**
@@ -88,6 +90,13 @@ const matchesStateFilter = (cand, filter) => {
 // DERIVES its countdown from them instead of restating numbers in copy.
 const ADMIN_RATE_LIMIT_MAX_ATTEMPTS = 3;
 const ADMIN_RATE_LIMIT_WINDOW_MS = 300000;
+
+// Stage B (time-slot layer): slot-import writes go out in Firestore
+// WriteBatches chunked well under the 500-op hard limit.
+const SLOT_BATCH_LIMIT = 400;
+
+// Preview shows the first few unmatched rows, then "+ K more".
+const SLOT_UNMATCHED_PREVIEW = 5;
 
 // When the current rate-limit window frees a slot (display only — reads
 // the same RateLimiter state the guard consults; never mutates it).
@@ -160,6 +169,18 @@ function AdminPortal() {
   const [deskInput, setDeskInput] = useState("");
   const [deskInputError, setDeskInputError] = useState(null);
   const [deskWorking, setDeskWorking] = useState(false);
+
+  // Import time slots (stage B, 2026-07-20): the picked file's parse
+  // result drives the preview; NOTHING is written until Apply. All the
+  // parsing is pure (src/slotImport.js) — this component only reads the
+  // file (ExcelJS .xlsx / parseCsv .csv) and batches the writes.
+  const [showSlotsModal, setShowSlotsModal] = useState(false);
+  const [slotsFileName, setSlotsFileName] = useState(null);
+  const [slotsReading, setSlotsReading] = useState(false);
+  const [slotsParse, setSlotsParse] = useState(null); // matchSlots ok:true result
+  const [slotsError, setSlotsError] = useState(null);
+  const [slotsApplying, setSlotsApplying] = useState(false);
+  const slotsFileRef = useRef(null);
 
   // §7.5 drawer: regNo of the open candidate (kept through the exit
   // animation) + open flag. The candidate object itself is derived LIVE
@@ -379,6 +400,122 @@ function AdminPortal() {
     if (deskWorking) return;
     setDeskInputError(null);
     await writeDeskEmails(deskEmails.filter((e) => e !== target));
+  };
+
+  // ---------- Import time slots (stage B, 2026-07-20) ----------
+  // Read the picked sheet ENTIRELY client-side: .csv through the pure
+  // parseCsv, .xlsx through the already-shipped ExcelJS (READ side — the
+  // export write path and its buildExportRows mapping are untouched,
+  // landmines #9/#10). Every cell flattens to a string (cellToString) and
+  // the pure matchSlots decides what WOULD be written; the preview states
+  // it before any write exists.
+  const readSlotsFile = async (file) => {
+    setSlotsReading(true);
+    setSlotsError(null);
+    setSlotsParse(null);
+    setSlotsFileName(file.name);
+    try {
+      let rows;
+      if (/\.csv$/i.test(file.name)) {
+        rows = parseCsv(await file.text());
+      } else {
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(await file.arrayBuffer());
+        const sheet = workbook.worksheets[0];
+        if (!sheet) throw new Error("the workbook has no sheets");
+        rows = [];
+        sheet.eachRow((row) => {
+          // row.values is 1-based and sparse — Array.from keeps the holes
+          // addressable so column indexes stay honest.
+          const values = Array.isArray(row.values) ? row.values.slice(1) : [];
+          rows.push(Array.from(values, (v) => cellToString(v)));
+        });
+      }
+      const parsed = matchSlots(rows, candidates);
+      if (!parsed.ok) {
+        setSlotsError(parsed.error);
+        return;
+      }
+      setSlotsParse(parsed);
+    } catch (error) {
+      console.error("Slot sheet parse failed:", error);
+      setSlotsError("Couldn't read that file: " + error.message);
+    } finally {
+      setSlotsReading(false);
+    }
+  };
+
+  const onSlotsFileChange = async (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ""; // same file re-pickable after a fix in Excel
+    if (file) await readSlotsFile(file);
+  };
+
+  // The batched ADDITIVE writes: per matched candidate exactly `slot`
+  // (display string) and — when the best-effort parse produced a number —
+  // `slotOrder`. No meta stamping, deliberately: a 600-row import must not
+  // flood the §7.7 activity feed or trip the §2 #12 undo stale-checks the
+  // way a human write would; old docs gain at most two fields and stay
+  // fully operable. Chunks are atomic; a mid-import failure leaves earlier
+  // chunks applied — re-applying the same sheet is idempotent, so the
+  // error toast + held-open dialog make retry the fix.
+  const applySlots = async () => {
+    if (slotsApplying || !slotsParse || slotsParse.matched.length === 0) return;
+    setSlotsApplying(true);
+    try {
+      const entries = slotsParse.matched;
+      for (let i = 0; i < entries.length; i += SLOT_BATCH_LIMIT) {
+        const chunk = entries.slice(i, i + SLOT_BATCH_LIMIT);
+        const batch = writeBatch(db);
+        chunk.forEach((entry) => {
+          const payload = { slot: entry.slot };
+          if (typeof entry.slotOrder === "number") {
+            payload.slotOrder = entry.slotOrder;
+          }
+          batch.set(doc(db, "candidates", entry.docKey), payload, {
+            merge: true,
+          });
+        });
+        await batch.commit();
+      }
+
+      // Optimistic local merge (same idiom as verify/check-in) — the live
+      // snapshot confirms momentarily.
+      const byKey = new Map(entries.map((entry) => [entry.docKey, entry]));
+      setCandidates((prev) =>
+        prev.map((c) => {
+          const entry = byKey.get(c.id || c.regNo);
+          if (!entry) return c;
+          const next = { ...c, slot: entry.slot };
+          if (typeof entry.slotOrder === "number") {
+            next.slotOrder = entry.slotOrder;
+          }
+          return next;
+        })
+      );
+
+      FirebaseSecurity.auditLogger.logEvent("admin_slots_imported", {
+        timestamp: new Date().toISOString(),
+        adminEmail: email,
+        file: slotsFileName,
+        matched: entries.length,
+        unmatched: slotsParse.unmatched.length,
+        duplicates: slotsParse.duplicates,
+      });
+      toast({
+        tone: "success",
+        message: `Time slots applied · ${entries.length} candidate${
+          entries.length === 1 ? "" : "s"
+        }`,
+      });
+      setShowSlotsModal(false);
+    } catch (error) {
+      console.error("Slot import failed:", error);
+      // Dialog stays open (busy released) so the op can be retried.
+      toast({ tone: "error", message: "Failed to apply slots: " + error.message });
+    } finally {
+      setSlotsApplying(false);
+    }
   };
 
   // §7.6 per-row "End session" — the existing single-doc delete (the same
@@ -839,6 +976,16 @@ function AdminPortal() {
     }
   }, [showDeskModal]);
 
+  // Fresh state each time the slots Dialog opens — a stale preview must
+  // never carry across sessions of the dialog.
+  useEffect(() => {
+    if (showSlotsModal) {
+      setSlotsFileName(null);
+      setSlotsParse(null);
+      setSlotsError(null);
+    }
+  }, [showSlotsModal]);
+
   // Filtered candidates (§7.4). The old DataCache wrapper is gone: its
   // 30 s TTL keyed on candidates.length served stale rows after any
   // field-level change (e.g. a verify flip) — useMemo over the live
@@ -1027,6 +1174,7 @@ function AdminPortal() {
         totalCount={total}
         filteredCount={filteredCandidates.length}
         onManageDesk={() => setShowDeskModal(true)}
+        onImportSlots={() => setShowSlotsModal(true)}
         onForceLogout={() => setShowForceLogoutModal(true)}
         onDangerReset={() => setShowClearDataModal(true)}
         onDangerDelete={() => setShowDeleteDataModal(true)}
@@ -1288,6 +1436,145 @@ function AdminPortal() {
             Add
           </Button>
         </div>
+      </Dialog>
+
+      {/* Import time slots (stage B, 2026-07-20): client-side parse →
+          preview that states EXACTLY what Apply will write → batched
+          additive slot/slotOrder writes. Not a danger surface — additive
+          fields, re-import overwrites cleanly — so a plain Dialog; `busy`
+          holds it open while the batches commit. */}
+      <Dialog
+        open={showSlotsModal}
+        onClose={() => setShowSlotsModal(false)}
+        title="Import time slots"
+        busy={slotsApplying}
+        className="admin-slots-dialog"
+        actions={
+          <>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={slotsApplying}
+              onClick={() => setShowSlotsModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              loading={slotsApplying}
+              disabled={
+                slotsReading || !slotsParse || slotsParse.matched.length === 0
+              }
+              onClick={applySlots}
+            >
+              Apply
+              {slotsParse && slotsParse.matched.length > 0
+                ? ` to ${slotsParse.matched.length}`
+                : ""}
+            </Button>
+          </>
+        }
+      >
+        <p className="admin-slots__intro">
+          Upload the calling sheet (.xlsx or .csv). The reg-number and slot
+          columns are detected from the headers; rows are matched to
+          candidates by reg number, with the name as fallback. Nothing is
+          written until you apply.
+        </p>
+
+        <div className="admin-slots__pick">
+          <input
+            ref={slotsFileRef}
+            type="file"
+            accept=".xlsx,.csv"
+            hidden
+            onChange={onSlotsFileChange}
+          />
+          <Button
+            size="sm"
+            variant="secondary"
+            loading={slotsReading}
+            disabled={slotsApplying}
+            onClick={() => {
+              if (slotsFileRef.current) slotsFileRef.current.click();
+            }}
+          >
+            {slotsParse || slotsError ? "Choose a different file" : "Choose file…"}
+          </Button>
+          {slotsFileName ? (
+            <span className="admin-slots__file">{slotsFileName}</span>
+          ) : null}
+        </div>
+
+        {slotsError ? (
+          <p className="admin-slots__error" role="alert">
+            {slotsError}
+          </p>
+        ) : null}
+
+        {slotsParse ? (
+          <div className="admin-slots__preview">
+            <p className="admin-slots__headline">
+              <span className="admin-slots__num tnum">
+                {slotsParse.matched.length}
+              </span>{" "}
+              matched ·{" "}
+              <span className="admin-slots__num tnum">
+                {slotsParse.unmatched.length}
+              </span>{" "}
+              unmatched
+            </p>
+            <p className="admin-slots__writes">
+              {slotsParse.matched.length > 0
+                ? `Apply writes slot + slot order to ${
+                    slotsParse.matched.length
+                  } candidate record${
+                    slotsParse.matched.length === 1 ? "" : "s"
+                  } — nothing else changes.`
+                : "Nothing to write — no rows matched a candidate."}
+            </p>
+            {slotsParse.duplicates > 0 ? (
+              <p className="admin-slots__meta">
+                {slotsParse.duplicates} duplicate row
+                {slotsParse.duplicates === 1 ? "" : "s"} — the last occurrence
+                wins.
+              </p>
+            ) : null}
+            {slotsParse.emptySlot > 0 ? (
+              <p className="admin-slots__meta">
+                {slotsParse.emptySlot} matched row
+                {slotsParse.emptySlot === 1 ? " has" : "s have"} no slot value —
+                skipped.
+              </p>
+            ) : null}
+            {slotsParse.unparsedOrder > 0 ? (
+              <p className="admin-slots__meta">
+                {slotsParse.unparsedOrder} slot
+                {slotsParse.unparsedOrder === 1 ? "" : "s"} without a parseable
+                time — those rows sort last on the desk.
+              </p>
+            ) : null}
+            {slotsParse.unmatched.length > 0 ? (
+              <ul className="admin-slots__unmatched">
+                {slotsParse.unmatched
+                  .slice(0, SLOT_UNMATCHED_PREVIEW)
+                  .map((row, i) => (
+                    <li key={`${row.regNo}|${row.name}|${i}`}>
+                      {[row.regNo, row.name, row.slot]
+                        .filter(Boolean)
+                        .join(" · ") || "(blank identity)"}
+                    </li>
+                  ))}
+                {slotsParse.unmatched.length > SLOT_UNMATCHED_PREVIEW ? (
+                  <li className="admin-slots__more">
+                    + {slotsParse.unmatched.length - SLOT_UNMATCHED_PREVIEW}{" "}
+                    more
+                  </li>
+                ) : null}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
       </Dialog>
 
       {/* §7.6 / §2 #38: plain confirm (recoverable — no typed confirm),
