@@ -107,6 +107,12 @@ export default function Search({
           Desktop-only, static, behind everything. */}
       <div className="iv-search__ambient" aria-hidden="true">
         <img
+          className="iv-search__ambient-print"
+          src="/brand/ambient-stage-print.jpg"
+          alt=""
+          draggable={false}
+        />
+        <img
           className="iv-search__ambient-hero"
           src="/brand/ambient-emb-1.png"
           alt=""
@@ -115,12 +121,6 @@ export default function Search({
         <img
           className="iv-search__ambient-side"
           src="/brand/ambient-emb-2.png"
-          alt=""
-          draggable={false}
-        />
-        <img
-          className="iv-search__ambient-center"
-          src="/brand/ambient-showbill.png"
           alt=""
           draggable={false}
         />

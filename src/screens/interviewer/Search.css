@@ -61,7 +61,7 @@
   }
 
   .iv-search__ambient-side,
-  .iv-search__ambient-center {
+  .iv-search__ambient-print {
     display: none;
   }
 }
@@ -88,18 +88,33 @@
     opacity: 0.05;
   }
 
-  /* Centered showbill watermark (owner-sanctioned addition): the ornate
-     music-hall lettering as a letterpress ghost in the lower-middle band.
-     Sits straight — the corners carry the tilt — and quieter than both
-     corner pieces (0.04) so the center stays calmest. Result cards are
-     opaque surfaces on z-index 1 above it. */
-  .iv-search__ambient-center {
+  /* The stage print (owner call 2026-07-20, superseding the showbill
+     watermark): the Cadenza night photograph as a violet-ink duotone —
+     paper highlights, jacket-violet shadows — multiplied onto the paper
+     like a screenprint. Fades out toward the top so the title/search
+     column sits on clean paper; result cards are opaque surfaces on
+     z-index 1 above it. Static, decorative. */
+  .iv-search__ambient-print {
     display: block;
-    left: 50%;
-    top: 54%;
-    width: clamp(480px, 44vw, 680px);
-    transform: translateX(-50%);
-    opacity: 0.04;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: 50% 62%;
+    mix-blend-mode: multiply;
+    opacity: 0.14;
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 8%,
+      rgba(0, 0, 0, 0.6) 34%,
+      rgba(0, 0, 0, 1) 58%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 8%,
+      rgba(0, 0, 0, 0.6) 34%,
+      rgba(0, 0, 0, 1) 58%
+    );
   }
 }
 
