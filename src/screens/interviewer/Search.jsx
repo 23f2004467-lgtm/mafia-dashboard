@@ -118,6 +118,12 @@ export default function Search({
           alt=""
           draggable={false}
         />
+        <img
+          className="iv-search__ambient-center"
+          src="/brand/ambient-showbill.png"
+          alt=""
+          draggable={false}
+        />
       </div>
 
       <div className="iv-search__inner">

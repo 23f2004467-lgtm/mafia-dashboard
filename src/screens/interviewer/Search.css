@@ -60,7 +60,8 @@
     opacity: 0.05;
   }
 
-  .iv-search__ambient-side {
+  .iv-search__ambient-side,
+  .iv-search__ambient-center {
     display: none;
   }
 }
@@ -85,6 +86,20 @@
     width: clamp(240px, 50vw - 240px, 350px);
     transform: scaleX(-1) rotate(6deg);
     opacity: 0.05;
+  }
+
+  /* Centered showbill watermark (owner-sanctioned addition): the ornate
+     music-hall lettering as a letterpress ghost in the lower-middle band.
+     Sits straight — the corners carry the tilt — and quieter than both
+     corner pieces (0.04) so the center stays calmest. Result cards are
+     opaque surfaces on z-index 1 above it. */
+  .iv-search__ambient-center {
+    display: block;
+    left: 50%;
+    top: 54%;
+    width: clamp(480px, 44vw, 680px);
+    transform: translateX(-50%);
+    opacity: 0.04;
   }
 }
 
