@@ -15,9 +15,20 @@
   gap: var(--space-5);
 }
 
-/* Big ✓ in success ink (§6.5). */
+/* Big ✓ in success ink (§6.5), framed as a success-tint medallion so the
+   completion lands as an earned beat rather than a bare glyph on the page.
+   The tint is the "recorded" success semantic (always green — NOT the
+   verdict, which the Stamp carries); static, so nothing here animates but
+   the Stamp entrance. */
 .iv-done__check {
-  font-size: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: var(--success-tint);
+  font-size: 56px;
   line-height: 1;
   color: var(--state-good-ink);
 }
@@ -35,12 +46,15 @@
   margin: 0;
 }
 
-/* Stamp + payment pill recap. */
+/* Stamp + payment pill recap — the verdict payload. A touch more air above
+   it than the intra-group rhythm so the Stamp reads as the hero, not a
+   third title line. */
 .iv-done__recap {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-4);
+  margin-top: var(--space-1);
   max-width: 100%;
 }
 

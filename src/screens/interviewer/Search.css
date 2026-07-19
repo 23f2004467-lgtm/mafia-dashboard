@@ -137,6 +137,26 @@
   gap: var(--space-2);
 }
 
+/* Section header for the result list — mirrors "My recent" so both lists
+   read as labelled zones (candidate-screen zone-head language): caps
+   micro-label left, live match count right. The count is a UI affordance
+   (same number as the sanctioned "Show all {N}"), not an interviewer
+   progress count (§2 #34). */
+.iv-search__results-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.iv-search__results-count {
+  flex: none;
+  font-size: var(--text-12);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--brand-600);
+}
+
 .iv-search__list {
   display: flex;
   flex-direction: column;

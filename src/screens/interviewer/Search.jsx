@@ -191,6 +191,12 @@ export default function Search({
             ) : null
           ) : results.length > 0 ? (
             <>
+              <div className="iv-search__results-head">
+                <h2 className="iv-search__micro-label">Results</h2>
+                <span className="iv-search__results-count tnum">
+                  {results.length}
+                </span>
+              </div>
               <div
                 className={
                   "iv-search__list" + (entered ? " iv-search__list--in" : "")
