@@ -1,11 +1,91 @@
-/* Search — home (§6.2). Designed at 375px; desktop = 560px centered column. */
+/* Search — home (§6.2). Designed at 375px; desktop = 560px centered column.
+   The root is the full-width paper stage (it clips the ambient collage);
+   the 560px column lives on __inner. */
 
 .iv-search {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.iv-search__inner {
+  position: relative;
+  z-index: 1;
   width: 100%;
   max-width: 560px;
   margin: 0 auto;
   padding: var(--space-4) var(--space-4)
     calc(var(--space-10) + var(--safe-bottom));
+}
+
+/* ---------- Ambient embroidery collage (owner-sanctioned, §2 #49) ----------
+   The varsity-sleeve art ghosted into the paper: the deep jacket-violet tint
+   is baked into the PNGs, so this layer carries ONLY opacity + placement. Static — no
+   animation, no transition. Behind all content (__inner is z-index 1),
+   pointer-events none, clipped by the root's overflow hidden. Phones
+   (< 768px) never load a collage layout: display none. */
+
+.iv-search__ambient {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: none;
+  pointer-events: none;
+  user-select: none;
+}
+
+.iv-search__ambient img {
+  position: absolute;
+}
+
+/* 768–900px: a single smaller corner element — hero only. Whenever the
+   collage shows, the stage fills the viewport so bottom-anchored art sits
+   at the true bottom (48px TopBar + its 1px border — exact fit, no 1px
+   scrollbar). */
+@media (min-width: 768px) {
+  .iv-search {
+    min-height: calc(100vh - 49px);
+    min-height: calc(100dvh - 49px);
+  }
+
+  .iv-search__ambient {
+    display: block;
+  }
+
+  .iv-search__ambient-hero {
+    right: -56px;
+    bottom: -72px;
+    width: 360px;
+    transform: rotate(-8deg);
+    opacity: 0.05;
+  }
+
+  .iv-search__ambient-side {
+    display: none;
+  }
+}
+
+/* >= 900px: the full collage on a viewport-height stage. Hero bleeds off the
+   bottom-right; the mirrored secondary bleeds off the left, its width clamped
+   so it never reaches the central 640px column (50vw - 320px), keeping the
+   title/search column visually clean above the fold. */
+@media (min-width: 900px) {
+  .iv-search__ambient-hero {
+    right: -72px;
+    bottom: -96px;
+    width: 480px;
+    transform: rotate(-8deg);
+    opacity: 0.06;
+  }
+
+  .iv-search__ambient-side {
+    display: block;
+    left: -110px;
+    top: -48px;
+    width: clamp(240px, 50vw - 240px, 350px);
+    transform: scaleX(-1) rotate(6deg);
+    opacity: 0.05;
+  }
 }
 
 .iv-search__draft {

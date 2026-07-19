@@ -101,6 +101,26 @@ export default function Search({
 
   return (
     <div className="iv-search">
+      {/* Owner-sanctioned ambient collage (§2 #49 — the conversation happened):
+          sleeve-embroidery art ghosted into the paper, the deep jacket-violet
+          tint baked into the PNGs, CSS carries only opacity + placement.
+          Desktop-only, static, behind everything. */}
+      <div className="iv-search__ambient" aria-hidden="true">
+        <img
+          className="iv-search__ambient-hero"
+          src="/brand/ambient-emb-1.png"
+          alt=""
+          draggable={false}
+        />
+        <img
+          className="iv-search__ambient-side"
+          src="/brand/ambient-emb-2.png"
+          alt=""
+          draggable={false}
+        />
+      </div>
+
+      <div className="iv-search__inner">
       {draft ? (
         <div className="iv-search__draft">
           <Banner
@@ -257,6 +277,7 @@ export default function Search({
       >
         Candidate not registered? Add walk-in
       </button>
+      </div>
     </div>
   );
 }
