@@ -60,40 +60,51 @@
     opacity: 0.05;
   }
 
-  .iv-search__ambient-side,
+  .iv-search__ambient-side-dark,
+  .iv-search__ambient-hero-dark,
   .iv-search__ambient-print {
     display: none;
   }
 }
 
-/* >= 900px: the full collage on a viewport-height stage. Hero bleeds off the
-   bottom-right; the mirrored secondary bleeds off the left, its width clamped
-   so it never reaches the central 640px column (50vw - 320px), keeping the
-   title/search column visually clean above the fold. */
+/* >= 900px: THE STAGE CANVAS (owner call 2026-07-20). The Search lobby runs
+   its canvas dark — the login's night continues here — while every content
+   surface (cards, field, banners) stays paper, popping white on the stage.
+   White sleeve embroidery replaces the violet corners (the literal varsity
+   jacket: white thread on black), and the Cadenza photograph sits dimmed in
+   the middle field. Phones and 768-900 keep the paper canvas — glare wins
+   on the working device. Canvas-level text flips to the stage inks. */
 @media (min-width: 900px) {
+  .iv-search {
+    background: var(--stage-bg);
+  }
+
   .iv-search__ambient-hero {
+    display: none;
+  }
+
+  .iv-search__ambient-hero-dark {
+    display: block;
     right: -72px;
     bottom: -96px;
     width: 480px;
     transform: rotate(-8deg);
-    opacity: 0.06;
+    opacity: 0.07;
   }
 
-  .iv-search__ambient-side {
+  .iv-search__ambient-side-dark {
     display: block;
     left: -110px;
     top: -48px;
     width: clamp(240px, 50vw - 240px, 350px);
     transform: scaleX(-1) rotate(6deg);
-    opacity: 0.05;
+    opacity: 0.06;
   }
 
-  /* The stage print (owner call 2026-07-20, superseding the showbill
-     watermark): the Cadenza night photograph as a violet-ink duotone —
-     paper highlights, jacket-violet shadows — multiplied onto the paper
-     like a screenprint. Fades out toward the top so the title/search
-     column sits on clean paper; result cards are opaque surfaces on
-     z-index 1 above it. Static, decorative. */
+  /* The Cadenza night photograph (same asset as the Login stage) dimmed
+     into the canvas middle field, fading out toward the title/search
+     column; result cards are opaque surfaces on z-index 1 above it.
+     Static, decorative. */
   .iv-search__ambient-print {
     display: block;
     inset: 0;
@@ -101,19 +112,18 @@
     height: 100%;
     object-fit: cover;
     object-position: 50% 62%;
-    mix-blend-mode: multiply;
-    opacity: 0.14;
+    opacity: 0.45;
     -webkit-mask-image: linear-gradient(
       to bottom,
-      transparent 8%,
-      rgba(0, 0, 0, 0.6) 34%,
-      rgba(0, 0, 0, 1) 58%
+      transparent 6%,
+      rgba(0, 0, 0, 0.65) 30%,
+      rgba(0, 0, 0, 1) 55%
     );
     mask-image: linear-gradient(
       to bottom,
-      transparent 8%,
-      rgba(0, 0, 0, 0.6) 34%,
-      rgba(0, 0, 0, 1) 58%
+      transparent 6%,
+      rgba(0, 0, 0, 0.65) 30%,
+      rgba(0, 0, 0, 1) 55%
     );
   }
 }
@@ -310,4 +320,31 @@
 .iv-search__walkin-link:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+}
+
+/* Stage-canvas ink flips (owner call 2026-07-20). This block must stay LAST
+   in the file: it overrides the base light-theme inks above for the >= 900px
+   dark canvas — canvas-level text only; cards/banners keep their own paper
+   surfaces and inks. */
+@media (min-width: 900px) {
+  .iv-search__title,
+  .iv-search .ui-empty-state__title {
+    color: var(--stage-ink);
+  }
+
+  /* Canvas-level labels only — recent-row text stays put: those rows are
+     white surface cards and keep their paper inks. */
+  .iv-search__micro-label,
+  .iv-search__results-count,
+  .iv-search .ui-empty-state__body {
+    color: var(--stage-ink-muted);
+  }
+
+  .iv-search__walkin-link {
+    color: var(--brand-300);
+  }
+
+  .iv-search__skeletons .ui-skeleton {
+    background: color-mix(in srgb, var(--stage-ink) 9%, transparent);
+  }
 }

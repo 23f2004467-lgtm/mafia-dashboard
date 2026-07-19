@@ -126,6 +126,12 @@ Theme application: interviewer tree is light (`:root` default); the admin tree a
 --touch-min: 44px;
 --touch-primary: 56px;
 --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+/* Stage canvas (owner call 2026-07-20): dark-theme stage values exposed to the
+   light tree for the Search >= 900px canvas */
+--stage-bg: #0A0612;
+--stage-ink: #F5F2FA;
+--stage-ink-muted: #B9B1CC;
 ```
 
 ### Dark theme (`[data-theme="dark"]` — admin + interviewer Login)
@@ -283,7 +289,7 @@ One `Component.jsx` + `Component.css` per component; class-based; consumes only 
 
 `screen ∈ {login, search, candidate, payment, done}` held in App.js state; Firebase handlers stay in App.js; each screen is a presentational component in `src/screens/interviewer/`. Designed at 375 px, enhanced upward (desktop: 560 px centered column). Global chrome: 48 px TopBar (text wordmark / condensed ticket, sync dot, amber pending-₹ chip, avatar sheet), sticky bottom ActionBar with the screen's ONE primary action, no bottom nav, no counters of any kind on any interviewer surface. Login is the one dark-staged screen (pure `#000000`, ≤ 8 % `--glow-deep` radial, showbill lettering under `mix-blend-mode: screen`); Search/Candidate/Payment/Done are light. Payment confirmation is the green room: a full-viewport takeover legible from two meters.
 
-**Brand assets — `public/brand/` ships eight files:** `logo-disc.png`, `showbill-lettering.png`, `wordmark-black.png`, `wordmark-white.png`, the two ambient embroidery corners `ambient-emb-1.png` / `ambient-emb-2.png` and `ambient-stage-print.jpg` (the Cadenza night photograph as a violet-ink duotone screenprint filling the Search middle field at 0.14 multiply, masked to fade toward the title column — owner call 2026-07-20, superseding the earlier showbill watermark; Search-screen ≥ 900px, static) — plus `login-stage-a.jpg`: the Login stage photograph (same Cadenza night, owner-supplied, photographer-credited to Debrato Ghosh, watermark cropped with permission; graded dark with a `#0A0612` violet cast, 0.5 opacity under black gradients + vignette, Login only, both viewports, static — becomes the poster frame if the planned drone-shot video lands).
+**Brand assets — `public/brand/` ships nine files:** `logo-disc.png`, `showbill-lettering.png`, `wordmark-black.png`, `wordmark-white.png`, the violet embroidery corners `ambient-emb-1/2.png` (paper canvas, 768–900px) and their white variants `ambient-emb-1/2-dark.png` (the literal varsity sleeve: white thread on black — stage canvas ≥ 900px), plus `login-stage-a.jpg`: the Cadenza night photograph (owner-supplied, photographer-credited to Debrato Ghosh, watermark cropped with permission) used twice — graded dark under the Login (0.5 opacity, black gradients + vignette, both viewports) and dimmed into the Search stage canvas middle field (0.45, top-fade mask, ≥ 900px). **The Search stage canvas (owner call 2026-07-20):** at ≥ 900px the Search screen runs its canvas dark (`--stage-bg`) while every content surface stays paper — white cards popping on the night; canvas-level text flips to `--stage-ink`/`--stage-ink-muted`/`--brand-300`. Phones and 768–900px keep the paper canvas: glare wins on the working device. The login's night continues into the lobby; house lights come up when a candidate is opened.
 
 ### Admin (`/admin`) — laptop-first, one screen + drawer
 

@@ -91,6 +91,14 @@
   --touch-min: 44px;
   --touch-primary: 56px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* ---------- Stage canvas (owner call 2026-07-20) ----------
+     The dark theme's stage values exposed to the LIGHT tree for the one
+     working screen (Search >= 900px) whose canvas runs dark while its
+     cards stay paper. Values mirror [data-theme="dark"] exactly. */
+  --stage-bg: #0A0612;
+  --stage-ink: #F5F2FA;
+  --stage-ink-muted: #B9B1CC;
 }
 
 [data-theme="dark"] {
