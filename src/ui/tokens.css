@@ -99,6 +99,14 @@
   --stage-bg: #0A0612;
   --stage-ink: #F5F2FA;
   --stage-ink-muted: #B9B1CC;
+
+  /* ---------- Stage scrim (§6.1 login playbill panel ONLY) ----------
+     The title card's translucent ink: §6.1's sanctioned pure-black stage
+     at 62%. Deep enough that over ANY frame of the 0.5-opacity drone
+     footage the brightest pixel behind the type lands near #303030 —
+     white ~12.6:1, --text-2 ~6:1 (both AA). Never a blur; never reused
+     as a generic overlay. */
+  --stage-scrim: rgba(0, 0, 0, 0.62);
 }
 
 [data-theme="dark"] {

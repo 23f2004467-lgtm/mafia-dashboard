@@ -1,7 +1,17 @@
 /* Login (§6.1) — the one full-brand dark stage. Scoped data-theme="dark".
    The pure #000000 stage and white lettering are §6.1's own named values
    (the tokens carry no pure black/white surface) — the ONLY sanctioned raw
-   hex in the interviewer screens. */
+   hex in the interviewer screens.
+
+   Foreground: the playbill title card. A bounded translucent-ink panel
+   (--stage-scrim — a fill, NEVER a backdrop blur) carrying the §2 #50
+   six-segment spectrum hairline as its top edge, ticket corners
+   (--radius-ticket), and an event-billing type stack whose proportions
+   follow the MAFIA-06 lockup: letterspaced presenter line with flanking
+   rules, marquee wordmark, six-dot signature row, season billing line,
+   the CTA on the panel grid, and the mono help line as the footer
+   credit. Entrances are one-shot two-phase class flips (§9.1) — no
+   keyframes; reduced motion collapses via the base.css global block. */
 
 .iv-login {
   position: relative;
@@ -11,9 +21,9 @@
   overflow: hidden;
 }
 
-/* The stage photograph — a MAFIA Cadenza night at the quad (owner-sanctioned
+/* The stage footage — a MAFIA Cadenza night at the quad (owner-sanctioned
    2026-07-20). Dimmed into the pure-black stage: the house lights of the
-   colonnade glow under the login's show. Decorative only; static; the
+   colonnade glow under the login's show. Decorative only; the
    rgba(0,0,0,*) grades share §6.1's sanctioned pure black. */
 .iv-login__stage {
   position: absolute;
@@ -50,7 +60,7 @@
     );
 }
 
-/* Single radial --glow-deep wash at <= 8% opacity behind the lettering —
+/* Single radial --glow-deep wash at <= 8% opacity behind the panel —
    no other decoration (§6.1, §11.7). */
 .iv-login__glow {
   position: absolute;
@@ -63,40 +73,148 @@
   pointer-events: none;
 }
 
-/* Centered column, top-anchored at 375px (§6.1). */
+/* Centered column: frames the panel slightly above center, cinema-style. */
 .iv-login__column {
+  position: relative;
+  width: min(100% - var(--space-8), 400px);
+  margin: 0 auto;
+  padding-top: clamp(48px, 12vh, 120px);
+  padding-bottom: calc(var(--space-8) + var(--safe-bottom));
+}
+
+/* ---------- The playbill panel ----------
+   Translucent stage ink (--stage-scrim): every line holds AA over ANY
+   video frame. 1px border on the jacket-violet dark border; ticket
+   corners; overflow hidden so the spectrum hairline follows the clip.
+   Entrance: fade + 8px lift, --motion-screen --ease, no delay. */
+.iv-login__panel {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  width: min(100% - var(--space-12), 340px);
-  margin: 0 auto;
-  padding-top: clamp(64px, 14vh, 128px);
-  padding-bottom: calc(var(--space-8) + var(--safe-bottom));
+  padding: var(--space-8) var(--space-6) var(--space-6);
+  background: var(--stage-scrim);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-ticket);
+  overflow: hidden;
   text-align: center;
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity var(--motion-screen) var(--ease),
+    transform var(--motion-screen) var(--ease);
 }
 
-.iv-login__wordmark {
-  font-family: var(--font-display);
-  font-weight: 400; /* Bakbak One's only weight — never faux-bold (§4) */
-  font-size: var(--text-40);
-  line-height: var(--leading-display);
+.iv-login--in .iv-login__panel {
+  opacity: 1;
+  transform: none;
+}
+
+/* Billing lines and blocks: fade-up after the panel, spring entrance
+   (--ease-spring: entrances only), each delayed inline by
+   --motion-micro + i × --stagger (§9.2). Lines mounted after entry
+   (slow-boot line, boot → login swap) appear in place — the card
+   itself never re-animates. */
+.iv-login__line {
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity var(--motion-screen) var(--ease-spring),
+    transform var(--motion-screen) var(--ease-spring);
+}
+
+.iv-login--in .iv-login__line {
+  opacity: 1;
+  transform: none;
+}
+
+/* ---------- Spectrum hairline (§2 #50) — the panel's top edge ----------
+   Same six-segment language as the admin topbar; 2px; clipped by the
+   ticket corner. */
+.iv-login__hairline {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  height: 2px;
+}
+
+.iv-login__hairline-seg {
+  flex: 1;
+}
+
+.iv-login__hairline-seg--red    { background: var(--spectrum-red); }
+.iv-login__hairline-seg--orange { background: var(--spectrum-orange); }
+.iv-login__hairline-seg--amber  { background: var(--spectrum-amber); }
+.iv-login__hairline-seg--green  { background: var(--spectrum-green); }
+.iv-login__hairline-seg--blue   { background: var(--spectrum-blue); }
+/* §2 #50 dark-surface rule: canonical violet vanishes on the stage ink. */
+.iv-login__hairline-seg--violet { background: var(--brand-400); }
+
+/* ---------- The billing stack ---------- */
+
+/* Presenter line: the club's full name, micro caps between flanking
+   hairline rules (the playbill "presents" band). */
+.iv-login__billing {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  gap: var(--space-3);
+  font-size: var(--text-12);
+  font-weight: 600;
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
-  color: #ffffff; /* §6.1: "MAFIA" in white on the pure-black stage */
-  margin-bottom: var(--space-4);
+  color: var(--text-2);
 }
 
+.iv-login__billing::before,
+.iv-login__billing::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-strong);
+}
+
+/* The marquee. Bakbak One's single weight; marquee scale is a §6.1
+   display size (Done.css's 56px precedent — the type scale caps at
+   --text-40); --tracking-display opens the condensed face slightly,
+   matching the MAFIA-06 wordmark's near-solid tracking. */
+.iv-login__wordmark {
+  margin-top: var(--space-6);
+  font-family: var(--font-display);
+  font-weight: 400; /* Bakbak One's only weight — never faux-bold (§4) */
+  font-size: 56px;
+  line-height: var(--leading-display);
+  letter-spacing: var(--tracking-display);
+  text-transform: uppercase;
+  color: #ffffff; /* §6.1: "MAFIA" in white on the stage ink */
+}
+
+/* The six-dot signature row, tight under the marquee (MAFIA-06: the dots
+   sit inside the lockup, ~1/3 its width — never floating). min-height
+   spans both dot sizes so the boot loader (8) settling into the static
+   row (6) never shifts the stack. */
+.iv-login__dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+/* Season billing line — and the boot splash's "Signing in…" seat. */
 .iv-login__tagline {
   margin-top: var(--space-6);
-  /* Phase 4: was implicit via the old globals.css `p` rule — now explicit. */
-  margin-bottom: var(--space-4);
+  margin-bottom: 0;
   font-size: var(--text-13);
   font-weight: 600;
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
   color: var(--text-2);
 }
+
+/* ---------- The act: CTA on the panel grid ---------- */
 
 .iv-login__cta {
   width: 100%;
@@ -109,8 +227,22 @@
   text-align: left;
 }
 
-.iv-login__help {
+/* ---------- Footer credit: rule + mono help line ---------- */
+
+.iv-login__credit {
+  display: flex;
+  justify-content: center;
+  align-self: stretch;
   margin-top: var(--space-8);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+
+.iv-login__help {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch-min);
+  padding: 0 var(--space-2);
   font-family: var(--font-mono);
   font-size: var(--text-14);
   font-weight: 500;
