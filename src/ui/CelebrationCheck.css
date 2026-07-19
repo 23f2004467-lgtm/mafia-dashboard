@@ -1,0 +1,111 @@
+/* CelebrationCheck — the drawn tick + one-shot burst (CELEBRATION block,
+   owner 2026-07-20). Law: every base style here is the AT-REST state —
+   strokes complete, ring invisible, bits invisible — so reduced motion
+   (base.css kills .celebrate-once animations) collapses to instant
+   static with the tick appearing complete. The ms constants are the §6
+   celebration choreography (named exceptions to the duration tokens). */
+
+.celebrate-check {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+
+.celebrate-check__svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Inks: inherit currentColor unless a tone is named. */
+.celebrate-check--success { color: var(--success-ink); }
+.celebrate-check--neutral { color: var(--text-2); }
+
+/* At rest = complete: dasharray 1 (pathLength-normalized), offset 0. */
+.celebrate-check__circle,
+.celebrate-check__tick {
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+
+.celebrate-check__circle { stroke-width: 4; }
+.celebrate-check__tick   { stroke-width: 5; }
+
+/* The ONE radiating pulse — at rest invisible; green room only. */
+.celebrate-check__ring {
+  position: absolute;
+  inset: 0;
+  border: 3px solid currentColor;
+  border-radius: var(--radius-pill);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ---------- Drawn form: the choreography (one-shot, fill both) ----------
+   FULL (green room): circle 460ms @80 · tick 240ms @540 · pop 320ms @780
+   · ring 640ms @780. The draw beziers are the liquid easing law. */
+
+.celebrate-check--drawn.celebrate-check--full .celebrate-check__circle {
+  animation: celebrate-draw 460ms cubic-bezier(0.55, 0, 0.25, 1) 80ms both;
+}
+
+.celebrate-check--drawn.celebrate-check--full .celebrate-check__tick {
+  animation: celebrate-draw 240ms cubic-bezier(0.3, 0, 0.2, 1) 540ms both;
+}
+
+.celebrate-check--drawn.celebrate-check--full .celebrate-check__svg {
+  animation: celebrate-pop 320ms var(--ease) 780ms both;
+}
+
+.celebrate-check--drawn.celebrate-check--full .celebrate-check__ring {
+  animation: celebrate-ring 640ms cubic-bezier(0.16, 0.8, 0.3, 1) 780ms both;
+}
+
+/* BRISK (the Done echo): circle 320ms @60 · tick 200ms @360 · pop 240ms
+   @560 — calmer than the green room; no ring here by design. */
+
+.celebrate-check--drawn.celebrate-check--brisk .celebrate-check__circle {
+  animation: celebrate-draw 320ms cubic-bezier(0.55, 0, 0.25, 1) 60ms both;
+}
+
+.celebrate-check--drawn.celebrate-check--brisk .celebrate-check__tick {
+  animation: celebrate-draw 200ms cubic-bezier(0.3, 0, 0.2, 1) 360ms both;
+}
+
+.celebrate-check--drawn.celebrate-check--brisk .celebrate-check__svg {
+  animation: celebrate-pop 240ms var(--ease) 560ms both;
+}
+
+/* ---------- The burst ----------
+   Absolutely fills its (relative) stage; bits launch from its center.
+   Bits at rest are invisible (opacity 0) — the keyframe is their whole
+   life. transform + opacity only; pointer-events none; nothing loops. */
+
+.celebrate-burst {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.celebrate-burst__bit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  opacity: 0;
+  will-change: transform, opacity;
+  animation-name: celebrate-confetti;
+  animation-fill-mode: both;
+  animation-timing-function: linear; /* the segment beziers steer the arc */
+}
+
+/* The six canonical spectrum tokens — §2 #50 sanctioned placement. */
+.celebrate-burst__bit--red    { background: var(--spectrum-red); }
+.celebrate-burst__bit--orange { background: var(--spectrum-orange); }
+.celebrate-burst__bit--amber  { background: var(--spectrum-amber); }
+.celebrate-burst__bit--green  { background: var(--spectrum-green); }
+.celebrate-burst__bit--blue   { background: var(--spectrum-blue); }
+.celebrate-burst__bit--violet { background: var(--spectrum-violet); }

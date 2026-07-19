@@ -34,3 +34,27 @@
 .ui-stamp--not_selected {
   color: var(--state-no-ink);
 }
+
+/* ---------- Outcome-mapped entrances (CELEBRATION, owner 2026-07-20) ----------
+   Slam (Done, selected): base = the AT-REST state (visible, seated at −2°)
+   so reduced motion's animation:none collapses to instant static; the
+   one-shot celebrate-stamp-slam keyframe carries the whole entrance —
+   rotation overshoot + hard settle. Host sets --celebrate-stamp-delay. */
+.ui-stamp--slam {
+  opacity: 1;
+  transform: rotate(-2deg) scale(1);
+  transition: none;
+  animation: celebrate-stamp-slam 300ms var(--ease)
+    var(--celebrate-stamp-delay, 0ms) both;
+}
+
+/* Quiet (Done, not selected): opacity-only fade at the resting −2° —
+   zero festivity; the entered flip drives nothing but the fade. */
+.ui-stamp--quiet {
+  transform: rotate(-2deg) scale(1);
+  transition: opacity var(--motion-sheet) var(--ease);
+}
+
+.ui-stamp--quiet.is-entered {
+  transform: rotate(-2deg) scale(1);
+}

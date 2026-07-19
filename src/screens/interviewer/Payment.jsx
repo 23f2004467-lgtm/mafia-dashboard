@@ -3,6 +3,8 @@ import {
   ActionBar,
   Banner,
   Button,
+  CelebrationBurst,
+  CelebrationCheck,
   ConfirmSheet,
   HoldButton,
   Pill,
@@ -405,7 +407,17 @@ export default function Payment({
       />
 
       {/* §9 #10: the green room — full-viewport opacity crossfade to the
-          success tint; legible from two meters; tap or 2.5 s to advance. */}
+          success tint; legible from two meters; tap or 2.5 s to advance.
+          CELEBRATION (owner 2026-07-20): payment lands here only for a
+          SELECTED candidate, so this is the full beat — the drawn tick
+          (circle 80–540ms, tick 540–780ms), the pop + ONE ring pulse at
+          780ms, the spectrum confetti burst at 820ms (all bits gone by
+          ≈2290ms, inside the untouched 2.5s advance), the amount settling
+          at 260–740ms, name/txn/Continue rising staggered (430/560/700).
+          All decoration is aria-hidden; the role=status facts are the
+          same text as before — the celebration frames them, never
+          obscures them. Reduced motion: the tick renders complete, the
+          burst never renders (CelebrationBurst returns null). */}
       {greenRoom ? (
         <div
           className={"pay-greenroom" + (greenIn ? " pay-greenroom--in" : "")}
@@ -414,15 +426,25 @@ export default function Payment({
             if (doneRef.current) doneRef.current();
           }}
         >
-          <div className="pay-greenroom__check" aria-hidden="true">
-            ✓
+          <div className="pay-greenroom__stage" aria-hidden="true">
+            <CelebrationCheck size={108} drawn ring tempo="full" />
+            <CelebrationBurst />
           </div>
-          <div className="pay-greenroom__amount">PAID ₹{amount}</div>
-          <div className="pay-greenroom__name">{greenRoom.name}</div>
+          <div className="pay-greenroom__amount celebrate-once">
+            PAID ₹{amount}
+          </div>
+          <div className="pay-greenroom__name celebrate-once">
+            {greenRoom.name}
+          </div>
           {greenRoom.txn ? (
-            <div className="pay-greenroom__txn">{greenRoom.txn}</div>
+            <div className="pay-greenroom__txn celebrate-once">
+              {greenRoom.txn}
+            </div>
           ) : null}
-          <button type="button" className="pay-greenroom__continue">
+          <button
+            type="button"
+            className="pay-greenroom__continue celebrate-once"
+          >
             Continue
           </button>
         </div>

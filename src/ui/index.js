@@ -10,6 +10,11 @@ export { default as Avatar } from "./Avatar";
 export { default as Banner } from "./Banner";
 export { default as Button } from "./Button";
 export { default as Card } from "./Card";
+export {
+  default as CelebrationCheck,
+  CelebrationBurst,
+  prefersReducedMotion,
+} from "./CelebrationCheck";
 export { default as Chip } from "./Chip";
 export { default as ConfirmPopover } from "./ConfirmPopover";
 export { default as ConfirmSheet } from "./ConfirmSheet";

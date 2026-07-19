@@ -81,3 +81,106 @@ textarea {
     scroll-behavior: auto !important;
   }
 }
+
+/* ---------- CELEBRATION (owner 2026-07-20, one-shot only) ----------
+   The sanctioned celebration keyframes — the ONLY additions to the five
+   above. Law: transform + opacity, plus stroke-dashoffset (which joins
+   the toast undo ring as a named stroke exception). Every animation here
+   runs ONCE (fill-mode both, finite iteration — nothing loops), and every
+   element carrying one keeps its AT-REST state as its base style, so
+   `animation: none` (reduced motion, below) collapses the whole language
+   to instant static. Intensity is outcome-mapped (§6 motion law):
+   Selected → full (green room: draw + pop + ring + confetti);
+   Done-selected → mild echo (brisk draw, rises, stamp slam, flecks —
+   never confetti); NOT SELECTED → zero festivity (quiet statics). */
+
+/* celebrate-draw — stroke draw-in for pathLength="1" strokes (the GPay
+   language): dasharray stays 1; offset 1 → 0. */
+@keyframes celebrate-draw {
+  from { stroke-dashoffset: 1; }
+  to   { stroke-dashoffset: 0; }
+}
+
+/* celebrate-pop — the spring overshoot punch after the tick lands. */
+@keyframes celebrate-pop {
+  0%   { transform: scale(1); }
+  45%  { transform: scale(1.09); }
+  100% { transform: scale(1); }
+}
+
+/* celebrate-ring — ONE radiating pulse from the check; born at the pop.
+   Starts at opacity 0 so fill-mode both keeps it invisible through its
+   delay; flashes to half-ink by 10% and radiates out. */
+@keyframes celebrate-ring {
+  0%   { opacity: 0;   transform: scale(0.55); }
+  10%  { opacity: 0.5; }
+  100% { opacity: 0;   transform: scale(1.75); }
+}
+
+/* celebrate-rise — facts rising into place (name, txn, actions). */
+@keyframes celebrate-rise {
+  from { opacity: 0; transform: translate3d(0, 12px, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* celebrate-settle — the amount landing with weight: rises past its seat,
+   overshoots 2px, settles. */
+@keyframes celebrate-settle {
+  0%   { opacity: 0; transform: translate3d(0, 18px, 0) scale(1.04); }
+  70%  { opacity: 1; transform: translate3d(0, -2px, 0) scale(0.998); }
+  100% { opacity: 1; transform: none; }
+}
+
+/* celebrate-stamp-slam — the Done stamp hitting the paper: rotation
+   overshoots past its −2° seat and settles hard. Selected outcomes only. */
+@keyframes celebrate-stamp-slam {
+  0%   { opacity: 0; transform: rotate(-5deg) scale(1.14); }
+  55%  { opacity: 1; transform: rotate(-1.3deg) scale(0.98); }
+  100% { opacity: 1; transform: rotate(-2deg) scale(1); }
+}
+
+/* celebrate-confetti — the burst (green room only): launch decelerating to
+   the apex at 30%, then a gravity fall accelerating via the segment
+   beziers; fades late in the fall. Per-bit inline vars: --cf-x (signed
+   drift), --cf-rise (apex), --cf-fall (floor), --cf-spin (tumble). Bits
+   rest at opacity 0 — a bit that never animates is a bit never seen. */
+@keyframes celebrate-confetti {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotate(0deg);
+    animation-timing-function: cubic-bezier(0.12, 0.8, 0.32, 1);
+  }
+  6% {
+    opacity: 1;
+  }
+  30% {
+    opacity: 1;
+    transform: translate3d(calc(var(--cf-x, 0px) * 0.65), var(--cf-rise, -80px), 0)
+      rotate(calc(var(--cf-spin, 360deg) * 0.45));
+    animation-timing-function: cubic-bezier(0.5, 0, 0.85, 0.6);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--cf-x, 0px), var(--cf-fall, 240px), 0)
+      rotate(var(--cf-spin, 360deg));
+  }
+}
+
+/* celebrate-fleck — the Done-screen echo: a spectrum fleck drifting down
+   once, subtle. Rests at opacity 0. */
+@keyframes celebrate-fleck {
+  0%   { opacity: 0; transform: translate3d(0, 0, 0); }
+  18%  { opacity: 0.85; }
+  100% { opacity: 0; transform: translate3d(0, var(--fleck-drift, 32px), 0); }
+}
+
+/* Reduced motion: the celebration collapses to instant static. Base
+   states are at-rest states, so killing the animation IS the collapse —
+   drawn strokes appear complete, transient bits (confetti/flecks, base
+   opacity 0) never appear; the JS side additionally never renders them. */
+@media (prefers-reduced-motion: reduce) {
+  .celebrate-once,
+  .celebrate-once * {
+    animation: none !important;
+  }
+}

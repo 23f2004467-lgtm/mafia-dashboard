@@ -1,8 +1,16 @@
-/* Done — §6.5 recap. Designed at 375px; desktop = 560px centered column.
-   Tokens only; the Stamp's own --ease-spring entrance (§9 #9) is the one
-   moving element — nothing else animates here. */
+/* Done — §6.5 recap as a printed artifact (the celebration pass, owner
+   2026-07-20). Designed at 375px; desktop = 560px centered column. The
+   white paper canvas stays — receipt craft recomposes it: header (mark +
+   name), hairline rule, verdict body (Stamp + pill), dashed perforation,
+   tear-off actions, wordmark footer. Tokens only; every animation is a
+   one-shot from the sanctioned base.css CELEBRATION block, scoped to
+   .iv-done--celebrate (SELECTED). .iv-done--quiet (NOT SELECTED) animates
+   NOTHING here — zero festivity; the Stamp's quiet fade and the screen
+   transition are the only motion. Base styles are at-rest states, so
+   reduced motion (animation:none on .celebrate-once) is instant static. */
 
 .iv-done {
+  position: relative; /* the flecks' stage */
   width: 100%;
   max-width: 560px;
   margin: 0 auto;
@@ -12,25 +20,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: var(--space-5);
-}
-
-/* Big ✓ in success ink (§6.5), framed as a success-tint medallion so the
-   completion lands as an earned beat rather than a bare glyph on the page.
-   The tint is the "recorded" success semantic (always green — NOT the
-   verdict, which the Stamp carries); static, so nothing here animates but
-   the Stamp entrance. */
-.iv-done__check {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 96px;
-  height: 96px;
-  border-radius: 50%;
-  background: var(--success-tint);
-  font-size: 56px;
-  line-height: 1;
-  color: var(--state-good-ink);
+  gap: var(--space-4);
 }
 
 .iv-done__title {
@@ -46,9 +36,24 @@
   margin: 0;
 }
 
-/* Stamp + payment pill recap — the verdict payload. A touch more air above
-   it than the intra-group rhythm so the Stamp reads as the hero, not a
-   third title line. */
+/* ---------- Receipt rules: the printed separators ----------
+   Head rule: solid hairline closing the header block. Perf rule: the
+   Ticket stub's dashed perforation language laid horizontal — the tear
+   line between the keepsake and the interactive stub. */
+.iv-done__rule {
+  width: min(240px, 100%);
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: var(--space-1) 0;
+}
+
+.iv-done__rule--perf {
+  border-top-style: dashed;
+  border-top-color: var(--border-strong);
+  margin-top: var(--space-2);
+}
+
+/* Stamp + payment pill recap — the verdict payload, the receipt's body. */
 .iv-done__recap {
   display: flex;
   flex-direction: column;
@@ -63,16 +68,123 @@
    "Next candidate" — tight gap, ghost tone, 48px touch target. */
 .iv-done__action {
   width: 100%;
-  margin-top: var(--space-4);
+  margin-top: var(--space-2);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
 
 /* The static light-theme brand lockup (§2 #49: wordmark-black.png's ONE
-   named location). Decorative, constant — never a counter (§2 #34). */
+   named location). Decorative, constant — never a counter (§2 #34). The
+   receipt's printed footer brand. */
 .iv-done__lockup {
   width: 140px;
   height: auto;
-  margin-top: var(--space-6);
+  margin-top: var(--space-5);
+}
+
+/* ---------- SELECTED: the mild echo (never confetti here) ----------
+   Choreography: mark draws 60–560 (brisk, inside CelebrationCheck) ·
+   title 140 · head rule 240 · stamp SLAM 420 (via --celebrate-stamp-delay)
+   · pill 560 · perf 580 · actions 640 · lockup 740. All one-shot rises. */
+
+.iv-done--celebrate .iv-done__title {
+  animation: celebrate-rise 360ms var(--ease) 140ms both;
+}
+
+.iv-done--celebrate .iv-done__rule--head {
+  animation: celebrate-rise 360ms var(--ease) 240ms both;
+}
+
+.iv-done--celebrate .ui-stamp--slam {
+  --celebrate-stamp-delay: 420ms;
+}
+
+.iv-done--celebrate .iv-done__pill {
+  animation: celebrate-rise 360ms var(--ease) 560ms both;
+}
+
+.iv-done--celebrate .iv-done__rule--perf {
+  animation: celebrate-rise 360ms var(--ease) 580ms both;
+}
+
+.iv-done--celebrate .iv-done__action {
+  animation: celebrate-rise 360ms var(--ease) 640ms both;
+}
+
+.iv-done--celebrate .iv-done__lockup {
+  animation: celebrate-rise 360ms var(--ease) 740ms both;
+}
+
+/* ---------- The five flecks: the one-shot spectrum echo ----------
+   Deterministic placements around the mark; each drifts down once
+   (celebrate-fleck, base opacity 0 — at rest they do not exist), all gone
+   by ≤ 1.75s. Subtle by law: 5px, ≤ 0.85 opacity, five of the canonical
+   spectrum tokens. Selected outcomes only; never under reduced motion
+   (JS suppresses the render; the CSS collapse keeps them invisible
+   regardless). */
+
+.iv-done__flecks {
+  position: absolute;
+  top: var(--space-8);
+  left: 0;
+  right: 0;
+  height: 120px;
+  pointer-events: none;
+}
+
+.iv-done__fleck {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border-radius: var(--radius-pill);
+  opacity: 0;
+  animation-name: celebrate-fleck;
+  animation-timing-function: var(--ease);
+  animation-fill-mode: both;
+}
+
+.iv-done__fleck--red {
+  left: 32%;
+  top: 18px;
+  background: var(--spectrum-red);
+  --fleck-drift: 34px;
+  animation-duration: 1200ms;
+  animation-delay: 240ms;
+}
+
+.iv-done__fleck--amber {
+  left: 58%;
+  top: 6px;
+  background: var(--spectrum-amber);
+  --fleck-drift: 30px;
+  animation-duration: 1150ms;
+  animation-delay: 320ms;
+}
+
+.iv-done__fleck--green {
+  left: 70%;
+  top: 40px;
+  background: var(--spectrum-green);
+  --fleck-drift: 38px;
+  animation-duration: 1250ms;
+  animation-delay: 280ms;
+}
+
+.iv-done__fleck--blue {
+  left: 26%;
+  top: 52px;
+  background: var(--spectrum-blue);
+  --fleck-drift: 30px;
+  animation-duration: 1100ms;
+  animation-delay: 420ms;
+}
+
+.iv-done__fleck--violet {
+  left: 64%;
+  top: 74px;
+  background: var(--spectrum-violet);
+  --fleck-drift: 34px;
+  animation-duration: 1200ms;
+  animation-delay: 500ms;
 }

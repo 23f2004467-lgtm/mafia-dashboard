@@ -369,7 +369,14 @@
   word-break: break-all;
 }
 
-/* ---------- The green room (§9 #10: 350ms opacity takeover) ---------- */
+/* ---------- The green room (§9 #10: 350ms opacity takeover) ----------
+   CELEBRATION (owner 2026-07-20): the full outcome beat — see the §6
+   choreography. The crossfade transition and the 2.5s advance are the
+   shipped mechanics, untouched; everything below is one-shot keyframes
+   from the sanctioned base.css block, delays counted from mount (the
+   --in flip follows two frames later — imperceptible). Every element's
+   base style is its at-rest state, so reduced motion (animation:none on
+   .celebrate-once) collapses the room to the instant static card. */
 
 .pay-greenroom {
   position: fixed;
@@ -387,15 +394,19 @@
   opacity: 0;
   transition: opacity var(--motion-takeover) var(--ease);
   cursor: pointer;
+  overflow: hidden; /* stray confetti never scrolls the page */
 }
 
 .pay-greenroom--in {
   opacity: 1;
 }
 
-.pay-greenroom__check {
-  font-size: 72px;
-  line-height: 1;
+/* The check's stage: the burst radiates from the drawn tick's center;
+   bits fly BEHIND the facts (the stage sits earlier in the stacking
+   order than the text siblings) — legible from two meters holds. */
+.pay-greenroom__stage {
+  position: relative;
+  display: inline-flex;
 }
 
 .pay-greenroom__amount {
@@ -404,12 +415,16 @@
   font-size: var(--text-40);
   letter-spacing: var(--tracking-display);
   text-transform: uppercase;
+  /* lands with weight at 260–740ms */
+  animation: celebrate-settle 480ms var(--ease) 260ms both;
 }
+
 
 .pay-greenroom__name {
   font-size: var(--text-24);
   font-weight: 600;
   color: var(--text-1);
+  animation: celebrate-rise 360ms var(--ease) 430ms both;
 }
 
 .pay-greenroom__txn {
@@ -417,6 +432,7 @@
   font-size: var(--text-14);
   color: var(--text-2);
   word-break: break-all;
+  animation: celebrate-rise 360ms var(--ease) 560ms both;
 }
 
 .pay-greenroom__continue {
@@ -430,6 +446,7 @@
   font-weight: 600;
   color: var(--success-ink);
   cursor: pointer;
+  animation: celebrate-rise 360ms var(--ease) 700ms both;
 }
 
 .pay-greenroom__continue:focus-visible {

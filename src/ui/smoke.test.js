@@ -13,6 +13,9 @@ import {
   Banner,
   Button,
   Card,
+  CelebrationCheck,
+  CelebrationBurst,
+  prefersReducedMotion,
   Chip,
   ConfirmPopover,
   ConfirmSheet,
@@ -161,6 +164,66 @@ describe("src/ui smoke", () => {
     render(<Stamp domains={["DANCE", "MUSIC"]} />);
     render(<Stamp tone="not_selected" />);
     expect(screen.getByText("SELECTED · DANCE + MUSIC")).toBeInTheDocument();
+  });
+
+  // CELEBRATION (owner 2026-07-20): entrance variants — slam carries the
+  // one-shot keyframe class; quiet carries the opacity-only class.
+  test("Stamp entrance variants", () => {
+    const { container: slam } = render(
+      <Stamp domains={["DANCE"]} entrance="slam" />
+    );
+    expect(slam.querySelector(".ui-stamp--slam.celebrate-once")).toBeTruthy();
+    const { container: quiet } = render(
+      <Stamp tone="not_selected" entrance="quiet" />
+    );
+    expect(quiet.querySelector(".ui-stamp--quiet")).toBeTruthy();
+    expect(quiet.querySelector(".ui-stamp--slam")).toBeFalsy();
+  });
+
+  // CELEBRATION (owner 2026-07-20): the drawn tick + the one-shot burst.
+  test("CelebrationCheck renders drawn, static and ring forms", () => {
+    const { container: drawn } = render(
+      <CelebrationCheck size={108} drawn ring tempo="full" />
+    );
+    const root = drawn.querySelector(".celebrate-check");
+    expect(root).toBeTruthy();
+    expect(root).toHaveAttribute("aria-hidden", "true");
+    expect(root.className).toContain("celebrate-check--drawn");
+    expect(root.className).toContain("celebrate-check--full");
+    expect(drawn.querySelector(".celebrate-check__ring")).toBeTruthy();
+    expect(drawn.querySelector(".celebrate-check__circle")).toBeTruthy();
+    expect(drawn.querySelector(".celebrate-check__tick")).toBeTruthy();
+
+    // Static form: complete mark, no draw classes, no ring residue.
+    const { container: still } = render(
+      <CelebrationCheck size={88} tone="neutral" drawn={false} ring />
+    );
+    const stillRoot = still.querySelector(".celebrate-check");
+    expect(stillRoot.className).not.toContain("celebrate-check--drawn");
+    expect(stillRoot.className).toContain("celebrate-check--neutral");
+    expect(still.querySelector(".celebrate-check__ring")).toBeFalsy();
+  });
+
+  test("CelebrationBurst: 32 spectrum bits, aria-hidden, none under reduced motion", () => {
+    const { container } = render(<CelebrationBurst />);
+    const burst = container.querySelector(".celebrate-burst");
+    expect(burst).toBeTruthy();
+    expect(burst).toHaveAttribute("aria-hidden", "true");
+    const bits = container.querySelectorAll(".celebrate-burst__bit");
+    expect(bits.length).toBe(32);
+    // All six canonical spectrum tokens present, red → violet.
+    ["red", "orange", "amber", "green", "blue", "violet"].forEach((c) => {
+      expect(
+        container.querySelectorAll(".celebrate-burst__bit--" + c).length
+      ).toBeGreaterThan(0);
+    });
+
+    // Reduced motion: the burst never renders.
+    expect(typeof prefersReducedMotion).toBe("function");
+    window.matchMedia = () => ({ matches: true });
+    const { container: reduced } = render(<CelebrationBurst />);
+    expect(reduced.querySelector(".celebrate-burst")).toBeFalsy();
+    delete window.matchMedia;
   });
 
   test("Accordion renders", () => {
