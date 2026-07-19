@@ -37,6 +37,9 @@ export default function Login({
 
   return (
     <div className="iv-login" data-theme="dark">
+      <div className="iv-login__stage" aria-hidden="true">
+        <img src="/brand/login-stage-a.jpg" alt="" draggable={false} />
+      </div>
       <div className="iv-login__glow" aria-hidden="true" />
       <main className="iv-login__column">
         <h1 className="iv-login__wordmark">MAFIA</h1>
