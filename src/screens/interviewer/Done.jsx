@@ -47,7 +47,11 @@ export default function Done({ recap, onNext }) {
     ...talent,
     ...work.map((d) => WORK_DOMAIN_LABELS[d] || d),
   ];
-  const selected = domains.length > 0;
+  // §5 Track-1 (Phase 7a): prefer the explicit verdictStatus the submit latched;
+  // fall back to the pre-Phase-7 array check when the recap carries no field.
+  const selected = recap?.verdictStatus
+    ? recap.verdictStatus === "selected"
+    : domains.length > 0;
 
   return (
     <div className="iv-done">

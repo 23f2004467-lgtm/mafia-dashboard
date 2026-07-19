@@ -7,6 +7,10 @@
 // (src/security.js). security.js cannot be imported here because it imports
 // ./firebaseConfig at module top level. If security.js's sanitizeHTML ever
 // changes, this copy must change with it (guarded by the fixture test).
+//
+// candidateState.js is a sibling PURE module (no firebase) — safe to import;
+// it centralizes the §5 verdictStatus derivation (Phase 7a).
+import { deriveVerdictStatusForWrite } from './candidateState';
 function sanitizeInput(input) {
   if (typeof input !== 'string') return '';
 
@@ -33,7 +37,13 @@ function sanitizeInput(input) {
  *     Not part of the payload itself; carried so callers/tests pin the key alongside the payload.
  *   @param {string} meta.nowIso - new Date().toISOString() at call time.
  *   @param {string|undefined} meta.userEmail - user?.email at call time.
- * @returns {object} the Firestore payload, byte-identical to the pre-extraction handleSubmit build.
+ *   @param {boolean|undefined} meta.notSelected - Phase 7a: the explicit
+ *     "Not selected — no committees" flag from the verdict screen. Only used
+ *     to derive the additive `verdictStatus`; never persisted as its own field.
+ * @returns {object} the Firestore payload. Byte-identical to the pre-extraction
+ *   handleSubmit build EXCEPT the additive, optional `verdictStatus` (Phase 7a,
+ *   §2 #29/#30): present only when there is a real verdict decision, absent
+ *   otherwise so old docs stay field-less. Every other field is untouched.
  */
 export function buildCandidatePayload(formData, meta) {
   const sanitizedData = {
@@ -45,9 +55,22 @@ export function buildCandidatePayload(formData, meta) {
     comments: formData.comments ? sanitizeInput(formData.comments) : ''
   };
 
-  return {
+  const payload = {
     ...sanitizedData,
     lastUpdatedBy: meta.userEmail || "",
     lastUpdatedAt: meta.nowIso,
   };
+
+  // Phase 7a additive field (§5 Track-1). Written alongside the existing
+  // verdict arrays, never replacing them. A real verdict decision OVERRIDES any
+  // value spread in from a loaded doc; when there is no decision the key is left
+  // exactly as-is (never forced to `undefined` — Firestore rejects that, and
+  // never stripped — that would drop a loaded doc's existing status). Old docs
+  // therefore stay field-less until an interviewer makes a decision.
+  const verdictStatus = deriveVerdictStatusForWrite(formData.verdict, meta.notSelected);
+  if (verdictStatus) {
+    payload.verdictStatus = verdictStatus;
+  }
+
+  return payload;
 }

@@ -11,6 +11,7 @@ import AdminCandidateDrawer from './screens/admin/AdminCandidateDrawer';
 import AdminInterviewers from './screens/admin/AdminInterviewers';
 import AdminActivity from './screens/admin/AdminActivity';
 import { canUndo } from './undoGuard';
+import { deriveJourneyState } from './candidateState';
 import './AdminPortal.css';
 import {
   collection,
@@ -58,9 +59,10 @@ const matchesSearch = (cand, search) =>
   cand.name?.toLowerCase().includes(search.toLowerCase()) ||
   cand.regNo?.toLowerCase().includes(search.toLowerCase());
 
-const hasSelectedVerdict = (cand) =>
-  (Array.isArray(cand.verdict?.talentComm) && cand.verdict.talentComm.length > 0) ||
-  (Array.isArray(cand.verdict?.workComm) && cand.verdict.workComm.length > 0);
+// §5 Track-1 "selected" — routed through the single source of truth
+// (src/candidateState.js) so the filter/counts match the pill: prefers the
+// Phase-7 verdictStatus when present, else the exact pre-Phase-7 array check.
+const hasSelectedVerdict = (cand) => deriveJourneyState(cand) === "selected";
 
 // filter ∈ "all" | "unpaid" | "paid_unverified" | "verified" | "selected"
 // (§5 derivations; replaces the old all/paid/unpaid <select>).

@@ -7,6 +7,7 @@ import {
   Pill,
   Ticket,
 } from "../../ui";
+import { deriveJourneyState } from "../../candidateState";
 import "./AdminCandidateDrawer.css";
 
 /**
@@ -36,13 +37,10 @@ export const isManualPayment = (paymentDetails) =>
   Boolean(paymentDetails && paymentDetails.method) &&
   /manual/i.test(paymentDetails.method);
 
-/** §5 Track 1 (Phases 0–6 derivation): any verdict domain → Selected;
- *  otherwise the permissive default "Checked in" (landmine #11). */
-const journeyState = (c) => {
-  const talent = Array.isArray(c.verdict?.talentComm) ? c.verdict.talentComm : [];
-  const work = Array.isArray(c.verdict?.workComm) ? c.verdict.workComm : [];
-  return talent.length > 0 || work.length > 0 ? "selected" : "checked_in";
-};
+/** §5 Track 1 — the single source of truth (src/candidateState.js): prefers
+ *  the Phase-7 verdictStatus when present, else the exact pre-Phase-7 array
+ *  derivation; missing fields always render permissive (landmine #11). */
+const journeyState = deriveJourneyState;
 
 /** §5 Track 2 — same derivation the table uses. */
 const paymentState = (c) =>

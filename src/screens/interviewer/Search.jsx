@@ -10,6 +10,7 @@ import {
   Skeleton,
   formatRegNo,
 } from "../../ui";
+import { deriveJourneyState as deriveJourneyStateShared } from "../../candidateState";
 import "./Search.css";
 
 /**
@@ -35,15 +36,11 @@ const derivePaymentState = (cand) =>
       : "paid_unverified"
     : "unpaid";
 
-/** §5 Track 1 (Phases 0–6 column): any verdict array non-empty → Selected;
- *  otherwise the permissive default "Checked in" (landmine #11). */
-const deriveJourneyState = (cand) => {
-  const v = cand && cand.verdict;
-  const selected =
-    (Array.isArray(v?.talentComm) && v.talentComm.length > 0) ||
-    (Array.isArray(v?.workComm) && v.workComm.length > 0);
-  return selected ? "selected" : "checked_in";
-};
+/** §5 Track 1 — the single source of truth (src/candidateState.js): prefers
+ *  the Phase-7 verdictStatus when present, falls back to the exact pre-Phase-7
+ *  array derivation on old docs; missing fields always render permissive
+ *  (landmine #11). */
+const deriveJourneyState = deriveJourneyStateShared;
 
 const FIRST_PAGE = 20;
 const STAGGER_ROWS = 8; // §9.2: first 8 rows stagger, later rows instant

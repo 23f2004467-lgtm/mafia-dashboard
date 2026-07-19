@@ -12,6 +12,7 @@ import {
 import QRCode from 'react-qr-code';
 import { FirebaseSecurity } from './security';
 import { buildCandidatePayload } from './candidatePayload';
+import { deriveVerdictStatusForWrite } from './candidateState';
 import { canUndo } from './undoGuard';
 import { ConfirmSheet, ToastHost, toast } from './ui';
 import Login from './screens/interviewer/Login';
@@ -1439,6 +1440,11 @@ function App() {
           ? source.verdict.workComm
           : [],
       },
+      // Phase 7a: mirror the additive verdictStatus that was just written, so
+      // the Done stamp prefers the explicit field over the array fallback
+      // (identical result — the submit guard requires a decision — but keeps
+      // Done consistent with the §5 Track-1 source of truth).
+      verdictStatus: deriveVerdictStatusForWrite(source.verdict, notSelected),
       paid: !!source.paid,
       manuallyVerified: !!source.manuallyVerified,
     });
@@ -1483,6 +1489,9 @@ function App() {
         docKey,
         nowIso: new Date().toISOString(),
         userEmail: user?.email,
+        // Phase 7a (§2 #29/#30): the explicit "Not selected — no committees"
+        // flag drives the additive verdictStatus when no domains are chosen.
+        notSelected,
       });
       // Final payload logged securely
       await setDoc(ref, payload);

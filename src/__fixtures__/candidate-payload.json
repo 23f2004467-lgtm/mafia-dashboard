@@ -38,7 +38,8 @@
   "meta": {
     "docKey": "23BCE7431",
     "nowIso": "2026-07-18T10:30:00.000Z",
-    "userEmail": "interviewer@mafiaclub.example"
+    "userEmail": "interviewer@mafiaclub.example",
+    "notSelected": false
   },
   "expected": {
     "name": "Aarav Sharma",
@@ -74,6 +75,7 @@
       "method": "cash"
     },
     "lastUpdatedBy": "interviewer@mafiaclub.example",
-    "lastUpdatedAt": "2026-07-18T10:30:00.000Z"
+    "lastUpdatedAt": "2026-07-18T10:30:00.000Z",
+    "verdictStatus": "selected"
   }
 }
