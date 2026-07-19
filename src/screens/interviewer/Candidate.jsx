@@ -184,6 +184,11 @@ export default function Candidate({
     );
   };
 
+  // Owner ask (2026-07-20): Insert template deserves a counterpart.
+  // Clears the whole comments field — it is just the textarea value, so
+  // typing again (or Insert template) rebuilds it; no confirm needed.
+  const clearComments = () => onChangeComments("");
+
   const ticketPills = (
     <>
       <Pill track="journey" state={journeyState} size="sm" />
@@ -523,6 +528,9 @@ export default function Candidate({
         />
         <div className="iv-cand__template">
           <Chip onToggle={insertTemplate}>Insert template</Chip>
+          {(formData.comments || "").trim().length > 0 ? (
+            <Chip onToggle={clearComments}>Clear</Chip>
+          ) : null}
         </div>
       </section>
 
