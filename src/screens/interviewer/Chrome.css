@@ -202,3 +202,27 @@
     color: var(--stage-ink-muted);
   }
 }
+
+/* On the stage bar the condensed identity dissolves into the night
+   (owner call: the white card read harsh against the dark bar): no card
+   chrome — white name, ghosted mono well for the regNo. */
+@media (min-width: 900px) {
+  .ui-topbar--stage .ui-ticket--condensed {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    padding-left: 0;
+  }
+
+  .ui-topbar--stage .ui-ticket__condensed-name {
+    color: var(--stage-ink);
+  }
+
+  .ui-topbar--stage .ui-ticket__condensed-regno {
+    background: color-mix(in srgb, var(--stage-ink) 9%, transparent);
+    border: 1px solid color-mix(in srgb, var(--stage-ink) 14%, transparent);
+    border-radius: var(--radius-input);
+    padding: 2px var(--space-2);
+    color: var(--stage-ink);
+  }
+}
