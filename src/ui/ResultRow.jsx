@@ -30,6 +30,7 @@ export default function ResultRow({
       onClick={onClick}
       disabled={disabled}
     >
+      <span className="ui-result-row__ring" aria-hidden="true" />
       <span className="ui-result-row__main">
         <span className="ui-result-row__name">{name}</span>
         <span className="ui-result-row__regno">{formatRegNo(regNo)}</span>

@@ -14,6 +14,7 @@ import "./TopBar.css";
  */
 export default function TopBar({
   variant = "interviewer",
+  stage = false,
   onBack,
   backLabel = "Back",
   left,
@@ -60,7 +61,11 @@ export default function TopBar({
   }
 
   return (
-    <header className={`ui-topbar ui-topbar--${variant}`}>
+    <header
+      className={
+        `ui-topbar ui-topbar--${variant}` + (stage ? " ui-topbar--stage" : "")
+      }
+    >
       {isAdmin ? (
         <div className="ui-topbar__hairline" aria-hidden="true">
           <span className="ui-topbar__hairline-seg ui-topbar__hairline-seg--red" />

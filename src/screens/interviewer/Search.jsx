@@ -112,24 +112,6 @@ export default function Search({
           alt=""
           draggable={false}
         />
-        <img
-          className="iv-search__ambient-hero"
-          src="/brand/ambient-emb-1.png"
-          alt=""
-          draggable={false}
-        />
-        <img
-          className="iv-search__ambient-hero-dark"
-          src="/brand/ambient-emb-1-dark.png"
-          alt=""
-          draggable={false}
-        />
-        <img
-          className="iv-search__ambient-side-dark"
-          src="/brand/ambient-emb-2-dark.png"
-          alt=""
-          draggable={false}
-        />
       </div>
 
       <div className="iv-search__inner">

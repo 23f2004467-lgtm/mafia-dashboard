@@ -52,22 +52,75 @@
   color: var(--text-3);
 }
 
-/* ---------- States (opacity-layer tints only; §9 transform/opacity law) ---------- */
+/* ---------- States (§9 transform/opacity law) ---------- */
 
-/* hover sunken tint */
-.ui-result-row::before {
-  content: "";
+/* Content sits above the hover/flash layers (the old sunken overlay could
+   paint OVER the row text — owner-caught bug). */
+.ui-result-row > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Spectrum hover ring (owner call 2026-07-20): a moving rainbow border —
+   an oversized conic disc of the six canonical spectrum colors rotating
+   behind the card (existing `spin` keyframes, transform-only, runs ONLY
+   while hovered), masked to a 2px ring by the surface cover. Uniform for
+   every row: an affordance, never a data encoding. Reduced motion: the
+   global base.css block freezes rotation — a static spectrum ring remains. */
+.ui-result-row__ring {
   position: absolute;
   inset: 0;
+  z-index: 0;
   border-radius: inherit;
-  background: var(--surface-sunken);
+  overflow: hidden;
   opacity: 0;
   transition: opacity var(--motion-micro) var(--ease);
   pointer-events: none;
 }
 
-.ui-result-row:hover::before {
+.ui-result-row__ring::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 150%;
+  aspect-ratio: 1;
+  margin: -75% 0 0 -75%;
+  background: conic-gradient(
+    var(--spectrum-red),
+    var(--spectrum-orange),
+    var(--spectrum-amber),
+    var(--spectrum-green),
+    var(--spectrum-blue),
+    var(--spectrum-violet),
+    var(--spectrum-red)
+  );
+  animation: spin 3.2s linear infinite;
+  animation-play-state: paused;
+}
+
+.ui-result-row__ring::after {
+  content: "";
+  position: absolute;
+  inset: 2px;
+  border-radius: calc(var(--radius-card) - 2px);
+  background: var(--surface);
+}
+
+.ui-result-row {
+  transition: border-color var(--motion-micro) var(--ease);
+}
+
+.ui-result-row:hover {
+  border-color: transparent;
+}
+
+.ui-result-row:hover .ui-result-row__ring {
   opacity: 1;
+}
+
+.ui-result-row:hover .ui-result-row__ring::before {
+  animation-play-state: running;
 }
 
 .ui-result-row:active {
@@ -84,11 +137,13 @@
   cursor: not-allowed;
 }
 
-/* flash-success overlay: 120ms in / 800ms out (§9 named exception) */
+/* flash-success overlay: 120ms in / 800ms out (§9 named exception) —
+   z-index 2: the brief tint washes over the whole card, above content. */
 .ui-result-row::after {
   content: "";
   position: absolute;
   inset: 0;
+  z-index: 2;
   border-radius: inherit;
   background: var(--success-tint);
   opacity: 0;

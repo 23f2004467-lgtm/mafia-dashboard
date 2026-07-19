@@ -186,3 +186,19 @@
   opacity: 1;
   transform: none;
 }
+
+/* ---------- Stage-canvas chrome (owner call 2026-07-20) ---------- */
+
+/* The candidate screen joins the stage: canvas painted on the transition
+   wrapper (the .iv-cand column stays a centered stack of paper panels). */
+@media (min-width: 900px) {
+  .iv-screen--candidate {
+    background: var(--stage-bg);
+    min-height: calc(100vh - 49px);
+    min-height: calc(100dvh - 49px);
+  }
+
+  .ui-topbar--stage .iv-conn--online .iv-conn__label {
+    color: var(--stage-ink-muted);
+  }
+}

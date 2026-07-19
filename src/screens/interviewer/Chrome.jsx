@@ -28,6 +28,7 @@ export default function InterviewerChrome({
   onBack,
   ticket = null,
   pendingPayment = null,
+  stage = false,
 }) {
   const [accountOpen, setAccountOpen] = useState(false);
 
@@ -59,6 +60,7 @@ export default function InterviewerChrome({
     <>
       <TopBar
         variant="interviewer"
+        stage={stage}
         onBack={onBack}
         left={
           onBack && ticket ? (
@@ -159,7 +161,11 @@ export function ScreenEnter({ id, children }) {
   }, [id]);
 
   return (
-    <div className={"iv-screen" + (entered ? " iv-screen--in" : "")}>
+    <div
+      className={
+        "iv-screen iv-screen--" + id + (entered ? " iv-screen--in" : "")
+      }
+    >
       {children}
     </div>
   );

@@ -1797,6 +1797,7 @@ function App() {
         user={user}
         isOnline={isOnline}
         onSignOut={logout}
+        stage={screen === "search" || screen === "candidate"}
         onBack={onWorkScreen ? () => setScreen("search") : undefined}
         ticket={
           onWorkScreen

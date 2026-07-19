@@ -136,3 +136,20 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ---------- Stage bar (owner call 2026-07-20) ----------
+   On the >= 900px stage-canvas screens (Search, Candidate) the interviewer
+   bar dissolves into the night: stage-bg fill (reads as transparent against
+   the canvas), no hairline border, inks flipped. Below 900px the bar stays
+   its constant paper self. */
+@media (min-width: 900px) {
+  .ui-topbar--stage {
+    background: var(--stage-bg);
+    border-bottom-color: transparent;
+  }
+
+  .ui-topbar--stage .ui-topbar__wordmark,
+  .ui-topbar--stage .ui-topbar__back {
+    color: var(--stage-ink);
+  }
+}
