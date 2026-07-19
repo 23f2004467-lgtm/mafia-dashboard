@@ -86,6 +86,28 @@ export function isCheckedIn(candidate) {
 }
 
 /**
+ * Check-in desk / waiting room (2026-07-20): is this candidate EXPLICITLY
+ * checked in with NO verdict yet — i.e. sitting in the venue waiting to be
+ * interviewed?
+ *
+ * ADDITIVE VIEW ONLY, never a gate (landmine #11 intact): docs without the
+ * `activated` field simply are not "waiting" — they render permissively
+ * everywhere else and nothing blocks them; they just don't appear in the
+ * waiting-room list or the desk's "Waiting {N}" numerator. A candidate leaves
+ * the waiting set the moment either verdict truth appears (explicit
+ * `verdictStatus` or a non-empty verdict array) or their check-in is reverted.
+ *
+ * @param {object} candidate - a candidate doc shape.
+ * @returns {boolean}
+ */
+export function isWaiting(candidate) {
+  return (
+    isCheckedIn(candidate) &&
+    deriveJourneyState(candidate) === JOURNEY.CHECKED_IN
+  );
+}
+
+/**
  * Phase-7 WRITE helper: the additive `verdictStatus` the verdict-submit payload
  * should carry, or `undefined` when the field must stay ABSENT.
  *

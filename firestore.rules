@@ -140,6 +140,17 @@ service cloud.firestore {
     
 
     
+    // App config (additive, 2026-07-20): config/checkinDesk holds the
+    // check-in desk email allowlist. Any signed-in verified account may
+    // read it (App.js resolves the desk role from it live); only admins
+    // write it (the /admin overflow Dialog). NOTE: this is role ROUTING,
+    // not security — candidate writes are still interviewer-wide (honesty
+    // note in DESIGN.md §8; rules hardening is future work).
+    match /config/{configId} {
+      allow read: if isInterviewer();
+      allow write: if isAdmin();
+    }
+
     // Rate limiting and abuse prevention
     match /rateLimits/{userId} {
       allow read, write: if isAuthenticated() && 

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState, useMemo } from "react"
 import { db } from "./firebaseConfig";
 import { FirebaseSecurity } from './security';
 import { SecureAdminAuth } from './secureAdminAuth';
-import { Button, Dialog, ToastHost, toast } from './ui';
+import { Button, Dialog, Input, ToastHost, toast } from './ui';
 import AdminLogin from './screens/admin/AdminLogin';
 import AdminTopBar from './screens/admin/AdminTopBar';
 import AdminStats from './screens/admin/AdminStats';
@@ -24,7 +24,8 @@ import {
   deleteField,
   getDoc,
   getDocs,
-  limit
+  limit,
+  serverTimestamp
 } from "firebase/firestore";
 import * as ExcelJS from "exceljs";
 import { buildExportRows } from "./exportRows";
@@ -151,6 +152,14 @@ function AdminPortal() {
   const [showClearDataModal, setShowClearDataModal] = useState(false);
   const [showDeleteDataModal, setShowDeleteDataModal] = useState(false);
   const [showForceLogoutModal, setShowForceLogoutModal] = useState(false);
+
+  // Check-in desk allowlist (desk feature 2026-07-20): live mirror of
+  // config/checkinDesk { emails: [...] } + the management Dialog's state.
+  const [deskEmails, setDeskEmails] = useState([]);
+  const [showDeskModal, setShowDeskModal] = useState(false);
+  const [deskInput, setDeskInput] = useState("");
+  const [deskInputError, setDeskInputError] = useState(null);
+  const [deskWorking, setDeskWorking] = useState(false);
 
   // §7.5 drawer: regNo of the open candidate (kept through the exit
   // animation) + open flag. The candidate object itself is derived LIVE
@@ -316,6 +325,60 @@ function AdminPortal() {
     } finally {
       setIsForceLogoutLoading(false);
     }
+  };
+
+  // ---------- Check-in desk allowlist writes (desk feature 2026-07-20) ----
+  // The whole doc IS the list: every mutation writes the full { emails }
+  // array to config/checkinDesk (additive schema — no other collection is
+  // touched; App.js role-resolves from this doc live). Emails are stored
+  // trimmed + lowercased; the desk portal compares case-insensitively.
+  const writeDeskEmails = async (nextEmails) => {
+    setDeskWorking(true);
+    try {
+      await setDoc(doc(db, "config", "checkinDesk"), {
+        emails: nextEmails,
+        updatedBy: email || "Admin",
+        updatedAt: new Date().toISOString(),
+      });
+      FirebaseSecurity.auditLogger.logEvent('admin_checkin_desk_updated', {
+        timestamp: new Date().toISOString(),
+        adminEmail: email,
+        count: nextEmails.length
+      });
+      return true;
+    } catch (error) {
+      console.error('Error updating check-in desk list:', error);
+      setDeskInputError('Could not save: ' + error.message);
+      return false;
+    } finally {
+      setDeskWorking(false);
+    }
+  };
+
+  const addDeskEmail = async () => {
+    if (deskWorking) return;
+    const candidate = deskInput.trim().toLowerCase();
+    if (!candidate) {
+      setDeskInputError('Enter an email address.');
+      return;
+    }
+    if (!FirebaseSecurity.utils.validateEmail(candidate)) {
+      setDeskInputError('That does not look like a valid email.');
+      return;
+    }
+    if (deskEmails.includes(candidate)) {
+      setDeskInputError('Already on the desk list.');
+      return;
+    }
+    setDeskInputError(null);
+    const ok = await writeDeskEmails([...deskEmails, candidate]);
+    if (ok) setDeskInput("");
+  };
+
+  const removeDeskEmail = async (target) => {
+    if (deskWorking) return;
+    setDeskInputError(null);
+    await writeDeskEmails(deskEmails.filter((e) => e !== target));
   };
 
   // §7.6 per-row "End session" — the existing single-doc delete (the same
@@ -522,19 +585,24 @@ function AdminPortal() {
   const checkInCandidate = async (candidate) => {
     const nowIso = new Date().toISOString();
     const candidateRef = doc(db, 'candidates', candidate.regNo);
-    // Capture the PRIOR value so undo can restore it faithfully (a missing
+    // Capture the PRIOR values so undo can restore them faithfully (a missing
     // field → missing again, never a spurious activated:false that would
     // downgrade an old permissive doc into "Registered").
     const priorActivated = candidate.activated;
+    const priorActivatedAt = candidate.activatedAt;
     await setDoc(candidateRef, {
       activated: true,
+      // Additive arrival timestamp (desk feature 2026-07-20): the same
+      // field the check-in desk stamps — server truth, feeds the
+      // waiting-room ordering. Old docs simply gain it here.
+      activatedAt: serverTimestamp(),
       lastUpdatedBy: 'Admin',
       lastUpdatedAt: nowIso
     }, { merge: true });
 
     setCandidates(prev => prev.map(c =>
       c.regNo === candidate.regNo
-        ? { ...c, activated: true, lastUpdatedBy: 'Admin', lastUpdatedAt: nowIso }
+        ? { ...c, activated: true, activatedAt: nowIso, lastUpdatedBy: 'Admin', lastUpdatedAt: nowIso }
         : c
     ));
     flashRow(candidate.regNo); // §7.4 optimistic green row flash
@@ -542,19 +610,24 @@ function AdminPortal() {
       regNo: candidate.regNo,
       name: candidate.name,
       priorActivated,
+      priorActivatedAt,
       writtenMeta: { lastUpdatedAt: nowIso, lastUpdatedBy: 'Admin' }
     };
   };
 
   // Undo restores the prior activation EXACTLY: an absent field is deleteField()
   // back to absent (old docs stay field-less — landmine #11); an explicit false
-  // is restored to false. Never leaves a state the field never actually held.
-  const revertCheckIn = async (regNo, priorActivated) => {
+  // is restored to false. Same faithfulness for the additive activatedAt: it
+  // returns to its captured prior (usually absent — the check-in added it).
+  // Never leaves a state the field never actually held.
+  const revertCheckIn = async (regNo, priorActivated, priorActivatedAt) => {
     const nowIso = new Date().toISOString();
     const candidateRef = doc(db, 'candidates', regNo);
     const restoreFalse = priorActivated === false;
+    const restoreActivatedAt = priorActivatedAt !== undefined;
     await setDoc(candidateRef, {
       activated: restoreFalse ? false : deleteField(),
+      activatedAt: restoreActivatedAt ? priorActivatedAt : deleteField(),
       lastUpdatedBy: 'Admin',
       lastUpdatedAt: nowIso
     }, { merge: true });
@@ -564,6 +637,8 @@ function AdminPortal() {
       const next = { ...c, lastUpdatedBy: 'Admin', lastUpdatedAt: nowIso };
       if (restoreFalse) next.activated = false;
       else delete next.activated;
+      if (restoreActivatedAt) next.activatedAt = priorActivatedAt;
+      else delete next.activatedAt;
       return next;
     }));
     flashRow(regNo);
@@ -610,7 +685,11 @@ function AdminPortal() {
         return;
       }
 
-      await revertCheckIn(captured.regNo, captured.priorActivated);
+      await revertCheckIn(
+        captured.regNo,
+        captured.priorActivated,
+        captured.priorActivatedAt
+      );
       toast({ tone: 'success', message: `Check-in undone · ${captured.name}` });
     } catch (error) {
       console.error('Error undoing check-in:', error);
@@ -726,6 +805,39 @@ function AdminPortal() {
       clearInterval(cleanupInterval);
     };
   }, [authenticated, performanceMonitor]);
+
+  // Check-in desk allowlist listener (desk feature 2026-07-20): live
+  // single-doc mirror of config/checkinDesk — the management Dialog renders
+  // straight from the snapshot, so two admins editing stay consistent.
+  useEffect(() => {
+    if (!authenticated) return;
+
+    const unsub = onSnapshot(
+      doc(db, "config", "checkinDesk"),
+      (snap) => {
+        const data = snap.exists() ? snap.data() : null;
+        const emails = Array.isArray(data && data.emails) ? data.emails : [];
+        setDeskEmails(
+          emails
+            .filter((e) => typeof e === "string")
+            .map((e) => e.trim().toLowerCase())
+        );
+      },
+      (error) => {
+        console.error("Check-in desk config listener error:", error);
+      }
+    );
+
+    return () => unsub();
+  }, [authenticated]);
+
+  // Fresh input each time the desk Dialog opens.
+  useEffect(() => {
+    if (showDeskModal) {
+      setDeskInput("");
+      setDeskInputError(null);
+    }
+  }, [showDeskModal]);
 
   // Filtered candidates (§7.4). The old DataCache wrapper is gone: its
   // 30 s TTL keyed on candidates.length served stale rows after any
@@ -914,6 +1026,7 @@ function AdminPortal() {
         filtersActive={filtersActive}
         totalCount={total}
         filteredCount={filteredCandidates.length}
+        onManageDesk={() => setShowDeskModal(true)}
         onForceLogout={() => setShowForceLogoutModal(true)}
         onDangerReset={() => setShowClearDataModal(true)}
         onDangerDelete={() => setShowDeleteDataModal(true)}
@@ -1095,6 +1208,86 @@ function AdminPortal() {
           Permanently deletes every candidate record and payment session
           from the database. This cannot be undone.
         </p>
+      </Dialog>
+
+      {/* Check-in desk (desk feature 2026-07-20): the live allowlist Dialog.
+          The list renders straight from the config/checkinDesk snapshot;
+          add/remove each write the full { emails } array. Not a danger
+          surface — plain Dialog, no typed confirm; `busy` holds it open
+          while a write is in flight. */}
+      <Dialog
+        open={showDeskModal}
+        onClose={() => setShowDeskModal(false)}
+        title="Check-in desk"
+        busy={deskWorking}
+        className="admin-desk-dialog"
+        actions={
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={deskWorking}
+            onClick={() => setShowDeskModal(false)}
+          >
+            Done
+          </Button>
+        }
+      >
+        <p className="admin-desk__intro">
+          These Google accounts open the check-in desk instead of the
+          interviewer tools — the live candidate list with one action:
+          mark arrivals. Changes apply immediately.
+        </p>
+
+        {deskEmails.length > 0 ? (
+          <ul className="admin-desk__list">
+            {deskEmails.map((deskEmail) => (
+              <li key={deskEmail} className="admin-desk__row">
+                <span className="admin-desk__email">{deskEmail}</span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  destructive
+                  disabled={deskWorking}
+                  onClick={() => removeDeskEmail(deskEmail)}
+                >
+                  Remove
+                </Button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="admin-desk__empty">No desk accounts yet.</p>
+        )}
+
+        <div className="admin-desk__add">
+          <div className="admin-desk__add-field">
+            <Input
+              label="Add email"
+              mono
+              value={deskInput}
+              error={deskInputError}
+              placeholder="frontdesk@college.edu"
+              disabled={deskWorking}
+              onChange={(e) => {
+                setDeskInput(e.target.value);
+                if (deskInputError) setDeskInputError(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addDeskEmail();
+                }
+              }}
+            />
+          </div>
+          <Button
+            size="sm"
+            loading={deskWorking}
+            onClick={addDeskEmail}
+          >
+            Add
+          </Button>
+        </div>
       </Dialog>
 
       {/* §7.6 / §2 #38: plain confirm (recoverable — no typed confirm),

@@ -8,6 +8,7 @@ import {
   deriveJourneyState,
   deriveVerdictStatusForWrite,
   isCheckedIn,
+  isWaiting,
 } from './candidateState';
 
 describe('deriveJourneyState (§5 Track-1)', () => {
@@ -123,6 +124,34 @@ describe('isCheckedIn (Phase 7b stat numerator — honest count)', () => {
     expect(isCheckedIn({ activated: 'true' })).toBe(false);
     expect(isCheckedIn(undefined)).toBe(false);
     expect(isCheckedIn(null)).toBe(false);
+  });
+});
+
+describe('isWaiting (check-in desk / waiting room — additive VIEW, never a gate)', () => {
+  it('is true only for an explicit check-in with no verdict truth', () => {
+    expect(isWaiting({ activated: true })).toBe(true);
+    expect(
+      isWaiting({ activated: true, verdict: { talentComm: [], workComm: [] } })
+    ).toBe(true);
+  });
+
+  it('is false for a missing activated field (landmine #11: old docs stay fully operable, just not "waiting")', () => {
+    expect(isWaiting({})).toBe(false);
+    expect(isWaiting({ verdict: { talentComm: [], workComm: [] } })).toBe(false);
+  });
+
+  it('is false once verdict truth exists (arrays or explicit verdictStatus)', () => {
+    expect(
+      isWaiting({ activated: true, verdict: { talentComm: ['Music'], workComm: [] } })
+    ).toBe(false);
+    expect(isWaiting({ activated: true, verdictStatus: 'selected' })).toBe(false);
+    expect(isWaiting({ activated: true, verdictStatus: 'not_selected' })).toBe(false);
+  });
+
+  it('is false for not-arrived and nullish inputs', () => {
+    expect(isWaiting({ activated: false })).toBe(false);
+    expect(isWaiting(undefined)).toBe(false);
+    expect(isWaiting(null)).toBe(false);
   });
 });
 

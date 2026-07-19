@@ -65,3 +65,64 @@
 .ui-button.admin-btn--warn:hover:not(:disabled) {
   background: color-mix(in srgb, var(--warning-ink) 82%, var(--bg));
 }
+
+/* ---------- Check-in desk allowlist dialog (desk feature 2026-07-20) ---- */
+
+.admin-desk__intro {
+  margin-bottom: var(--space-4);
+  color: var(--text-2);
+}
+
+.admin-desk__list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-input);
+}
+
+.admin-desk__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--touch-min);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+}
+
+.admin-desk__row + .admin-desk__row {
+  border-top: 1px solid var(--border);
+}
+
+/* Mono email — an identity a human cross-checks (§4 truth channel). */
+.admin-desk__email {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--text-14);
+  color: var(--text-1);
+}
+
+.admin-desk__empty {
+  margin-bottom: var(--space-4);
+  color: var(--text-3);
+}
+
+.admin-desk__add {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.admin-desk__add-field {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Seat the 44px Add button centered on the 48px control: clear the label
+   line (13px × body leading + the field's --space-2 gap) + 2px of the 4px
+   height difference. Token-derived, no magic count. */
+.admin-desk__add > .ui-button {
+  margin-top: calc(var(--text-13) * var(--leading-body) + var(--space-2) + 2px);
+}

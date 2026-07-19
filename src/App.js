@@ -7,7 +7,8 @@ import {
   getDoc,
   collection,
   onSnapshot,
-  serverTimestamp
+  serverTimestamp,
+  deleteField
 } from "firebase/firestore";
 import QRCode from 'react-qr-code';
 import { FirebaseSecurity } from './security';
@@ -21,6 +22,7 @@ import Candidate from './screens/interviewer/Candidate';
 import Payment from './screens/interviewer/Payment';
 import Done from './screens/interviewer/Done';
 import InterviewerChrome, { ScreenEnter } from './screens/interviewer/Chrome';
+import Desk from './screens/desk/Desk';
 import {
   throttle,
   DataCache,
@@ -188,6 +190,16 @@ function App() {
   // (set there, cleared on every other way out of Search — cold load and
   // back-navigation never autofocus).
   const [searchAutoFocus, setSearchAutoFocus] = useState(false);
+  // ---------- Check-in desk role (owner feature 2026-07-20) ----------
+  // The desk allowlist from config/checkinDesk { emails: [...] } (live
+  // onSnapshot below; admin manages the list from the /admin overflow).
+  // `deskRoleLoaded` gates the signed-in render: until the first snapshot
+  // (or its error fallback) arrives, "/" holds the boot splash so a desk
+  // user NEVER flashes the interviewer state machine (and vice versa).
+  const [deskEmails, setDeskEmails] = useState([]);
+  const [deskRoleLoaded, setDeskRoleLoaded] = useState(false);
+  // Doc key of the desk check-in write in flight (button loading state).
+  const [deskBusyKey, setDeskBusyKey] = useState(null);
   // §6.5: the Done screen's recap ({name, verdict, paid, manuallyVerified}),
   // latched from formData BEFORE the routed reset (resetAfterSubmit /
   // clearForm) wipes it — the recap is display-local, like §2 #30's
@@ -461,6 +473,43 @@ function App() {
       },
       (error) => {
         console.error("Candidates listener error:", error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // The check-in desk role listener (owner feature 2026-07-20): one live
+  // single-doc onSnapshot on config/checkinDesk per signed-in session.
+  // Additive schema — the doc missing entirely (or unreadable under the
+  // rules) resolves to an empty allowlist and the interviewer portal, which
+  // is exactly today's behavior for every existing account. Emails compare
+  // case-insensitively.
+  useEffect(() => {
+    if (!user || !user.email) {
+      setDeskEmails([]);
+      setDeskRoleLoaded(false);
+      return;
+    }
+
+    const unsubscribe = onSnapshot(
+      doc(db, "config", "checkinDesk"),
+      (snap) => {
+        const data = snap.exists() ? snap.data() : null;
+        const emails = Array.isArray(data && data.emails) ? data.emails : [];
+        setDeskEmails(
+          emails
+            .filter((e) => typeof e === "string")
+            .map((e) => e.trim().toLowerCase())
+        );
+        setDeskRoleLoaded(true);
+      },
+      (error) => {
+        // Unreadable config (rules/offline): fall back to the interviewer
+        // portal — permissive for the many, never a locked door.
+        console.error("Check-in desk config listener error:", error);
+        setDeskEmails([]);
+        setDeskRoleLoaded(true);
       }
     );
 
@@ -1854,6 +1903,77 @@ function App() {
     leavePaymentFinished(subjectRegNo);
   };
 
+  // ---------- Check-in desk writes (owner feature 2026-07-20) ----------
+  // The SAME additive update path the admin check-in uses (merge setDoc on
+  // the candidate doc): activated:true PLUS the new additive activatedAt
+  // server timestamp — the ONLY record fields the desk can ever touch,
+  // beyond the shared updated-meta. Doc key = the snapshot doc id (landmine
+  // #2: never assume regNo IS the key). Desk.jsx is presentational; both
+  // writes live here.
+  const deskCheckIn = async (cand) => {
+    const key = cand.id || cand.regNo;
+    // Same-person double-taps are already impossible (the row swaps to the
+    // checked state / the button spins); a DIFFERENT candidate mid-flight
+    // is a rapid desk queue — never dropped.
+    if (!key || cand.activated === true) return false;
+    setDeskBusyKey(key);
+    try {
+      await setDoc(
+        doc(db, "candidates", key),
+        {
+          activated: true,
+          activatedAt: serverTimestamp(),
+          lastUpdatedBy: user?.displayName || user?.email || "Check-in desk",
+          lastUpdatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+      toast({
+        tone: "success",
+        message: `Checked in · ${cand.name || cand.regNo}`,
+      });
+      return true;
+    } catch (error) {
+      console.error("Desk check-in failed:", error);
+      toast({ tone: "error", message: "Check-in failed: " + error.message });
+      return false;
+    } finally {
+      // Clear only our own spinner — a later tap may own the key by now.
+      setDeskBusyKey((k) => (k === key ? null : k));
+    }
+  };
+
+  // "Mark as not arrived?" (confirmed in-screen): the additive revert —
+  // an EXPLICIT activated:false (renders the Registered pill everywhere,
+  // §5 step 3 — correct semantics for someone who has not shown up) and
+  // the additive activatedAt cleared back to absent so a later re-check-in
+  // stamps a fresh arrival time.
+  const deskMarkNotArrived = async (cand) => {
+    const key = cand.id || cand.regNo;
+    if (!key) return false;
+    try {
+      await setDoc(
+        doc(db, "candidates", key),
+        {
+          activated: false,
+          activatedAt: deleteField(),
+          lastUpdatedBy: user?.displayName || user?.email || "Check-in desk",
+          lastUpdatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+      toast({ message: `Marked not arrived · ${cand.name || cand.regNo}` });
+      return true;
+    } catch (error) {
+      console.error("Desk un-check-in failed:", error);
+      toast({
+        tone: "error",
+        message: "Could not update: " + error.message,
+      });
+      return false;
+    }
+  };
+
   // ---------- Render: the §6 screen state machine ----------
 
   // Boot splash (§6.1): while onAuthStateChanged resolves on cold load, "/"
@@ -1870,6 +1990,42 @@ function App() {
         <Login onLogin={login} loading={isLoggingIn} error={loginError} />
         <ToastHost position="bottom-center" />
       </>
+    );
+  }
+
+  // ---------- Role gate (owner feature 2026-07-20) ----------
+  // Signed in but the live config/checkinDesk snapshot hasn't resolved yet:
+  // hold the boot splash. A desk account must never flash the interviewer
+  // state machine — and this is the ONLY router between the two trees, so
+  // no interviewer surface (Candidate/Payment/verdict) is ever reachable
+  // for a desk user: the machine below simply never renders for them.
+  // UI-level separation on the existing trust model (DESIGN.md §8 note).
+  if (!deskRoleLoaded) {
+    return <Login booting />;
+  }
+
+  const isDeskUser = deskEmails.includes((user.email || "").toLowerCase());
+
+  if (isDeskUser) {
+    return (
+      <div className="iv-app">
+        <InterviewerChrome
+          user={user}
+          isOnline={isOnline}
+          onSignOut={logout}
+          stage
+        />
+        <ScreenEnter id="desk">
+          <Desk
+            candidates={candidates}
+            loaded={candidatesLoaded}
+            onCheckIn={deskCheckIn}
+            onMarkNotArrived={deskMarkNotArrived}
+            busyKey={deskBusyKey}
+          />
+        </ScreenEnter>
+        <ToastHost position="bottom-center" />
+      </div>
     );
   }
 
