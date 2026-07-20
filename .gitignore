@@ -43,3 +43,6 @@ keys/
 
 # Data exports with applicant PII
 *.xlsx
+
+# v1 comparison build (regenerated from the v1-pre-redesign tag)
+/build-v1

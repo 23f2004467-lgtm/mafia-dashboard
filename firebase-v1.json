@@ -1,0 +1,8 @@
+{
+  "hosting": {
+    "site": "mafia-old",
+    "public": "build-v1",
+    "ignore": ["firebase.json", "firebase-v1.json", "**/.*", "**/node_modules/**"],
+    "rewrites": [{ "source": "**", "destination": "/index.html" }]
+  }
+}
