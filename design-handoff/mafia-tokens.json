@@ -1,0 +1,144 @@
+{
+  "core": {
+    "font": {
+      "display": { "value": "Bakbak One", "type": "fontFamilies", "description": "Display / marquee — single weight 400, CAPS only. Google Fonts (free)." },
+      "ui": { "value": "Inter", "type": "fontFamilies", "description": "All body, labels, buttons, tables. Google Fonts (free)." },
+      "mono": { "value": "JetBrains Mono", "type": "fontFamilies", "description": "The 'truth channel': reg numbers, codes, amounts, timers, phone numbers. Google Fonts (free)." }
+    },
+    "fontSize": {
+      "12": { "value": "12", "type": "fontSizes", "description": "captions, uppercase micro-labels" },
+      "13": { "value": "13", "type": "fontSizes", "description": "meta, helper text" },
+      "14": { "value": "14", "type": "fontSizes", "description": "secondary; admin body/table minimum" },
+      "16": { "value": "16", "type": "fontSizes", "description": "interviewer body + ALL inputs (iOS-zoom floor)" },
+      "18": { "value": "18", "type": "fontSizes", "description": "card titles, top-bar wordmark" },
+      "20": { "value": "20", "type": "fontSizes", "description": "section titles" },
+      "24": { "value": "24", "type": "fontSizes", "description": "screen titles, status banners" },
+      "30": { "value": "30", "type": "fontSizes", "description": "candidate name" },
+      "40": { "value": "40", "type": "fontSizes", "description": "amount, stat numerals, green-room text" }
+    },
+    "lineHeight": {
+      "display": { "value": "1.15", "type": "lineHeights" },
+      "body": { "value": "1.45", "type": "lineHeights" }
+    },
+    "letterSpacing": {
+      "display": { "value": "0.02em", "type": "letterSpacing", "description": "Bakbak One is condensed — opened slightly at display sizes" },
+      "caps": { "value": "0.06em", "type": "letterSpacing", "description": "11-12px uppercase micro-labels" }
+    },
+    "spacing": {
+      "1": { "value": "4", "type": "spacing" },
+      "2": { "value": "8", "type": "spacing" },
+      "3": { "value": "12", "type": "spacing" },
+      "4": { "value": "16", "type": "spacing" },
+      "5": { "value": "20", "type": "spacing" },
+      "6": { "value": "24", "type": "spacing" },
+      "8": { "value": "32", "type": "spacing" },
+      "10": { "value": "40", "type": "spacing" },
+      "12": { "value": "48", "type": "spacing" }
+    },
+    "borderRadius": {
+      "input": { "value": "8", "type": "borderRadius" },
+      "card": { "value": "12", "type": "borderRadius" },
+      "sheet": { "value": "16", "type": "borderRadius" },
+      "pill": { "value": "999", "type": "borderRadius" },
+      "ticket": { "value": "12 2 2 12", "type": "borderRadius", "description": "ASYMMETRIC — the ticket edge. Top-left/bottom-left round, right corners nearly square." }
+    },
+    "brand": {
+      "700": { "value": "#37297B", "type": "color", "description": "pressed state; 11.9:1 under white" },
+      "600": { "value": "#453499", "type": "color", "description": "PRIMARY — the canonical MAFIA spectrum violet, measured from the club jacket. Button fills + light-theme links." },
+      "400": { "value": "#6A5BC4", "type": "color", "description": "dark-theme borders / chart strokes" },
+      "300": { "value": "#9C8CEA", "type": "color", "description": "dark-theme accent text" },
+      "100": { "value": "#ECE9F8", "type": "color", "description": "light tint fills" },
+      "a12": { "value": "rgba(69, 52, 153, 0.12)", "type": "color", "description": "12% violet wash" }
+    },
+    "spectrum": {
+      "red": { "value": "#C60505", "type": "color" },
+      "orange": { "value": "#E84C07", "type": "color" },
+      "amber": { "value": "#F7B808", "type": "color" },
+      "green": { "value": "#3B9103", "type": "color" },
+      "blue": { "value": "#057CDD", "type": "color" },
+      "violet": { "value": "#453499", "type": "color", "description": "The six canonical dots (the 'fine arts' signature). Used ONLY as loaders / lockup dots / hairlines — NEVER for state or data. Sparse and precise." }
+    },
+    "glow": {
+      "deep": { "value": "#580888", "type": "color", "description": "stage-glow gradient — dark backgrounds only, never text" },
+      "bright": { "value": "#8828A8", "type": "color" }
+    },
+    "motion": {
+      "micro": { "value": "120ms", "type": "other", "description": "hover, press, chips, pills" },
+      "screen": { "value": "180ms", "type": "other", "description": "screen / step transitions" },
+      "sheet": { "value": "240ms", "type": "other", "description": "sheets, drawers, dialogs, toasts" },
+      "takeover": { "value": "350ms", "type": "other", "description": "green-room payment flip only" },
+      "ease": { "value": "cubic-bezier(0.2, 0, 0, 1)", "type": "other", "description": "standard easing" },
+      "ease-spring": { "value": "cubic-bezier(0.34, 1.35, 0.4, 1)", "type": "other", "description": "the ONE spring — entrances only; exits always use ease" },
+      "stagger": { "value": "24ms", "type": "other", "description": "list-entrance stagger step" }
+    },
+    "touch": {
+      "min": { "value": "44", "type": "sizing", "description": "minimum touch target" },
+      "primary": { "value": "56", "type": "sizing", "description": "interviewer primary buttons / verdict rows" }
+    }
+  },
+  "light": {
+    "bg": { "value": "#F7F5F2", "type": "color", "description": "warm paper — interviewer working screens" },
+    "surface": { "value": "#FFFFFF", "type": "color", "description": "cards" },
+    "surface-sunken": { "value": "#EFECE7", "type": "color", "description": "zone panels / wells" },
+    "border": { "value": "#E3DFD8", "type": "color" },
+    "border-strong": { "value": "#C9C3B9", "type": "color" },
+    "text-1": { "value": "#211C26", "type": "color", "description": "primary ink ~15:1" },
+    "text-2": { "value": "#5C5563", "type": "color", "description": "secondary ~7:1" },
+    "text-3": { "value": "#837B8A", "type": "color", "description": "tertiary ~4.6:1 — never below 14px" },
+    "state-dormant-ink": { "value": "#5C5563", "type": "color", "description": "Registered / Unpaid pill ink" },
+    "state-dormant-tint": { "value": "#EFECE7", "type": "color" },
+    "state-ready-ink": { "value": "#1D5FBF", "type": "color", "description": "Checked in pill ink" },
+    "state-ready-tint": { "value": "#E4EDFB", "type": "color" },
+    "state-claim-ink": { "value": "#8A5A00", "type": "color", "description": "AMBER — Paid-unverified / attention / money outstanding" },
+    "state-claim-tint": { "value": "#FCEFCE", "type": "color" },
+    "state-good-ink": { "value": "#1E7F4F", "type": "color", "description": "GREEN — Selected / Verified / Paid (terminal-good)" },
+    "state-good-tint": { "value": "#DFF3E7", "type": "color" },
+    "state-no-ink": { "value": "#211C26", "type": "color", "description": "Not selected — ink OUTLINE pill, never red" },
+    "success-ink": { "value": "#1E7F4F", "type": "color" },
+    "success-tint": { "value": "#DFF3E7", "type": "color" },
+    "warning-ink": { "value": "#8A5A00", "type": "color" },
+    "warning-tint": { "value": "#FCEFCE", "type": "color" },
+    "error-ink": { "value": "#B3261E", "type": "color" },
+    "error-tint": { "value": "#FBEAEA", "type": "color" },
+    "destructive": { "value": "#C22B2B", "type": "color" },
+    "stage-bg": { "value": "#0A0612", "type": "color", "description": "dark canvas exposed to Search >= 900px" },
+    "stage-ink": { "value": "#F5F2FA", "type": "color" },
+    "stage-ink-muted": { "value": "#B9B1CC", "type": "color" },
+    "shadow-1": { "value": { "x": "0", "y": "1", "blur": "2", "spread": "0", "color": "rgba(16,24,40,0.06)", "type": "dropShadow" }, "type": "boxShadow" },
+    "shadow-2": { "value": { "x": "0", "y": "4", "blur": "12", "spread": "0", "color": "rgba(16,24,40,0.10)", "type": "dropShadow" }, "type": "boxShadow" },
+    "shadow-sheet": { "value": { "x": "0", "y": "-8", "blur": "32", "spread": "0", "color": "rgba(16,24,40,0.16)", "type": "dropShadow" }, "type": "boxShadow" }
+  },
+  "dark": {
+    "bg": { "value": "#0A0612", "type": "color", "description": "stage black with the jacket's violet cast — admin + login" },
+    "surface": { "value": "#140B26", "type": "color" },
+    "surface-sunken": { "value": "#1D1140", "type": "color" },
+    "border": { "value": "#2B1D4E", "type": "color" },
+    "border-strong": { "value": "#3C2C66", "type": "color" },
+    "text-1": { "value": "#F5F2FA", "type": "color", "description": "~17:1 on surface" },
+    "text-2": { "value": "#B9B1CC", "type": "color", "description": "~9.3:1" },
+    "text-3": { "value": "#8D84A6", "type": "color", "description": "~5.4:1 — never below 14px" },
+    "state-dormant-ink": { "value": "#A9A4B2", "type": "color" },
+    "state-dormant-tint": { "value": "rgba(255,255,255,0.06)", "type": "color" },
+    "state-ready-ink": { "value": "#7BA7F7", "type": "color" },
+    "state-ready-tint": { "value": "rgba(96,138,247,0.12)", "type": "color" },
+    "state-claim-ink": { "value": "#F5C044", "type": "color", "description": "amber on dark" },
+    "state-claim-tint": { "value": "rgba(245,182,46,0.12)", "type": "color" },
+    "state-good-ink": { "value": "#4ADE80", "type": "color", "description": "green on dark" },
+    "state-good-tint": { "value": "rgba(34,197,94,0.12)", "type": "color" },
+    "state-no-ink": { "value": "#F3F1F6", "type": "color" },
+    "success-ink": { "value": "#4ADE80", "type": "color" },
+    "success-tint": { "value": "rgba(34,197,94,0.12)", "type": "color" },
+    "warning-ink": { "value": "#F5C044", "type": "color" },
+    "warning-tint": { "value": "rgba(245,182,46,0.12)", "type": "color" },
+    "error-ink": { "value": "#F87171", "type": "color" },
+    "error-tint": { "value": "rgba(248,113,113,0.12)", "type": "color" },
+    "shadow-1": { "value": { "x": "0", "y": "1", "blur": "2", "spread": "0", "color": "rgba(0,0,0,0.4)", "type": "dropShadow" }, "type": "boxShadow" },
+    "shadow-2": { "value": { "x": "0", "y": "4", "blur": "12", "spread": "0", "color": "rgba(0,0,0,0.5)", "type": "dropShadow" }, "type": "boxShadow" },
+    "shadow-sheet": { "value": { "x": "0", "y": "-8", "blur": "32", "spread": "0", "color": "rgba(0,0,0,0.6)", "type": "dropShadow" }, "type": "boxShadow" }
+  },
+  "$themes": [
+    { "id": "light", "name": "Light — interviewer working screens", "selectedTokenSets": { "core": "source", "light": "enabled" } },
+    { "id": "dark", "name": "Dark — admin board + login stage", "selectedTokenSets": { "core": "source", "dark": "enabled" } }
+  ],
+  "$metadata": { "tokenSetOrder": ["core", "light", "dark"] }
+}
