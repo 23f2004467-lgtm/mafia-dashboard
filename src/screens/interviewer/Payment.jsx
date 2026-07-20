@@ -206,17 +206,13 @@ export default function Payment({
   // ---------- Already-paid: static receipt state ----------
   if (subject && subject.paid && !greenRoom) {
     const details = subject.paymentDetails || null;
-    const verified = !!subject.manuallyVerified;
+    // Owner truth #3 (2026-07-20): interviewers never see board-verification
+    // status — the receipt just confirms the payment was recorded. Whether
+    // the board has verified it is admin-only (the drawer keeps the 3-state).
     return (
       <main className="pay-screen">
         <section className="pay-receipt">
-          {verified ? (
-            <Banner tone="success">Payment verified</Banner>
-          ) : (
-            <Banner tone="warning">
-              Paid — awaiting board verification
-            </Banner>
-          )}
+          <Banner tone="success">Payment received</Banner>
           <div className="pay-receipt__pill">
             <Pill track="paymentIv" state={deriveInterviewerPayment(subject)} />
           </div>

@@ -145,22 +145,22 @@ describe("My recent — both placements (inline + >= 900px sidebar)", () => {
   test("the sidebar toggle carries aria-expanded reflecting the state", () => {
     renderSearch({ recents: [RECENT] });
 
-    // Open by default → expanded.
+    // Closed by default (owner call 2026-07-20: on-demand panel) → collapsed.
     expect(
       screen.getByRole("button", { name: "Hide my recent" })
-    ).toHaveAttribute("aria-expanded", "true");
+    ).toHaveAttribute("aria-expanded", "false");
     expect(
       screen.getByRole("button", { name: "Show my recent" })
-    ).toHaveAttribute("aria-expanded", "true");
+    ).toHaveAttribute("aria-expanded", "false");
 
-    // Collapse → the toggle now announces collapsed.
-    fireEvent.click(screen.getByRole("button", { name: "Hide my recent" }));
+    // Open → the toggle now announces expanded.
+    fireEvent.click(screen.getByRole("button", { name: "Show my recent" }));
     expect(
       screen.getByRole("button", { name: "Hide my recent" })
-    ).toHaveAttribute("aria-expanded", "false");
+    ).toHaveAttribute("aria-expanded", "true");
     expect(
       screen.getByRole("button", { name: "Show my recent" })
-    ).toHaveAttribute("aria-expanded", "false");
+    ).toHaveAttribute("aria-expanded", "true");
   });
 
   test("a persisted collapse renders the sidebar collapsed from first paint", () => {

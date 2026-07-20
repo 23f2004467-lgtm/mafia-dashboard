@@ -60,11 +60,14 @@ const WAITING_FIRST = 8; // waiting room: first 8 + "Show all {N}"
 // desk's query. Default: open.
 const SIDEBAR_KEY = "mafia.recentsSidebar";
 
+// Owner call (2026-07-20): the recents sidebar starts CLOSED on entry and
+// opens on click — an on-demand panel, not an always-on rail. Only an
+// explicit "open" preference reopens it; the unset default is collapsed.
 const readSidebarCollapsed = () => {
   try {
-    return localStorage.getItem(SIDEBAR_KEY) === "collapsed";
+    return localStorage.getItem(SIDEBAR_KEY) !== "open";
   } catch {
-    return false;
+    return true;
   }
 };
 
