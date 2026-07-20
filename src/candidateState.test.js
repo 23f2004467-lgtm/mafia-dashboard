@@ -9,6 +9,8 @@ import {
   deriveVerdictStatusForWrite,
   isCheckedIn,
   isWaiting,
+  activatedAtMillis,
+  compareByActivatedAt,
 } from './candidateState';
 
 describe('deriveJourneyState (§5 Track-1)', () => {
@@ -174,5 +176,55 @@ describe('deriveVerdictStatusForWrite (Phase 7a write helper)', () => {
   it('returns undefined (field stays ABSENT) when there is no verdict decision', () => {
     expect(deriveVerdictStatusForWrite({ talentComm: [], workComm: [] }, false)).toBeUndefined();
     expect(deriveVerdictStatusForWrite(undefined, undefined)).toBeUndefined();
+  });
+});
+
+describe('activatedAtMillis (waiting room — additive activatedAt, every shape tolerated)', () => {
+  it('reads a Firestore Timestamp shape ({seconds})', () => {
+    expect(activatedAtMillis({ activatedAt: { seconds: 1_753_000_000 } })).toBe(
+      1_753_000_000_000
+    );
+  });
+
+  it('reads an ISO string', () => {
+    const iso = '2026-07-20T09:41:00.000Z';
+    expect(activatedAtMillis({ activatedAt: iso })).toBe(Date.parse(iso));
+  });
+
+  it('is null for missing/absent stamps (old admin check-ins, in-flight serverTimestamp)', () => {
+    expect(activatedAtMillis({ activated: true })).toBeNull();
+    expect(activatedAtMillis({ activatedAt: null })).toBeNull();
+    expect(activatedAtMillis(undefined)).toBeNull();
+  });
+
+  it('is null for unparseable garbage', () => {
+    expect(activatedAtMillis({ activatedAt: 'not a date' })).toBeNull();
+    expect(activatedAtMillis({ activatedAt: {} })).toBeNull();
+  });
+});
+
+describe('compareByActivatedAt (waiting room order — longest-waiting first)', () => {
+  const at = (millis, name) =>
+    millis == null ? { name } : { name, activatedAt: new Date(millis).toISOString() };
+
+  it('sorts activatedAt ascending across Timestamp AND ISO shapes', () => {
+    const early = { name: 'Late-shape', activatedAt: { seconds: 1_000 } }; // 1,000,000 ms
+    const late = at(2_000_000, 'Early-shape');
+    expect([late, early].sort(compareByActivatedAt).map((c) => c.name)).toEqual([
+      'Late-shape',
+      'Early-shape',
+    ]);
+  });
+
+  it('sorts missing stamps LAST (unknown wait never jumps the queue), then by name', () => {
+    const sorted = [at(null, 'Zara'), at(5_000, 'Bala'), at(null, 'Asha')].sort(
+      compareByActivatedAt
+    );
+    expect(sorted.map((c) => c.name)).toEqual(['Bala', 'Asha', 'Zara']);
+  });
+
+  it('ties fall back to name so the order is stable', () => {
+    const sorted = [at(5_000, 'Riya'), at(5_000, 'Anil')].sort(compareByActivatedAt);
+    expect(sorted.map((c) => c.name)).toEqual(['Anil', 'Riya']);
   });
 });

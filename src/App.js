@@ -13,7 +13,11 @@ import {
 import QRCode from 'react-qr-code';
 import { FirebaseSecurity } from './security';
 import { buildCandidatePayload } from './candidatePayload';
-import { deriveVerdictStatusForWrite } from './candidateState';
+import {
+  deriveVerdictStatusForWrite,
+  isWaiting,
+  compareByActivatedAt,
+} from './candidateState';
 import { canUndo } from './undoGuard';
 import { ConfirmSheet, ToastHost, toast } from './ui';
 import Login from './screens/interviewer/Login';
@@ -1249,6 +1253,19 @@ function App() {
     setScreen("candidate");
   };
 
+  // Owner-requested "Clear" on My recent (2026-07-20): wipes the persisted
+  // mafia.recentCandidates list AND state, both placements (inline +
+  // sidebar). No confirm — recents are a device-local convenience cache;
+  // the candidate docs are untouched.
+  const clearRecents = () => {
+    setRecents([]);
+    try {
+      localStorage.removeItem(RECENTS_KEY);
+    } catch (error) {
+      console.warn("Failed to clear recent candidates:", error);
+    }
+  };
+
   // "My recent" tap: resolve the stored stub against the live snapshot so
   // the loaded form (and pills) carry current data.
   const openRecent = (recent) => {
@@ -2043,6 +2060,13 @@ function App() {
   const recentRows = recents.map(
     (r) => candidates.find((c) => c.id === r.id) || r
   );
+  // The waiting room (owner feature 2026-07-20): candidates the desk (or
+  // admin) explicitly checked in who have no verdict yet — §5 isWaiting, an
+  // additive VIEW over the same live candidates listener the desk writes
+  // into (landmine #11 untouched: docs without the field are simply not
+  // "waiting"; nothing gates on it). Longest-waiting first: activatedAt
+  // ascending, Timestamp/ISO/missing all tolerated, missing last.
+  const waitingRows = candidates.filter(isWaiting).sort(compareByActivatedAt);
   // §6.4 derivations: the payment subject, whether the live session belongs
   // to it (QR/status render only for matching sessions), and the pending
   // chip (live session + not on the Payment screen).
@@ -2131,9 +2155,11 @@ function App() {
             onResumeDraft={resumeDraft}
             onDiscardDraft={clearForm}
             recents={recentRows}
+            waiting={waitingRows}
             onSelect={openCandidate}
             onSelectRecent={openRecent}
             onAddWalkIn={startWalkIn}
+            onClearRecents={clearRecents}
             autoFocus={searchAutoFocus}
           />
         </ScreenEnter>

@@ -108,6 +108,48 @@ export function isWaiting(candidate) {
 }
 
 /**
+ * Waiting room (2026-07-20): the additive `activatedAt` check-in stamp as
+ * epoch millis, or null. Every shape the field can arrive in is tolerated —
+ * a Firestore Timestamp ({seconds, …}), an ISO string, a Date/millis — and
+ * MISSING is a first-class answer (admin check-ins that predate the field,
+ * or a serverTimestamp still in flight, both read null). Same coercion the
+ * Desk screen's clock uses; pure, fixture-testable.
+ *
+ * @param {object} candidate - a candidate doc shape.
+ * @returns {number|null} epoch millis, or null when absent/unparseable.
+ */
+export function activatedAtMillis(candidate) {
+  const stamp = candidate && candidate.activatedAt;
+  if (!stamp) return null;
+  const d = stamp.seconds ? new Date(stamp.seconds * 1000) : new Date(stamp);
+  const t = d.getTime();
+  return Number.isNaN(t) ? null : t;
+}
+
+/**
+ * Waiting-room ordering (2026-07-20): activatedAt ASCENDING — the person
+ * who has been sitting in the venue longest comes first. Docs with no
+ * readable stamp sort LAST (an unknown wait never jumps the queue; a fresh
+ * desk check-in whose serverTimestamp is still resolving correctly enters
+ * at the end, then settles into place on the next snapshot). Ties and the
+ * no-stamp tail fall back to name so the order is stable.
+ *
+ * @param {object} a - candidate doc shape.
+ * @param {object} b - candidate doc shape.
+ * @returns {number} standard comparator result.
+ */
+export function compareByActivatedAt(a, b) {
+  const am = activatedAtMillis(a);
+  const bm = activatedAtMillis(b);
+  if (am !== bm) {
+    if (am == null) return 1;
+    if (bm == null) return -1;
+    return am - bm;
+  }
+  return ((a && a.name) || "").localeCompare((b && b.name) || "");
+}
+
+/**
  * Phase-7 WRITE helper: the additive `verdictStatus` the verdict-submit payload
  * should carry, or `undefined` when the field must stay ABSENT.
  *

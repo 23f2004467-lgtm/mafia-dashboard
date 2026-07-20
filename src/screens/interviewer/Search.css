@@ -195,6 +195,71 @@
   gap: var(--space-1);
 }
 
+/* Inline section header: label left, the quiet Clear right. */
+.iv-search__recent-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-1);
+}
+
+.iv-search__recent-head .iv-search__micro-label {
+  margin-bottom: 0;
+}
+
+/* The owner-requested Clear (both recents placements): a quiet text
+   button, full 44px target, no confirm — recents are a convenience
+   cache, never data. */
+.iv-search__clear-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-min);
+  min-width: var(--touch-min);
+  padding: var(--space-1) var(--space-3);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-input);
+  font-size: var(--text-14);
+  font-weight: 500;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background var(--motion-micro) var(--ease);
+}
+
+.iv-search__clear-btn:hover {
+  background: var(--surface-sunken);
+}
+
+.iv-search__clear-btn:active {
+  transform: scale(0.97);
+}
+
+.iv-search__clear-btn:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ---------- Waiting room (2026-07-20) ----------
+   The desk's live queue on the interviewer home: empty-query only,
+   longest-waiting first (App sorts), standard ResultRow paper cards.
+   Header reuses the results-head language; the count is the same number
+   as the sanctioned "Show all {N}" — a list-size affordance, never an
+   interviewer progress counter (§2 #34). */
+
+.iv-search__waiting {
+  margin-top: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Two pills share the ResultRow pill slot here (journey + payment). */
+.iv-search__waiting .ui-result-row__pill {
+  gap: var(--space-1);
+}
+
 /* ---------- Results ---------- */
 
 .iv-search__results {
@@ -273,6 +338,181 @@
 .iv-search__walkin-link:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
+}
+
+/* ---------- My recent sidebar (>= 900px, owner feature 2026-07-20) ----------
+   The inline section moves to a collapsible right panel on the stage
+   canvas: fixed under the 48px TopBar (like the ambient layer), ~300px, a
+   translucent night surface whose rows stay the same paper cards. At
+   >= 1280px it clears the centered content column entirely; 900–1279 it
+   may overlay from the right edge (sanctioned). Collapse: the panel
+   slides out (transform-only, --ease exit) and the slim vertical reopen
+   tab springs in (--ease-spring entrance) — the §9 sheet-motion pair.
+   The 0s-delayed `visibility` swap is not an animation: it drops the
+   off-stage half from the tab order / a11y tree without unmounting, so
+   the slide still plays. Phones and 768–900 never see any of this
+   (display-gated); reduced motion collapses the swap to instant. */
+
+.iv-search__side {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .iv-search__side {
+    display: block;
+  }
+
+  /* The sidebar carries the rows now — the inline section stands down. */
+  .iv-search__recent {
+    display: none;
+  }
+
+  .iv-search__side-panel {
+    position: fixed;
+    top: 49px; /* under the 48px TopBar + its 1px border */
+    right: 0;
+    bottom: 0;
+    z-index: 15; /* above the column (1) + ambient (0), below the TopBar (20) */
+    width: 300px;
+    display: flex;
+    flex-direction: column;
+    padding: var(--space-4);
+    background: color-mix(in srgb, var(--stage-bg) 78%, transparent);
+    border-left: 1px solid color-mix(in srgb, var(--stage-ink) 12%, transparent);
+    /* At rest = open. This transition is the ENTRANCE (spring); the
+       collapsed rule below carries the exit (--ease). */
+    transform: none;
+    visibility: visible;
+    transition: transform var(--motion-sheet) var(--ease-spring),
+      visibility 0s;
+  }
+
+  .iv-search__side--collapsed .iv-search__side-panel {
+    transform: translateX(calc(100% + var(--space-6)));
+    visibility: hidden;
+    transition: transform var(--motion-sheet) var(--ease),
+      visibility 0s linear var(--motion-sheet);
+  }
+
+  .iv-search__side-head {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+
+  .iv-search__side-head .iv-search__micro-label {
+    margin-bottom: 0;
+  }
+
+  .iv-search__side-tools {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .iv-search__side .iv-search__recent-list {
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  /* Stage-ink variants of the quiet Clear (the panel is a night surface). */
+  .iv-search__side .iv-search__clear-btn {
+    color: var(--stage-ink-muted);
+  }
+
+  .iv-search__side .iv-search__clear-btn:hover {
+    background: color-mix(in srgb, var(--stage-ink) 9%, transparent);
+  }
+
+  .iv-search__side-collapse {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: var(--touch-min);
+    min-height: var(--touch-min);
+    background: none;
+    border: 0;
+    border-radius: var(--radius-input);
+    color: var(--stage-ink-muted);
+    cursor: pointer;
+    transition: background var(--motion-micro) var(--ease);
+  }
+
+  .iv-search__side-collapse:hover {
+    background: color-mix(in srgb, var(--stage-ink) 9%, transparent);
+  }
+
+  .iv-search__side-collapse:active {
+    transform: scale(0.96);
+  }
+
+  .iv-search__side-collapse:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  /* The slim reopen tab: a 44px hit strip hugging the right edge around
+     the slimmer visual pill (the iv-pending-chip wrapper pattern). */
+  .iv-search__side-tab {
+    position: fixed;
+    top: calc(49px + var(--space-6));
+    right: 0;
+    z-index: 15;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: var(--touch-min);
+    min-height: var(--touch-min);
+    padding: var(--space-2) 0 var(--space-2) var(--space-2);
+    background: none;
+    border: 0;
+    cursor: pointer;
+    transform: translateX(110%);
+    visibility: hidden;
+    transition: transform var(--motion-sheet) var(--ease),
+      visibility 0s linear var(--motion-sheet);
+  }
+
+  .iv-search__side--collapsed .iv-search__side-tab {
+    transform: none;
+    visibility: visible;
+    transition: transform var(--motion-sheet) var(--ease-spring),
+      visibility 0s;
+  }
+
+  .iv-search__side-tab-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    writing-mode: vertical-rl;
+    padding: var(--space-3) var(--space-1);
+    background: color-mix(in srgb, var(--stage-ink) 9%, transparent);
+    border: 1px solid color-mix(in srgb, var(--stage-ink) 14%, transparent);
+    border-right: 0;
+    border-radius: var(--radius-input) 0 0 var(--radius-input);
+    font-size: var(--text-12);
+    font-weight: 600;
+    letter-spacing: var(--tracking-caps);
+    text-transform: uppercase;
+    color: var(--stage-ink);
+    transition: background var(--motion-micro) var(--ease),
+      transform var(--motion-micro) var(--ease);
+  }
+
+  .iv-search__side-tab:hover .iv-search__side-tab-pill {
+    background: color-mix(in srgb, var(--stage-ink) 14%, transparent);
+  }
+
+  .iv-search__side-tab:active .iv-search__side-tab-pill {
+    transform: scale(0.97);
+  }
+
+  .iv-search__side-tab:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
 }
 
 /* Stage-canvas ink flips (owner call 2026-07-20). This block must stay LAST
