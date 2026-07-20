@@ -84,54 +84,54 @@ service cloud.firestore {
              data.lastActive is timestamp;
     }
     
-    // Candidates collection - Interviewer and Admin access with strict validation
+    // Candidates collection.
+    // Trust model (see DESIGN.md §8): interviewers are trusted Google-verified
+    // college accounts; their actions are gated in the UI, not by brittle
+    // field validators (the old strict regex validators rejected real data —
+    // phone numbers with country codes, comments over the length cap, years
+    // outside a 4-value enum — and broke live check-ins). The REAL rule-enforced
+    // boundary is the anonymous check-in desk, which stays diff-scoped below.
     match /candidates/{candidateId} {
-      // Read: interviewers, admins, and the check-in desk (an anonymous
-      // session needs the live roster to work the door — owner-accepted; the
-      // roster is thus readable by any anonymous session, same trade the
-      // config code doc makes below).
+      // Read: interviewers, admins, and the check-in desk (an anonymous session
+      // needs the live roster to work the door — owner-accepted).
       allow read: if isInterviewer() || isAdmin() || isDesk();
+      // Create keeps the reg-no == doc-id invariant (uniqueness + O(1) lookup).
       allow create: if isInterviewer() &&
-                       isValidCandidateData(request.resource.data) &&
                        request.resource.data.regNo == candidateId;
-      allow update: if isInterviewer() &&
-                       (isValidCandidateData(request.resource.data) ||
-                        (request.resource.data.keys().hasAll(['paid', 'paymentDetails', 'lastUpdatedBy', 'lastUpdatedAt']) &&
-                         isValidAmount(request.resource.data.paymentDetails.amount))) ||
-                    isAdmin() &&
-                       (request.resource.data.keys().hasAll(['manuallyVerified', 'manualVerificationDetails', 'lastUpdatedBy', 'lastUpdatedAt']) ||
-                        request.resource.data.keys().hasAll(['paid', 'paymentDetails', 'manuallyVerified', 'lastUpdatedBy', 'lastUpdatedAt'])) ||
+      allow update: if isInterviewer()
+                    || isAdmin()
                     // Check-in desk (2026-07-20): an anonymous desk session may
                     // touch ONLY the check-in fields — activation + attribution
-                    // + updated-meta — and nothing else. This RULE-ENFORCES the
-                    // desk write scope (verdict, payment, identity are all
-                    // unreachable because they would widen affectedKeys).
-                    isDesk() &&
-                       request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['activated', 'activatedAt', 'activatedBy', 'lastUpdatedBy', 'lastUpdatedAt']);
+                    // + updated-meta — nothing else. This RULE-ENFORCES the desk
+                    // write scope: verdict, payment and identity keys are
+                    // unreachable because writing them would widen affectedKeys.
+                    || (isDesk() &&
+                        request.resource.data.diff(resource.data).affectedKeys()
+                          .hasOnly(['activated', 'activatedAt', 'activatedBy', 'lastUpdatedBy', 'lastUpdatedAt']));
       allow delete: if isAdmin();
     }
     
-    // Payment sessions collection - Restricted access
+    // Payment sessions — owner-scoped (an interviewer sees/writes only the
+    // sessions they created). Ownership is the real boundary; the brittle
+    // shape/status validators broke create (missing amount) and cancel
+    // (status-transition check) after the rules were first deployed.
     match /paymentSessions/{sessionId} {
-      allow read: if isInterviewer() && 
+      allow read: if isInterviewer() &&
                      resource.data.interviewerId == request.auth.token.email;
-      allow create: if isInterviewer() && 
-                       isValidPaymentSession(request.resource.data) &&
+      allow create: if isInterviewer() &&
                        request.resource.data.interviewerId == request.auth.token.email;
-      allow update: if isInterviewer() && 
-                       resource.data.interviewerId == request.auth.token.email &&
-                       (resource.data.status in ['completed', 'cancelled'] ||
-                        resource.data.keys().hasAll(['lastChecked']));
+      allow update: if isInterviewer() &&
+                       resource.data.interviewerId == request.auth.token.email;
       allow delete: if isAdmin();
     }
-    
-    // Interviewers collection - Admin read/write, Interviewer can update their own session
+
+    // Interviewers presence — admin reads the panel; an interviewer writes
+    // ONLY their own heartbeat doc. (The strict session-shape validator ran
+    // on reads too, where request.resource is null, and denied them.)
     match /interviewers/{interviewerId} {
-      allow read, write: if isAdmin();
-      allow read, write: if isInterviewer() && 
-                           interviewerId == request.auth.token.email &&
-                           isValidInterviewerSession(request.resource.data);
+      allow read: if isInterviewer() || isAdmin();
+      allow write: if isAdmin() ||
+                     (isInterviewer() && interviewerId == request.auth.token.email);
     }
     
     // Audit logs collection - Admin only
