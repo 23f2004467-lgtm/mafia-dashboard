@@ -615,7 +615,7 @@ function AdminPortal() {
       };
     } catch (error) {
       console.error('Error manually verifying payment:', error);
-      toast({ tone: 'error', message: 'Failed to manually verify payment: ' + error.message });
+      toast({ tone: 'error', message: 'Failed to verify payment: ' + error.message });
       return null;
     }
   };

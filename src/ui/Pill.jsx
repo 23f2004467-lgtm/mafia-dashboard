@@ -22,6 +22,15 @@ const TRACKS = {
     { key: "paid_unverified", label: "Paid · unverified" },
     { key: "verified", label: "Verified ✓" },
   ],
+  // Track 2, INTERVIEWER + desk portal (owner 2026-07-20): a two-state view
+  // — Unpaid or Paid ONLY (from `paid` alone; deriveInterviewerPayment). The
+  // board's verification is admin-only, so interviewers never see the
+  // three-state. "unpaid" is amber here ("collect money"), NOT the admin
+  // dormant-neutral — the face colors are track-scoped in Pill.css (§5).
+  paymentIv: [
+    { key: "unpaid", label: "Unpaid" },
+    { key: "paid", label: "Paid" },
+  ],
 };
 
 export default function Pill({ track = "journey", state, size = "md" }) {

@@ -799,7 +799,7 @@ function App() {
         if (attempts >= maxAttempts) {
           clearInterval(checkInterval);
           setPaymentStatus("timeout");
-          setErrorMessage("Payment verification timeout. Please verify manually.");
+          setErrorMessage("Payment verification timeout. Please confirm below if it landed.");
           console.log('Payment verification timeout for:', paymentId);
           // Don't hide QR code on timeout - let user verify manually
           // setShowQRCode(false); // Removed this line
@@ -812,7 +812,7 @@ function App() {
         if (attempts >= 5 && lastError) {
           clearInterval(checkInterval);
           setPaymentStatus("error");
-          setErrorMessage("Payment verification failed due to network issues. You can still verify manually.");
+          setErrorMessage("Payment verification failed due to network issues. You can still confirm below.");
           console.log('Payment verification error for:', paymentId, 'Error:', lastError);
           // Don't hide QR code on error - let user verify manually
           // setShowQRCode(false); // Removed this line
@@ -1466,22 +1466,22 @@ function App() {
     const fields = {};
 
     if (!formData.name.trim()) {
-      fields.name = "Name is required for manual entry";
+      fields.name = "Name is required for walk-ins";
     }
     if (!formData.regNo.trim()) {
-      fields.regNo = "Registration number is required for manual entry";
+      fields.regNo = "Registration number is required for walk-ins";
     }
     if (!formData.year.trim()) {
-      fields.year = "Academic year is required for manual entry";
+      fields.year = "Academic year is required for walk-ins";
     }
     if (!formData.college.trim()) {
-      fields.college = "College is required for manual entry";
+      fields.college = "College is required for walk-ins";
     }
     if (!formData.branch.trim()) {
-      fields.branch = "Branch is required for manual entry";
+      fields.branch = "Branch is required for walk-ins";
     }
     if (!formData.whatsappNumber.trim()) {
-      fields.whatsappNumber = "WhatsApp number is required for manual entry";
+      fields.whatsappNumber = "WhatsApp number is required for walk-ins";
     }
 
     // Validate year format
@@ -1951,7 +1951,9 @@ function App() {
     setGreenRoom({
       name: subject.data.name,
       regNo: subject.data.regNo,
-      txn: "Manual",
+      // Hand-confirmed payments have no transaction id — omit the txn line
+      // rather than print the noise word (Payment.jsx guards on `txn`).
+      txn: null,
       manual: true,
     });
   };

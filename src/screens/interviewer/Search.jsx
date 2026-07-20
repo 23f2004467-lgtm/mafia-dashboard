@@ -10,7 +10,10 @@ import {
   Skeleton,
   formatRegNo,
 } from "../../ui";
-import { deriveJourneyState as deriveJourneyStateShared } from "../../candidateState";
+import {
+  deriveJourneyState as deriveJourneyStateShared,
+  deriveInterviewerPayment,
+} from "../../candidateState";
 import "./Search.css";
 
 /**
@@ -41,14 +44,6 @@ import "./Search.css";
  *   interviewer progress counter (§2 #34).
  * - Autofocus only when arriving via "Next candidate" (§2 #45).
  */
-
-/** §5 Track 2 — payment pill state from existing paid/manuallyVerified. */
-const derivePaymentState = (cand) =>
-  cand && cand.paid
-    ? cand.manuallyVerified
-      ? "verified"
-      : "paid_unverified"
-    : "unpaid";
 
 /** §5 Track 1 — the single source of truth (src/candidateState.js): prefers
  *  the Phase-7 verdictStatus when present, falls back to the exact pre-Phase-7
@@ -90,7 +85,11 @@ function RecentRow({ cand, onOpen }) {
       </span>
       <span className="iv-search__recent-pills">
         <Pill track="journey" state={deriveJourneyState(cand)} size="sm" />
-        <Pill track="payment" state={derivePaymentState(cand)} size="sm" />
+        <Pill
+          track="paymentIv"
+          state={deriveInterviewerPayment(cand)}
+          size="sm"
+        />
       </span>
     </button>
   );
@@ -257,8 +256,8 @@ export default function Search({
                         size="sm"
                       />
                       <Pill
-                        track="payment"
-                        state={derivePaymentState(cand)}
+                        track="paymentIv"
+                        state={deriveInterviewerPayment(cand)}
                         size="sm"
                       />
                     </>
@@ -346,8 +345,8 @@ export default function Search({
                       yearChip={cand.year ? <Chip>{cand.year}</Chip> : null}
                       paymentPill={
                         <Pill
-                          track="payment"
-                          state={derivePaymentState(cand)}
+                          track="paymentIv"
+                          state={deriveInterviewerPayment(cand)}
                           size="sm"
                         />
                       }

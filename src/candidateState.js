@@ -68,6 +68,25 @@ export function deriveJourneyState(candidate) {
 }
 
 /**
+ * §5 Track-2 payment, INTERVIEWER + desk portal (owner 2026-07-20): a
+ * TWO-STATE view — "paid" | "unpaid" — from the existing `paid` flag ALONE.
+ * The board's verification (`manuallyVerified`) is an ADMIN concern that
+ * interviewers never see (owner truth: their pill is just Paid or Unpaid).
+ * "unpaid" renders AMBER on interviewer surfaces — "money outstanding,
+ * collect it" — where the SAME amber on the admin three-state pill means
+ * "an unverified claim". One color, a portal-scoped meaning (§5). The admin
+ * portal keeps its own three-state derivation untouched.
+ *
+ * Pure; a missing/false `paid` → "unpaid" (permissive, never a gate).
+ *
+ * @param {object} candidate - a candidate doc / recap / form shape.
+ * @returns {"paid"|"unpaid"}
+ */
+export function deriveInterviewerPayment(candidate) {
+  return candidate && candidate.paid ? "paid" : "unpaid";
+}
+
+/**
  * §5 stat-tile numerator (Phase 7b): is this candidate EXPLICITLY checked in?
  *
  * ONLY `activated === true` counts. A missing field is permissive for OPERATION

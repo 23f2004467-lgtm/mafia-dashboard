@@ -86,3 +86,21 @@
   color: var(--state-good-ink);
   background: var(--state-good-tint);
 }
+
+/* ---------- Track 2 (interviewer + desk, two-state — §5) ---------- */
+
+/* Unpaid — claim amber (money outstanding = collect). Track-scoped so it
+   overrides the admin/dormant `--unpaid` face above ONLY inside this track:
+   the same amber that means "unverified claim" on the admin three-state pill
+   means "collect money" here. One color, a portal-scoped meaning. */
+.ui-pill--track-paymentIv .ui-pill__face--unpaid {
+  color: var(--state-claim-ink);
+  background: var(--state-claim-tint);
+}
+
+/* Paid — good ink on good tint (received; the board verifies separately,
+   admin-only). Distinct key from the admin track, so no override needed. */
+.ui-pill__face--paid {
+  color: var(--state-good-ink);
+  background: var(--state-good-tint);
+}

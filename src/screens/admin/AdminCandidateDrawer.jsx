@@ -18,7 +18,7 @@ import "./AdminCandidateDrawer.css";
  * - Header: compact Ticket (§11.2 — the two portals share one artifact).
  * - Body: identity block · BOTH preference sets (rank chips) · both verdict
  *   arrays as pills · comments · payment block (amount, method/UPI, txn id
- *   + verification code in mono wells, marked-by/at, amber "manual" tag,
+ *   + verification code in mono wells, marked-by/at, amber method tag,
  *   verified-by line) · updated-by/at.
  * - Actions sit NEXT TO the payment evidence: "Verify payment" (primary,
  *   paid && !manuallyVerified) → ConfirmPopover restating name · amount ·
@@ -36,6 +36,20 @@ import "./AdminCandidateDrawer.css";
 export const isManualPayment = (paymentDetails) =>
   Boolean(paymentDetails && paymentDetails.method) &&
   /manual/i.test(paymentDetails.method);
+
+/** §7.5 payment-METHOD tag (owner 2026-07-20 — "manual" purged from the UI).
+ * Every confirm is a human, so "manual" is meaningless noise; the amber tag
+ * now names the actual method instead. Derived from `paymentDetails.method`
+ * with the noise word stripped: an explicit cash confirm → "Cash" (owner
+ * truth #4; Stage C wires the mode), and a bare hand-confirm (stored method
+ * "Manual") strips to nothing → "UPI" (the default collection rail). Pure;
+ * stored field VALUES are untouched — this is display copy only. */
+export const deriveMethodTag = (paymentDetails) => {
+  const raw = (paymentDetails && paymentDetails.method) || "";
+  if (!raw) return null;
+  if (/cash/i.test(raw)) return "Cash";
+  return raw.replace(/manual/gi, "").trim() || "UPI";
+};
 
 /** §5 Track 1 — the single source of truth (src/candidateState.js): prefers
  *  the Phase-7 verdictStatus when present, else the exact pre-Phase-7 array
@@ -243,7 +257,7 @@ export default function AdminCandidateDrawer({
             <div className="acd__payment-head">
               <Pill track="payment" state={paymentState(candidate)} />
               {isManualPayment(pd) ? (
-                <span className="acd__manual-tag">Manual</span>
+                <span className="acd__manual-tag">{deriveMethodTag(pd)}</span>
               ) : null}
             </div>
 

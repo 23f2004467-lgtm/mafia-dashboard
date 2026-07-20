@@ -12,6 +12,7 @@ import {
   Sheet,
   formatRegNo,
 } from "../../ui";
+import { deriveInterviewerPayment } from "../../candidateState";
 import "./Payment.css";
 
 /**
@@ -59,14 +60,6 @@ import "./Payment.css";
  *   success tint; auto-advance 2.5 s or tap.
  * - Already-paid: static receipt state (paper card) with "Continue".
  */
-
-/** §5 Track 2 — payment pill state from existing paid/manuallyVerified. */
-const derivePaymentState = (cand) =>
-  cand && cand.paid
-    ? cand.manuallyVerified
-      ? "verified"
-      : "paid_unverified"
-    : "unpaid";
 
 const formatElapsed = (from, now) => {
   if (!from) return "0:00";
@@ -184,7 +177,7 @@ export default function Payment({
             </Banner>
           )}
           <div className="pay-receipt__pill">
-            <Pill track="payment" state={derivePaymentState(subject)} />
+            <Pill track="paymentIv" state={deriveInterviewerPayment(subject)} />
           </div>
           <dl className="pay-receipt__details">
             <div className="pay-receipt__row">

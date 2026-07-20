@@ -85,14 +85,21 @@ describe("src/ui smoke", () => {
     render(<SearchField value="pri" onChange={() => {}} onClear={() => {}} size="admin" loading />);
   });
 
-  test("Pill renders all 7 states", () => {
+  test("Pill renders every track's states", () => {
     ["registered", "checked_in", "selected", "not_selected"].forEach((state) =>
       render(<Pill track="journey" state={state} />)
     );
+    // Admin payment track — the full three-state truth.
     ["unpaid", "paid_unverified", "verified"].forEach((state) =>
       render(<Pill track="payment" state={state} size="sm" />)
     );
+    // Interviewer + desk payment track — two-state only (owner 2026-07-20).
+    ["unpaid", "paid"].forEach((state) =>
+      render(<Pill track="paymentIv" state={state} size="sm" />)
+    );
     expect(screen.getAllByText("Selected ✓").length).toBeGreaterThan(0);
+    // The interviewer track shows Paid, never "Paid · unverified"/"Verified ✓".
+    expect(screen.getAllByText("Paid").length).toBeGreaterThan(0);
   });
 
   test("Chip variants render", () => {

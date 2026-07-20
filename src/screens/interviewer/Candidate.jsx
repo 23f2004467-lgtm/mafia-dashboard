@@ -14,6 +14,7 @@ import {
   Textarea,
   Ticket,
 } from "../../ui";
+import { deriveInterviewerPayment } from "../../candidateState";
 import questions from "../../content/questions";
 import "./Candidate.css";
 
@@ -42,14 +43,6 @@ import "./Candidate.css";
  * - Sticky ActionBar: primary disabled-with-reason until a verdict exists;
  *   "⋯" overflow → Clear / Cancel (Sheet).
  */
-
-/** §5 Track 2 — payment pill state from existing paid/manuallyVerified. */
-const derivePaymentState = (cand) =>
-  cand && cand.paid
-    ? cand.manuallyVerified
-      ? "verified"
-      : "paid_unverified"
-    : "unpaid";
 
 const TALENT_DOMAINS = ["Dance", "Music", "Art"];
 
@@ -192,7 +185,7 @@ export default function Candidate({
   const ticketPills = (
     <>
       <Pill track="journey" state={journeyState} size="sm" />
-      <Pill track="payment" state={derivePaymentState(formData)} size="sm" />
+      <Pill track="paymentIv" state={deriveInterviewerPayment(formData)} size="sm" />
     </>
   );
 

@@ -112,7 +112,7 @@
   margin-bottom: var(--space-3);
 }
 
-/* Amber "manual" tag (§5: amber marks manual-payment tags in admin) */
+/* Amber payment-method tag (§5: amber marks the payment-method tag in admin) */
 .acd__manual-tag {
   padding: 2px var(--space-2);
   border-radius: var(--radius-pill);

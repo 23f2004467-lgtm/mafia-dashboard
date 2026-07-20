@@ -7,6 +7,7 @@ import {
   Stamp,
   prefersReducedMotion,
 } from "../../ui";
+import { deriveInterviewerPayment } from "../../candidateState";
 import "./Done.css";
 
 /**
@@ -64,14 +65,6 @@ const WORK_DOMAIN_LABELS = {
   "Photography and Videography": "P&V",
 };
 
-/** §5 Track 2 — payment pill state from existing paid/manuallyVerified. */
-const derivePaymentState = (recap) =>
-  recap && recap.paid
-    ? recap.manuallyVerified
-      ? "verified"
-      : "paid_unverified"
-    : "unpaid";
-
 /** The five Done flecks — deterministic (positions/delays in Done.css),
  *  spectrum tokens, one drift each, all gone ≤ 1.75s. Decoration only. */
 const FLECKS = ["red", "amber", "green", "blue", "violet"];
@@ -99,8 +92,9 @@ export default function Done({
     ? recap.verdictStatus === "selected"
     : domains.length > 0;
   const celebrate = selected && !prefersReducedMotion();
-  // §5 Track 2 — the pill state feeds both the pill and the amber banner.
-  const paymentState = derivePaymentState(recap);
+  // §5 Track 2 (interviewer two-state) — the pill state feeds both the pill
+  // and the amber banner; "unpaid" is the only non-paid value.
+  const paymentState = deriveInterviewerPayment(recap);
   // The amber truth banner (owner 2026-07-20): a SELECTED verdict recorded
   // while payment is still UNPAID. State-based — shown for no other combo
   // (paid_unverified/verified read as received; not_selected is never here).
@@ -155,7 +149,7 @@ export default function Done({
           </div>
         ) : null}
         <div className="iv-done__pill celebrate-once">
-          <Pill track="payment" state={paymentState} />
+          <Pill track="paymentIv" state={paymentState} />
         </div>
       </div>
 

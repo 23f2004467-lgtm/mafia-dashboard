@@ -64,15 +64,20 @@ describe("Waiting room (empty query only)", () => {
     ).toBeInTheDocument();
     expect(within(section).getByText("2")).toBeInTheDocument();
 
-    // Standard ResultRows; journey pill beside payment in the pill slot.
+    // Standard ResultRows; journey pill beside the two-state interviewer
+    // payment pill (track="paymentIv" — Unpaid/Paid only) in the pill slot.
     expect(within(section).getByText("Waiting 01")).toBeInTheDocument();
     expect(within(section).getByText("Waiting 02")).toBeInTheDocument();
     expect(
       section.querySelectorAll(".ui-pill--track-journey")
     ).toHaveLength(2);
     expect(
-      section.querySelectorAll(".ui-pill--track-payment")
+      section.querySelectorAll(".ui-pill--track-paymentIv")
     ).toHaveLength(2);
+    // Never the admin three-state track on an interviewer surface.
+    expect(
+      section.querySelectorAll(".ui-pill--track-payment")
+    ).toHaveLength(0);
 
     // Row tap opens the candidate through the standard onSelect path.
     fireEvent.click(within(section).getByText("Waiting 01"));
