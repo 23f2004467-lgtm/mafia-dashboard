@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  Banner,
   Button,
   CelebrationCheck,
   Pill,
@@ -31,6 +32,12 @@ import "./Done.css";
  *   domain across both committees joined with "+", wrapping when long;
  *   or "NOT SELECTED" (empty arrays — the §2 #30 display-local state).
  * - Payment pill (§5 track 2, from the latched paid/manuallyVerified).
+ * - AMBER TRUTH BANNER (owner 2026-07-20): STATE-based, not path-based —
+ *   whenever the recap is a SELECTED verdict whose payment is UNPAID, a
+ *   tone="warning" Banner "Verdict saved · payment not received" sits above
+ *   the pill. NEVER for a paid state (any paid reads as received to the
+ *   interviewer) or for not_selected. Payment stays admin-corrected — this
+ *   banner is only the honest flag, never a control.
  * - One 56px primary "Next candidate" → Search, cleared, autofocused
  *   (§2 #45: the ONLY route that autofocuses Search).
  * - Below the primary, ONLY while `canUndoVerdict`: a quiet 48px ghost
@@ -38,6 +45,11 @@ import "./Done.css";
  *   replaced the 10 s undo toast). App.js owns the capability and clears
  *   it on any route away or any payment activity for the candidate; the
  *   tap just fires `onUndoVerdict`.
+ * - ALWAYS beneath that: a quiet ghost "Edit verdict" (owner 2026-07-20) —
+ *   fires `onEditVerdict`, which routes back to the Candidate screen for a
+ *   clean resubmit (the resubmit PRESERVES payment). Applies on not_selected
+ *   too (a mis-reject is editable). Undo reverts the write; Edit goes to
+ *   change it. Order under the primary: Undo (when alive), then Edit.
  * - Beneath the primary: the static light-theme lockup wordmark-black.png
  *   (~140px, decorative alt="") — a constant brand mark, NEVER a tick row
  *   or counter of any kind (§2 #33/#34: no interviewer-visible counts).
@@ -64,7 +76,13 @@ const derivePaymentState = (recap) =>
  *  spectrum tokens, one drift each, all gone ≤ 1.75s. Decoration only. */
 const FLECKS = ["red", "amber", "green", "blue", "violet"];
 
-export default function Done({ recap, onNext, canUndoVerdict, onUndoVerdict }) {
+export default function Done({
+  recap,
+  onNext,
+  canUndoVerdict,
+  onUndoVerdict,
+  onEditVerdict,
+}) {
   const talent = Array.isArray(recap?.verdict?.talentComm)
     ? recap.verdict.talentComm
     : [];
@@ -81,6 +99,12 @@ export default function Done({ recap, onNext, canUndoVerdict, onUndoVerdict }) {
     ? recap.verdictStatus === "selected"
     : domains.length > 0;
   const celebrate = selected && !prefersReducedMotion();
+  // §5 Track 2 — the pill state feeds both the pill and the amber banner.
+  const paymentState = derivePaymentState(recap);
+  // The amber truth banner (owner 2026-07-20): a SELECTED verdict recorded
+  // while payment is still UNPAID. State-based — shown for no other combo
+  // (paid_unverified/verified read as received; not_selected is never here).
+  const showUnpaidWarning = selected && paymentState === "unpaid";
 
   return (
     <div
@@ -123,8 +147,15 @@ export default function Done({ recap, onNext, canUndoVerdict, onUndoVerdict }) {
           domains={domains}
           entrance={selected ? "slam" : "quiet"}
         />
+        {showUnpaidWarning ? (
+          <div className="iv-done__warning">
+            <Banner tone="warning">
+              Verdict saved · payment not received
+            </Banner>
+          </div>
+        ) : null}
         <div className="iv-done__pill celebrate-once">
-          <Pill track="payment" state={derivePaymentState(recap)} />
+          <Pill track="payment" state={paymentState} />
         </div>
       </div>
 
@@ -142,6 +173,9 @@ export default function Done({ recap, onNext, canUndoVerdict, onUndoVerdict }) {
             Undo verdict
           </Button>
         ) : null}
+        <Button variant="ghost" size="md" fullWidth onClick={onEditVerdict}>
+          Edit verdict
+        </Button>
       </div>
 
       <img

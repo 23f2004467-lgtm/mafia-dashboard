@@ -1544,14 +1544,18 @@ function App() {
     }
   };
 
-  // Done-screen "Undo verdict" tap (owner decision 2026-07-20). One shot:
-  // the capability is consumed on tap, so a stale-abort leaves the existing
-  // abort toast and no button. On success the interviewer walks BACK to the
-  // Candidate screen with the form exactly as it was pre-submit: the routed
-  // reset (clearForm) wiped the live draft and the doc-key ref when Done
-  // was entered, so the capability carries the restore payload captured at
-  // submit time (form + notSelected + isManualEntry + docKey).
-  const undoVerdictFromDone = async () => {
+  // "Undo verdict" tap — fired from the Done screen OR the Payment overflow
+  // (owner decision 2026-07-20; both surfaces share this one handler). One
+  // shot: the capability is consumed on tap, so a stale-abort leaves the
+  // existing abort toast and no button. On success the interviewer walks BACK
+  // to the Candidate screen with the form exactly as it was pre-submit: the
+  // routed reset (clearForm) wiped the live draft and the doc-key ref when
+  // Done/Payment was entered, so the capability carries the restore payload
+  // captured at submit time (form + notSelected + isManualEntry + docKey).
+  // The Payment overflow only shows it while the capability is still alive
+  // (paymentUndoAlive) — i.e. before any QR/hold/payment write, so the
+  // pre-payment snapshot it restores can never wipe a real payment.
+  const undoVerdict = async () => {
     const captured = verdictUndo;
     if (!captured) return;
     setVerdictUndo(null);
@@ -1564,6 +1568,41 @@ function App() {
     setSubmitErrors(null);
     setDoneRecap(null);
     setScreen("candidate");
+  };
+
+  // "Edit verdict" tap — the ALWAYS-present corrective on both Done and the
+  // Payment overflow (owner truth 2026-07-20: interviewers may re-open a
+  // just-recorded verdict to change verdict/preferences/comments/details and
+  // resubmit at any time; the resubmit PRESERVES payment — buildCandidatePayload
+  // spreads the loaded paid/paymentDetails through untouched, guarded by the
+  // candidatePayload payment-preservation test). Unlike Undo it does NOT revert
+  // the write — it just re-opens the record to change it. It reuses the undo
+  // capability's captured restore payload (the just-submitted form + flags +
+  // doc key) when that is still alive for this candidate; otherwise it re-opens
+  // the candidate fresh by regNo from the live snapshot (walk-ins that never
+  // had a pre-write snapshot, or a capability already retired by payment
+  // activity). Either way it lands on the Candidate screen and leaves the
+  // done/payment context, so the old capability clears.
+  const editVerdict = (regNo) => {
+    if (
+      verdictUndo &&
+      (verdictUndo.regNo === regNo || verdictUndo.docKey === regNo)
+    ) {
+      candidateDocKeyRef.current = verdictUndo.docKey;
+      setFormData(verdictUndo.form);
+      setNotSelected(verdictUndo.notSelected);
+      setIsManualEntry(verdictUndo.isManualEntry);
+      setSubmitErrors(null);
+      setDoneRecap(null);
+      clearVerdictUndo(); // leaving the done/payment context to edit
+      setScreen("candidate");
+      return;
+    }
+    // No live capability: re-open the candidate fresh from the live snapshot.
+    // openCandidate captures the doc key, strips the id, clears the capability
+    // and routes to Candidate (a no-op if the doc is gone from the snapshot).
+    const live = candidates.find((c) => c.id === regNo || c.regNo === regNo);
+    if (live) openCandidate(live);
   };
 
   // The routed transition that replaces the old silent post-save wipe: the
@@ -1579,6 +1618,11 @@ function App() {
   const latchDoneRecap = (source) => {
     setDoneRecap({
       name: source.name,
+      // regNo carried so the Done "Edit verdict" fallback can re-open the
+      // candidate fresh from the live snapshot when no undo capability is
+      // alive (walk-ins, or after payment activity retired it). Display-local
+      // only — never part of any Firestore payload.
+      regNo: source.regNo,
       verdict: {
         talentComm: Array.isArray(source.verdict?.talentComm)
           ? source.verdict.talentComm
@@ -2076,6 +2120,16 @@ function App() {
     paymentSession &&
     paymentSession.regNo === paymentSubject.data.regNo
   );
+  // The Payment overflow's "Undo verdict" is offered ONLY while the capability
+  // is still alive FOR THIS payment subject — it self-retires the moment any
+  // QR/hold/payment activity fires (App clears verdictUndo), exactly as on
+  // Done, so the pre-payment snapshot can never wipe a real payment write.
+  const paymentUndoAlive = !!(
+    paymentSubject &&
+    verdictUndo &&
+    (verdictUndo.regNo === paymentSubject.data.regNo ||
+      verdictUndo.docKey === paymentSubject.docKey)
+  );
   const qrVisible = !!(showQRCode && sessionMatchesSubject && qrCodeData);
   const pendingChip =
     paymentSession && screen !== "payment"
@@ -2141,7 +2195,8 @@ function App() {
             recap={doneRecap}
             onNext={goNextCandidate}
             canUndoVerdict={!!verdictUndo}
-            onUndoVerdict={undoVerdictFromDone}
+            onUndoVerdict={undoVerdict}
+            onEditVerdict={() => editVerdict(doneRecap.regNo)}
           />
         </ScreenEnter>
       ) : screen !== "payment" ? (
@@ -2187,6 +2242,9 @@ function App() {
             onShowQR={showPaymentQR}
             onRegenerate={generateQRCode}
             onMarkPaid={confirmManualPaid}
+            canUndoVerdict={paymentUndoAlive}
+            onUndoVerdict={undoVerdict}
+            onEditVerdict={() => editVerdict(paymentSubject.data.regNo)}
             onBack={backToSearch}
             onCancelPayment={cancelPayment}
             cancelBusy={isCancellingPayment}

@@ -50,8 +50,11 @@ import "./Payment.css";
  *   screen law). Always available while the screen shows (mirrors the old
  *   always-rendered "Other options" link). Result pill stays amber
  *   "Paid · unverified", never green — the board still verifies.
- *   The "⋯" overflow menu holds Cancel payment (ConfirmSheet — App passes
- *   the paymentId to cleanup, the bugfix). Back is the TopBar chevron.
+ *   The "⋯" overflow menu holds the two verdict correctives — Undo verdict
+ *   (only while `canUndoVerdict`, self-retiring on any payment activity) and
+ *   Edit verdict (always → Candidate for a clean resubmit) — plus Cancel
+ *   payment (ConfirmSheet — App passes the paymentId to cleanup, the bugfix).
+ *   Back is the TopBar chevron.
  * - Green room (§9 #10): full-viewport 350 ms opacity crossfade to
  *   success tint; auto-advance 2.5 s or tap.
  * - Already-paid: static receipt state (paper card) with "Continue".
@@ -92,6 +95,9 @@ export default function Payment({
   onMarkPaid,
   onCancelPayment,
   cancelBusy = false,
+  canUndoVerdict = false,
+  onUndoVerdict,
+  onEditVerdict,
   greenRoom = null,
   onGreenRoomDone,
   onContinue,
@@ -372,10 +378,39 @@ export default function Payment({
         </div>
       </ActionBar>
 
-      {/* "⋯" overflow → Cancel payment (the only exit besides the TopBar
-          back chevron — the old mid-page Back card and red link are gone). */}
+      {/* "⋯" overflow → the two verdict correctives + Cancel payment (the
+          exits besides the TopBar back chevron). Owner 2026-07-20: a user who
+          realizes they picked the wrong verdict has BOTH doors from Payment —
+          Undo verdict (only while the capability is still alive, i.e. BEFORE
+          any QR/hold/payment activity; App retires it exactly as on Done) and
+          Edit verdict (always → back to Candidate for a clean resubmit, which
+          preserves payment). Payment itself stays admin-corrected. */}
       <Sheet open={menuOpen} onClose={() => setMenuOpen(false)} title="Options">
         <div className="pay-menu">
+          {canUndoVerdict ? (
+            <Button
+              variant="secondary"
+              size="md"
+              fullWidth
+              onClick={() => {
+                setMenuOpen(false);
+                if (onUndoVerdict) onUndoVerdict();
+              }}
+            >
+              Undo verdict
+            </Button>
+          ) : null}
+          <Button
+            variant="secondary"
+            size="md"
+            fullWidth
+            onClick={() => {
+              setMenuOpen(false);
+              if (onEditVerdict) onEditVerdict();
+            }}
+          >
+            Edit verdict
+          </Button>
           <Button
             variant="secondary"
             size="md"

@@ -63,6 +63,16 @@
   max-width: 100%;
 }
 
+/* The amber truth banner (owner 2026-07-20): a SELECTED verdict recorded
+   while payment is still unpaid. Sits above the pill; constrained so it
+   reads as an honest note, not a full-bleed alarm. Never celebrates —
+   rendered plain (no celebrate-once) so it lands immediately, not on the
+   selected rise stagger. */
+.iv-done__warning {
+  width: 100%;
+  max-width: 360px;
+}
+
 /* Primary stacked over the conditional ghost "Undo verdict" (owner
    decision 2026-07-20): a quiet second row that never competes with
    "Next candidate" — tight gap, ghost tone, 48px touch target. */
