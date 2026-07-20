@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Button,
   Chip,
@@ -48,7 +48,11 @@ const WORK_DOMAIN_LABELS = {
   "Photography and Videography": "P&V",
 };
 
-const PAGE = 100;
+// Owner call 2026-07-20: show a short list by default so the live-session
+// panels sit one glance below (no scroll past 641 names, no collapse toggle);
+// a "Show more" button reveals the rest in steps.
+const INITIAL = 10;
+const STEP = 50;
 const COLUMNS = 7;
 const SKELETON_ROWS = 8;
 
@@ -81,8 +85,6 @@ export default function AdminCandidatesTable({
   scrollRef,
   filterKey,
   formatWhen,
-  collapsed = false,
-  onToggleCollapsed,
 }) {
   // 150 ms skeleton grace (§9 loading rules).
   const [graceOver, setGraceOver] = useState(false);
@@ -91,29 +93,14 @@ export default function AdminCandidatesTable({
     return () => clearTimeout(t);
   }, []);
 
-  // Hand-rolled windowing: first 100 rows, sentinel loads +100 (§7.4).
-  const [visible, setVisible] = useState(PAGE);
+  // Show INITIAL rows; "Show more" reveals +STEP at a time (§7.4). Resets
+  // to INITIAL whenever the search/filter scope changes.
+  const [visible, setVisible] = useState(INITIAL);
   useEffect(() => {
-    setVisible(PAGE);
+    setVisible(INITIAL);
   }, [filterKey]);
 
   const hasMore = ready && rows.length > visible;
-  const sentinelRef = useRef(null);
-  useEffect(() => {
-    if (!hasMore) return undefined;
-    const node = sentinelRef.current;
-    if (!node || typeof IntersectionObserver === "undefined") return undefined;
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          setVisible((v) => v + PAGE);
-        }
-      },
-      { rootMargin: "200px 0px" }
-    );
-    io.observe(node);
-    return () => io.disconnect();
-  }, [hasMore, visible]);
 
   const filtersActive = Boolean(search) || filter !== "all";
 
@@ -229,34 +216,8 @@ export default function AdminCandidatesTable({
             </Chip>
           ))}
         </div>
-        {onToggleCollapsed ? (
-          <button
-            type="button"
-            className="admin-table-card__collapse"
-            onClick={onToggleCollapsed}
-            aria-expanded={!collapsed}
-            aria-controls="admin-table-body"
-          >
-            <span
-              className={
-                "admin-table-card__collapse-chevron" +
-                (collapsed ? " is-collapsed" : "")
-              }
-              aria-hidden="true"
-            >
-              ⌄
-            </span>
-            {collapsed ? "Show table" : "Collapse"}
-          </button>
-        ) : null}
       </div>
 
-      {collapsed ? (
-        <div className="admin-table-card__collapsed-note" id="admin-table-body">
-          Table collapsed · {rows.length} candidate
-          {rows.length === 1 ? "" : "s"} match — live sessions below
-        </div>
-      ) : (
       <div className="admin-table-card__scroll" id="admin-table-body">
         <table className="admin-table">
           <thead>
@@ -291,14 +252,17 @@ export default function AdminCandidatesTable({
           )
         ) : null}
       </div>
-      )}
 
-      {!collapsed && hasMore ? (
-        <div
-          className="admin-table-card__sentinel"
-          ref={sentinelRef}
-          aria-hidden="true"
-        />
+      {hasMore ? (
+        <div className="admin-table-card__more">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setVisible((v) => v + STEP)}
+          >
+            Show more ({rows.length - visible} of {rows.length})
+          </Button>
+        </div>
       ) : null}
     </section>
   );

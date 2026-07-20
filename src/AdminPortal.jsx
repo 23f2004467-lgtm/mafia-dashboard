@@ -1117,38 +1117,10 @@ function AdminPortal() {
     [candidates]
   );
 
-  // Owner call 2026-07-20: the table collapses so the live panels are
-  // reachable without scrolling 640 names. Preference persists.
-  const [tableCollapsed, setTableCollapsed] = useState(() => {
-    try {
-      return localStorage.getItem("mafia.adminTableCollapsed") === "1";
-    } catch {
-      return false;
-    }
-  });
-  const toggleTableCollapsed = useCallback(() => {
-    setTableCollapsed((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem("mafia.adminTableCollapsed", next ? "1" : "0");
-      } catch {
-        /* private mode — session-only */
-      }
-      return next;
-    });
-  }, []);
-
   // §7.3 tile 3 (Awaiting verification) is actionable: apply the
-  // Paid·unverified filter, expand the table if collapsed, and scroll
-  // to the table card.
+  // Paid·unverified filter and scroll to the table card.
   const jumpToAwaiting = useCallback(() => {
     setFilterPaid("paid_unverified");
-    setTableCollapsed(false);
-    try {
-      localStorage.setItem("mafia.adminTableCollapsed", "0");
-    } catch {
-      /* private mode */
-    }
     const node = tableCardRef.current;
     if (node) {
       const reduce =
@@ -1264,8 +1236,6 @@ function AdminPortal() {
           scrollRef={tableCardRef}
           filterKey={`${search}|${filterPaid}`}
           formatWhen={(stamp) => formatRelativeTime(toDate(stamp))}
-          collapsed={tableCollapsed}
-          onToggleCollapsed={toggleTableCollapsed}
         />
 
         {/* §7.6 interviewers panel + §7.7 live activity — two columns ≥ 1280,
