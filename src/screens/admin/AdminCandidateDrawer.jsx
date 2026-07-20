@@ -28,11 +28,13 @@ import "./AdminCandidateDrawer.css";
  * - ≤ 1024px the Drawer itself goes full-screen (Drawer.css).
  */
 
-/** §7.5 amber "manual" tag — pure derivation (Jest: manualTag.test.js).
- * True when `paymentDetails.method` indicates a manual mark-paid: the one
- * surviving manual write path stamps method "Manual"; QR confirmations
- * stamp "{type} QR ({name})". No manual txn-id prefix exists in the
- * surviving write paths (§7.5). */
+/** §7.5 — the narrow "legacy bare hand-confirm" classifier (Jest:
+ * manualTag.test.js). True when `paymentDetails.method` is the retired
+ * hardcoded "Manual" (pre-Stage-C docs). Stage C (owner 2026-07-20) stopped
+ * writing that value — new hold-confirms stamp the real rail ("Cash" / a UPI
+ * account label) — and BROADENED the drawer's tag render gate to `showsRailTag`
+ * (which covers those new rails too). This predicate is retained as the exact
+ * classifier for old docs and as the guard its Jest suite documents. Pure. */
 export const isManualPayment = (paymentDetails) =>
   Boolean(paymentDetails && paymentDetails.method) &&
   /manual/i.test(paymentDetails.method);
@@ -49,6 +51,36 @@ export const deriveMethodTag = (paymentDetails) => {
   if (!raw) return null;
   if (/cash/i.test(raw)) return "Cash";
   return raw.replace(/manual/gi, "").trim() || "UPI";
+};
+
+/** §7.5 plain payment-METHOD label for the drawer's Method row (owner
+ * 2026-07-20, Stage C — cash mode). Names the collection rail in plain words —
+ * never the retired "manual", never the internal "QR" string:
+ *   - an explicit cash confirm            → "Cash"
+ *   - any UPI claim carrying an account   → "UPI · {account}" (a hold-confirm
+ *     OR the vestigial QR path — both stamp upiName)
+ *   - a bare legacy hand-confirm (method "Manual", no UPI identity) → the
+ *     default rail "UPI"
+ * Pure; stored field VALUES are untouched — this is display copy only. */
+export const deriveMethodLabel = (paymentDetails) => {
+  const pd = paymentDetails || null;
+  const raw = (pd && pd.method) || "";
+  const account = (pd && pd.upiName) || "";
+  if (!raw && !account) return null;
+  if (/cash/i.test(raw)) return "Cash";
+  if (account) return `UPI · ${account}`;
+  return "UPI";
+};
+
+/** §7.5 render gate for the amber rail tag next to the pill (owner 2026-07-20,
+ * Stage C). Stage B gated on /manual/ (`isManualPayment`); Stage C BROADENS it
+ * so every HUMAN-confirmed rail surfaces the tag — Cash, a UPI account
+ * hold-confirm, and the legacy bare hand-confirm alike — while the vestigial QR
+ * auto-confirm path (method carries "QR") stays untagged, exactly as before.
+ * The tag TEXT is still `deriveMethodTag`; this is only the gate. Pure. */
+export const showsRailTag = (paymentDetails) => {
+  const method = (paymentDetails && paymentDetails.method) || "";
+  return Boolean(method) && !/\bqr\b/i.test(method);
 };
 
 /** §5 Track 1 — the single source of truth (src/candidateState.js): prefers
@@ -256,7 +288,7 @@ export default function AdminCandidateDrawer({
             <h3 className="acd__label">Payment</h3>
             <div className="acd__payment-head">
               <Pill track="payment" state={paymentState(candidate)} />
-              {isManualPayment(pd) ? (
+              {showsRailTag(pd) ? (
                 <span className="acd__manual-tag">{deriveMethodTag(pd)}</span>
               ) : null}
             </div>
@@ -267,7 +299,7 @@ export default function AdminCandidateDrawer({
                   <dt>Amount</dt>
                   <dd className="acd__mono">₹{amount}</dd>
                   <dt>Method</dt>
-                  <dd>{(pd && pd.method) || "—"}</dd>
+                  <dd>{deriveMethodLabel(pd) || "—"}</dd>
                   {pd && pd.upiId ? (
                     <>
                       <dt>UPI</dt>

@@ -13,6 +13,7 @@ import {
 import QRCode from 'react-qr-code';
 import { FirebaseSecurity } from './security';
 import { buildCandidatePayload } from './candidatePayload';
+import { buildPaymentClaim } from './paymentClaim';
 import {
   deriveVerdictStatusForWrite,
   isWaiting,
@@ -54,6 +55,21 @@ const UPI_CONFIG = {
   merchantName: "MAFIA Recruitments",
   merchantCode: "MAFIA2025" // for tracking payments
 };
+
+// Cash is a first-class rail at events (owner truth #4, 2026-07-20): the
+// Payment ACCOUNT zone offers a third card, Cash, below the two UPI cards.
+// UPI_CONFIG.upiIds stays the QR source of truth (cash has NO QR); the
+// combined PAYMENT_ACCOUNTS is what the ACCOUNT zone renders and what the
+// selectedUpiId index addresses (cash is the last index). The `cash` flag is
+// the single marker Payment.jsx keys off to drop the QR zone and relabel the
+// hold, and confirmManualPaid keys off to stamp method "Cash" vs the UPI label.
+const CASH_ACCOUNT = {
+  id: "cash",
+  name: "Cash",
+  type: "Collected in person",
+  cash: true,
+};
+const PAYMENT_ACCOUNTS = [...UPI_CONFIG.upiIds, CASH_ACCOUNT];
 
 // Client-side candidate filter (§2 #21): case-insensitive name substring OR
 // regNo prefix over the app-level in-memory candidates array. Pure; min-2-chars
@@ -270,7 +286,7 @@ function App() {
   const [walkInConfirmOpen, setWalkInConfirmOpen] = useState(false);
   // §2 #20: index of selected UPI ID, last-used preselected per device.
   const [selectedUpiId, setSelectedUpiId] = useState(() =>
-    readLastUpiAccount(UPI_CONFIG.upiIds.length)
+    readLastUpiAccount(PAYMENT_ACCOUNTS.length)
   );
   // Landmine #5: the ONE live QR payment session
   // ({regNo, name, docKey, paymentId, verificationCode, createdAt,
@@ -541,6 +557,15 @@ function App() {
   const generateQRCode = useCallback(async () => {
     if (isGeneratingQR) {
       return; // Prevent multiple simultaneous generations
+    }
+
+    // No QR for cash (owner truth #4): the cash rail is confirmed by the
+    // hold-to-confirm alone. The Payment screen already hides Show QR /
+    // Regenerate when cash is selected; this guard is defense-in-depth so a
+    // persisted cash selection (selectedUpiId past the UPI list) can never
+    // index into createPaymentSession's UPI_CONFIG.upiIds[selectedUpiId].
+    if (!UPI_CONFIG.upiIds[selectedUpiId]) {
+      return;
     }
 
     // Check rate limit
@@ -1920,11 +1945,16 @@ function App() {
     }
   };
 
-  // §2 #15: the manual mark-paid confirm (after the 600 ms hold). The
-  // mark-paid write itself is the EXISTING one (§12, byte-identical shape):
-  // paid: true + paymentDetails { method: 'Manual', timestamp }.
+  // §2 #15: the hold-to-confirm mark-paid (after the 600 ms hold). The write
+  // is the EXISTING path (paid: true + paymentDetails); Stage C records WHICH
+  // rail collected the fee — Cash or the selected UPI account — via the pure
+  // buildPaymentClaim (the retired hardcoded method 'Manual' is gone; every
+  // confirm is a human, owner truth #2). The account is whatever the ACCOUNT
+  // zone has selected (PAYMENT_ACCOUNTS[selectedUpiId]); the || fallback keeps
+  // a degenerate out-of-range index from ever building a claim off undefined.
   const confirmManualPaid = () => {
-    const paymentDetails = { method: 'Manual', timestamp: new Date().toISOString() };
+    const account = PAYMENT_ACCOUNTS[selectedUpiId] || PAYMENT_ACCOUNTS[0];
+    const paymentDetails = buildPaymentClaim(account, new Date().toISOString());
     const subject = resolvePaymentSubject();
     // Payment activity — manual mark-paid fired for this candidate: the
     // Done-screen undo capability (if it is his) dies here (owner decision
@@ -2225,7 +2255,7 @@ function App() {
           <Payment
             subject={paymentSubject.data}
             amount={paymentAmount}
-            upiAccounts={UPI_CONFIG.upiIds}
+            upiAccounts={PAYMENT_ACCOUNTS}
             selectedUpi={selectedUpiId}
             onSelectUpi={selectUpiAccount}
             qrVisible={qrVisible}

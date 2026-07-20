@@ -98,6 +98,12 @@ export default function Payment({
   const [cancelOpen, setCancelOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // Cash mode (owner truth #4): the selected ACCOUNT-zone card may be Cash —
+  // the one rail with no QR. App marks it with a `cash` flag; this single
+  // derived flag drops the QR zone and relabels the hold ("cash received").
+  const selectedAccount = upiAccounts[selectedUpi] || null;
+  const cashSelected = !!(selectedAccount && selectedAccount.cash);
+
   // Mono ticking "last check m:ss" (server truth is the poll; this only
   // renders honesty about when it last ran — JS-driven text, no keyframes).
   const waiting = qrVisible && status === "pending";
@@ -140,7 +146,7 @@ export default function Payment({
   const isError = status === "error" || status === "failed";
 
   const upiSelector = (idPrefix) => (
-    <div className="pay-upi" role="radiogroup" aria-label="UPI account">
+    <div className="pay-upi" role="radiogroup" aria-label="Payment account">
       {upiAccounts.map((upi, i) => (
         <button
           key={`${idPrefix}-${upi.id}`}
@@ -148,11 +154,46 @@ export default function Payment({
           role="radio"
           aria-checked={selectedUpi === i}
           className={
-            "pay-upi__card" + (selectedUpi === i ? " pay-upi__card--on" : "")
+            "pay-upi__card" +
+            (selectedUpi === i ? " pay-upi__card--on" : "") +
+            (upi.cash ? " pay-upi__card--cash" : "")
           }
           onClick={() => onSelectUpi && onSelectUpi(i)}
         >
           <span className="pay-upi__radio" aria-hidden="true" />
+          {upi.cash ? (
+            <svg
+              className="pay-upi__icon"
+              width="24"
+              height="24"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <rect
+                x="2.5"
+                y="6"
+                width="19"
+                height="12"
+                rx="2"
+                stroke="currentColor"
+                strokeWidth="1.6"
+              />
+              <circle
+                cx="12"
+                cy="12"
+                r="2.4"
+                stroke="currentColor"
+                strokeWidth="1.6"
+              />
+              <path
+                d="M6 9.5v5M18 9.5v5"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+              />
+            </svg>
+          ) : null}
           <span className="pay-upi__text">
             <span className="pay-upi__name">{upi.name}</span>
             <span className="pay-upi__type">{upi.type}</span>
@@ -296,8 +337,8 @@ export default function Payment({
         </header>
       </section>
 
-      {/* ---------- Account zone: the two UPI radio cards ---------- */}
-      <section className="pay-zone" aria-label="UPI account">
+      {/* ---------- Account zone: two UPI radio cards + the Cash card ---------- */}
+      <section className="pay-zone" aria-label="Payment account">
         <div className="pay-zone__head">
           <h2 className="pay-zone__label">Account</h2>
           <span className="pay-zone__helper">collecting to</span>
@@ -307,50 +348,54 @@ export default function Payment({
 
       {/* ---------- QR zone: the white card on the stage ----------
           On the ≥ 900px night canvas the LIVE zone panel dissolves
-          (pay-zone--live) so the white QR card floats on the night. */}
-      <section
-        className={"pay-zone pay-zone--qr" + (qrVisible ? " pay-zone--live" : "")}
-        aria-label="Payment QR"
-      >
-        <div className="pay-zone__head">
-          <h2 className="pay-zone__label">Payment QR</h2>
-          <span className="pay-zone__helper">scan with any UPI app</span>
-        </div>
-        {!qrVisible ? (
-          <div className="pay-generate">
-            {errorMessage ? (
-              <Banner
-                tone="error"
-                action={
-                  <Button variant="secondary" size="sm" onClick={onShowQR}>
-                    Retry
-                  </Button>
-                }
-              >
-                {errorMessage}
-              </Banner>
-            ) : null}
-            <Button
-              variant="primary"
-              size="lg"
-              fullWidth
-              loading={generating}
-              onClick={onShowQR}
-            >
-              Show QR
-            </Button>
+          (pay-zone--live) so the white QR card floats on the night.
+          Cash has no QR (owner truth #4): the whole zone drops when Cash is
+          the selected rail — the hold-to-confirm below is the only path. */}
+      {!cashSelected ? (
+        <section
+          className={"pay-zone pay-zone--qr" + (qrVisible ? " pay-zone--live" : "")}
+          aria-label="Payment QR"
+        >
+          <div className="pay-zone__head">
+            <h2 className="pay-zone__label">Payment QR</h2>
+            <span className="pay-zone__helper">scan with any UPI app</span>
           </div>
-        ) : (
-          <QRPanel
-            value={sessionUpiId}
-            code={verificationCode}
-            status={isTimeout ? "timeout" : isError ? "error" : "active"}
-            banner={statusBanner}
-          >
-            {qrElement}
-          </QRPanel>
-        )}
-      </section>
+          {!qrVisible ? (
+            <div className="pay-generate">
+              {errorMessage ? (
+                <Banner
+                  tone="error"
+                  action={
+                    <Button variant="secondary" size="sm" onClick={onShowQR}>
+                      Retry
+                    </Button>
+                  }
+                >
+                  {errorMessage}
+                </Banner>
+              ) : null}
+              <Button
+                variant="primary"
+                size="lg"
+                fullWidth
+                loading={generating}
+                onClick={onShowQR}
+              >
+                Show QR
+              </Button>
+            </div>
+          ) : (
+            <QRPanel
+              value={sessionUpiId}
+              code={verificationCode}
+              status={isTimeout ? "timeout" : isError ? "error" : "active"}
+              banner={statusBanner}
+            >
+              {qrElement}
+            </QRPanel>
+          )}
+        </section>
+      ) : null}
 
       {/* ---------- Sticky ActionBar: hold-to-confirm is THE primary ----------
           Owner call 2026-07-20: the interviewer is the confirmer. The
@@ -363,7 +408,11 @@ export default function Payment({
             {subjectName} · board verifies later
           </p>
           <HoldButton
-            label={`Hold to confirm — ₹${amount} received`}
+            label={
+              cashSelected
+                ? `Hold to confirm — ₹${amount} cash received`
+                : `Hold to confirm — ₹${amount} received`
+            }
             onConfirm={() => {
               if (onMarkPaid) onMarkPaid();
             }}

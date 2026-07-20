@@ -195,6 +195,22 @@
     transform var(--motion-micro) var(--ease-spring);
 }
 
+/* Cash card leading glyph (§6.4 — the one rail with no bank identity gets an
+   icon beside the label instead of the UPI name/type pair). Muted at rest,
+   brand when the card is the selected rail — the same affordance shift as the
+   radio dot. Color transition only (motion law); no keyframes. */
+.pay-upi__icon {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  color: var(--text-3);
+  transition: color var(--motion-micro) var(--ease);
+}
+
+.pay-upi__card--on .pay-upi__icon {
+  color: var(--brand-600);
+}
+
 .pay-upi__text {
   position: relative;
   z-index: 1;
