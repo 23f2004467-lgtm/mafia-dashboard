@@ -53,10 +53,10 @@
     ),
     linear-gradient(
       to bottom,
-      rgba(0, 0, 0, 0.85) 0%,
-      transparent 30%,
-      transparent 62%,
-      rgba(0, 0, 0, 0.88) 100%
+      rgba(0, 0, 0, 0.72) 0%,
+      transparent 24%,
+      transparent 70%,
+      rgba(0, 0, 0, 0.78) 100%
     );
 }
 
@@ -87,16 +87,25 @@
    video frame. 1px border on the jacket-violet dark border; ticket
    corners; overflow hidden so the spectrum hairline follows the clip.
    Entrance: fade + 8px lift, --motion-screen --ease, no delay. */
+/* Owner call 2026-07-20: the bounded box covered too much footage. The
+   panel is now edgeless — no border, no fill-box. Legibility comes from a
+   FEATHERED radial pool (fades to fully transparent, so the video shows at
+   the edges and there is no visible boundary) PLUS per-line text-shadows
+   (each line carries its own contrast over bright video frames). The
+   drone flight breathes; the billing still holds AA. */
 .iv-login__panel {
   position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: var(--space-8) var(--space-6) var(--space-6);
-  background: var(--stage-scrim);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-ticket);
-  overflow: hidden;
+  padding: var(--space-10) var(--space-6) var(--space-8);
+  background: radial-gradient(
+    ellipse 66% 58% at 50% 46%,
+    rgba(0, 0, 0, 0.62) 0%,
+    rgba(0, 0, 0, 0.42) 38%,
+    rgba(0, 0, 0, 0.16) 62%,
+    transparent 80%
+  );
   text-align: center;
   opacity: 0;
   transform: translateY(8px);
@@ -165,7 +174,8 @@
   font-weight: 600;
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
-  color: var(--text-2);
+  color: var(--text-1); /* edgeless: brighter than --text-2 for video */
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.9);
 }
 
 .iv-login__billing::before,
@@ -173,7 +183,7 @@
   content: "";
   flex: 1;
   height: 1px;
-  background: var(--border-strong);
+  background: rgba(255, 255, 255, 0.28);
 }
 
 /* The marquee. Bakbak One's single weight; marquee scale is a §6.1
@@ -189,6 +199,9 @@
   letter-spacing: var(--tracking-display);
   text-transform: uppercase;
   color: #ffffff; /* §6.1: "MAFIA" in white on the stage ink */
+  /* Edgeless legibility: a tight dark edge + a wide pool so the white
+     marquee holds over the brightest confetti frame. */
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 4px 28px rgba(0, 0, 0, 0.65);
 }
 
 /* The six-dot signature row, tight under the marquee (MAFIA-06: the dots
@@ -211,7 +224,8 @@
   font-weight: 600;
   letter-spacing: var(--tracking-caps);
   text-transform: uppercase;
-  color: var(--text-2);
+  color: var(--text-1); /* edgeless: brighter over video */
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.9);
 }
 
 /* ---------- The act: CTA on the panel grid ---------- */
@@ -283,7 +297,7 @@
   align-self: stretch;
   margin-top: var(--space-8);
   padding-top: var(--space-3);
-  border-top: 1px solid var(--border);
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
 }
 
 .iv-login__help {
@@ -294,9 +308,10 @@
   font-family: var(--font-mono);
   font-size: var(--text-14);
   font-weight: 500;
-  color: var(--text-2);
+  color: var(--text-1);
   text-decoration: underline;
   text-underline-offset: 3px;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.9);
 }
 
 .iv-login__help:focus-visible {

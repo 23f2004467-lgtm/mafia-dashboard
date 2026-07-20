@@ -145,14 +145,6 @@ export default function Login({
       <div className="iv-login__glow" aria-hidden="true" />
       <main className="iv-login__column">
         <section className="iv-login__panel" aria-label="Sign in">
-          <div className="iv-login__hairline" aria-hidden="true">
-            <span className="iv-login__hairline-seg iv-login__hairline-seg--red" />
-            <span className="iv-login__hairline-seg iv-login__hairline-seg--orange" />
-            <span className="iv-login__hairline-seg iv-login__hairline-seg--amber" />
-            <span className="iv-login__hairline-seg iv-login__hairline-seg--green" />
-            <span className="iv-login__hairline-seg iv-login__hairline-seg--blue" />
-            <span className="iv-login__hairline-seg iv-login__hairline-seg--violet" />
-          </div>
           <p className="iv-login__billing iv-login__line" style={lineDelay(0)}>
             The Music and Fine Arts Club
           </p>
