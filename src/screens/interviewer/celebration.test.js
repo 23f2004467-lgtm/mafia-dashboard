@@ -104,6 +104,9 @@ describe("Done — outcome-mapped intensity", () => {
     expect(container.querySelector(".celebrate-burst")).toBeFalsy();
 
     expect(screen.getByText("SELECTED · Dance")).toBeInTheDocument();
+
+    // The APPROVED seal presses onto an approved receipt.
+    expect(container.querySelector(".iv-done__approved")).toBeTruthy();
   });
 
   test("not selected: zero festivity — neutral mark, quiet stamp, nothing moves", () => {
@@ -124,6 +127,9 @@ describe("Done — outcome-mapped intensity", () => {
     expect(container.querySelector(".celebrate-burst")).toBeFalsy();
 
     expect(screen.getByText("NOT SELECTED")).toBeInTheDocument();
+
+    // The hard rule: you never stamp APPROVED on a rejection.
+    expect(container.querySelector(".iv-done__approved")).toBeFalsy();
   });
 
   test("selected + reduced motion: flecks never render, mark still success", () => {

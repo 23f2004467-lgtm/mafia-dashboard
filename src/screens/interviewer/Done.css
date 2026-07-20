@@ -198,3 +198,24 @@
   animation-duration: 1200ms;
   animation-delay: 500ms;
 }
+
+/* The APPROVED seal (owner 2026-07-20): a pressed rubber stamp — SELECTED
+   only (the JSX gates it; never on a rejection). Corner-slapped green ink
+   impression that presses in as the recap's finale via the sanctioned
+   celebrate-stamp-slam. At-rest transform = the slam's final frame, so
+   reduced motion (animation:none on .celebrate-once) shows it static. */
+.iv-done__approved {
+  position: absolute;
+  top: calc(-1 * var(--space-2));
+  right: 0;
+  width: 128px;
+  height: auto;
+  opacity: 0.9;
+  pointer-events: none;
+  z-index: 2;
+  transform: rotate(-2deg);
+}
+
+.iv-done--celebrate .iv-done__approved {
+  animation: celebrate-stamp-slam 300ms var(--ease-spring) 620ms both;
+}

@@ -117,6 +117,20 @@ export default function Done({
         </div>
       ) : null}
 
+      {/* The APPROVED seal (owner 2026-07-20): a pressed rubber stamp on the
+          receipt — SELECTED ONLY. You never stamp APPROVED on a rejection,
+          so it is absent on the not_selected recap. Decorative; the outcome
+          is already announced by the Stamp + title. */}
+      {selected ? (
+        <img
+          className="iv-done__approved celebrate-once"
+          src="/brand/approved-stamp.png"
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+        />
+      ) : null}
+
       {/* The mark: SELECTED draws the tick (the green room's echo, brisk);
           NOT SELECTED renders it complete in neutral ink — recorded, not
           celebrated. */}
