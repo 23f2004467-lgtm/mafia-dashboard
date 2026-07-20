@@ -417,6 +417,19 @@
     min-height: 0;
   }
 
+  /* Narrow sidebar (300px): stack the pills UNDER the identity so the name
+     keeps the full row — two pills beside the name crushed it to "A.."
+     (owner catch 2026-07-20). The inline phone section is untouched. */
+  .iv-search__side .iv-search__recent-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-2);
+  }
+
+  .iv-search__side .iv-search__recent-pills {
+    flex-wrap: wrap;
+  }
+
   /* Stage-ink variants of the quiet Clear (the panel is a night surface). */
   .iv-search__side .iv-search__clear-btn {
     color: var(--stage-ink-muted);
