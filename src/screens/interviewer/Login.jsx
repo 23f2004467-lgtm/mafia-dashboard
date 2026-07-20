@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Banner, Button, SpectrumDots } from "../../ui";
+import { Banner, Button, Input, SpectrumDots } from "../../ui";
 import "./Login.css";
 
 /**
@@ -30,14 +30,55 @@ import "./Login.css";
  *   one 56px primary "Continue with Google", mono tel: help credit.
  *   Errors render as an inline error Banner (mapped copy from App.js's
  *   existing error table) — never a native dialog.
+ *
+ * Quiet secondary path (owner feature 2026-07-20): a "I'm at the check-in
+ * desk" link under the Google CTA swaps the act for a name + code form
+ * ("Your name", "Desk code", "Enter"). Submit hands {name, code} to App.js,
+ * which validates the code against config/checkinDesk over a silent Firebase
+ * anonymous session — the desk never touches Google. `deskError` renders as
+ * an inline Banner (wrong code, or "sign-in not enabled yet"); "Back" returns
+ * to the Google card. Google interviewers are untouched; Google stays primary.
  */
 export default function Login({
   booting = false,
   onLogin,
   loading = false,
   error = "",
+  onDeskLogin,
+  deskLoading = false,
+  deskError = "",
 }) {
   const [slowBoot, setSlowBoot] = useState(false);
+
+  // The quiet check-in-desk path: a name+code form in place of the Google
+  // act. Internal view state — App.js owns the anonymous sign-in it submits to.
+  const [deskMode, setDeskMode] = useState(false);
+  const [deskName, setDeskName] = useState("");
+  const [deskCode, setDeskCode] = useState("");
+
+  // Hide the parent's desk error the instant the operator edits a field, so a
+  // corrected entry never sits under a stale "didn't match" banner. A FRESH
+  // error from App (deskError prop changes — it resets to "" before each
+  // attempt, so even an identical message re-arms) un-hides it again.
+  const [deskErrorHidden, setDeskErrorHidden] = useState(false);
+  useEffect(() => {
+    setDeskErrorHidden(false);
+  }, [deskError]);
+  const showDeskError = Boolean(deskError) && !deskErrorHidden;
+
+  const openDeskMode = () => {
+    setDeskErrorHidden(true); // don't carry a prior attempt's banner back in
+    setDeskMode(true);
+  };
+  const closeDeskMode = () => {
+    setDeskErrorHidden(true);
+    setDeskMode(false);
+  };
+  const submitDesk = (event) => {
+    event.preventDefault();
+    if (onDeskLogin) onDeskLogin({ name: deskName, code: deskCode });
+  };
+  const deskReady = Boolean(deskName.trim()) && Boolean(deskCode.trim());
 
   // The drone flight plays only where it earns its bytes: >= 768px and no
   // reduced-motion preference. Phones and reduced-motion get the graded
@@ -136,6 +177,63 @@ export default function Login({
                 </div>
               </>
             ) : null
+          ) : deskMode ? (
+            <>
+              <p className="iv-login__tagline">Check-in desk</p>
+              <form className="iv-login__desk-form" onSubmit={submitDesk}>
+                <Input
+                  label="Your name"
+                  value={deskName}
+                  autoComplete="name"
+                  autoFocus
+                  onChange={(e) => {
+                    setDeskName(e.target.value);
+                    setDeskErrorHidden(true);
+                  }}
+                />
+                <Input
+                  label="Desk code"
+                  mono
+                  value={deskCode}
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  onChange={(e) => {
+                    setDeskCode(e.target.value);
+                    setDeskErrorHidden(true);
+                  }}
+                />
+                <Button
+                  type="submit"
+                  variant="primary"
+                  size="lg"
+                  fullWidth
+                  loading={deskLoading}
+                  disabled={!deskReady}
+                >
+                  Enter
+                </Button>
+              </form>
+              {showDeskError ? (
+                <div className="iv-login__error">
+                  <Banner tone="error">{deskError}</Banner>
+                </div>
+              ) : null}
+              <div className="iv-login__desk-switch">
+                <button
+                  type="button"
+                  className="iv-login__desk-link"
+                  onClick={closeDeskMode}
+                >
+                  Back to sign-in
+                </button>
+              </div>
+              <div className="iv-login__credit">
+                <a className="iv-login__help" href="tel:9591185310">
+                  Help: 9591185310
+                </a>
+              </div>
+            </>
           ) : (
             <>
               <p
@@ -160,7 +258,19 @@ export default function Login({
                   <Banner tone="error">{error}</Banner>
                 </div>
               ) : null}
-              <div className="iv-login__credit iv-login__line" style={lineDelay(5)}>
+              <div
+                className="iv-login__desk-switch iv-login__line"
+                style={lineDelay(5)}
+              >
+                <button
+                  type="button"
+                  className="iv-login__desk-link"
+                  onClick={openDeskMode}
+                >
+                  I&#8217;m at the check-in desk
+                </button>
+              </div>
+              <div className="iv-login__credit iv-login__line" style={lineDelay(6)}>
                 <a className="iv-login__help" href="tel:9591185310">
                   Help: 9591185310
                 </a>

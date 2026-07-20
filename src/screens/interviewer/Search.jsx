@@ -418,6 +418,7 @@ export default function Search({
                   type="button"
                   className="iv-search__side-collapse"
                   aria-label="Hide my recent"
+                  aria-expanded={!sideCollapsed}
                   onClick={() => setSidebar(true)}
                 >
                   <svg
@@ -452,6 +453,7 @@ export default function Search({
             type="button"
             className="iv-search__side-tab"
             aria-label="Show my recent"
+            aria-expanded={!sideCollapsed}
             onClick={() => setSidebar(false)}
           >
             <span className="iv-search__side-tab-pill">My recent</span>

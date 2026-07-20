@@ -1,6 +1,10 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { auth, provider, db } from "./firebaseConfig";
-import { signInWithPopup, onAuthStateChanged } from "firebase/auth";
+import {
+  signInWithPopup,
+  signInAnonymously,
+  onAuthStateChanged,
+} from "firebase/auth";
 import {
   doc,
   setDoc,
@@ -14,6 +18,7 @@ import QRCode from 'react-qr-code';
 import { FirebaseSecurity } from './security';
 import { buildCandidatePayload } from './candidatePayload';
 import { buildPaymentClaim } from './paymentClaim';
+import { codesMatch } from './deskCode';
 import {
   deriveVerdictStatusForWrite,
   isWaiting,
@@ -139,6 +144,21 @@ const readStoredPaymentSession = () => {
   }
 };
 
+// Check-in desk name+code auth (owner feature 2026-07-20): the typed desk
+// name, stashed per TAB (sessionStorage) so an anonymous desk session survives
+// a reload with its attribution intact. It is both the check-in write's
+// `activatedBy`/`lastUpdatedBy` (anonymous sessions have no email) AND the
+// signal that an anonymous session is a VALIDATED desk — no name, no desk.
+const DESK_NAME_KEY = "mafia.deskName";
+
+const readDeskName = () => {
+  try {
+    return sessionStorage.getItem(DESK_NAME_KEY) || "";
+  } catch {
+    return "";
+  }
+};
+
 function App() {
   // Performance stuff - added this because the site was getting slow with multiple users
   const performanceMonitor = useMemo(() => new PerformanceMonitor(), []);
@@ -220,6 +240,26 @@ function App() {
   const [deskRoleLoaded, setDeskRoleLoaded] = useState(false);
   // Doc key of the desk check-in write in flight (button loading state).
   const [deskBusyKey, setDeskBusyKey] = useState(null);
+  // Name+code anonymous desk auth (owner feature 2026-07-20). `deskName` is
+  // the typed operator name (state mirror of sessionStorage) — non-empty ONLY
+  // for a validated anonymous desk session; it drives attribution and, with
+  // an anonymous user, the desk role. `deskAuthPending`/`deskAuthError` feed
+  // the Login desk form's spinner + inline Banner.
+  const [deskName, setDeskName] = useState(readDeskName);
+  const [deskAuthPending, setDeskAuthPending] = useState(false);
+  const [deskAuthError, setDeskAuthError] = useState("");
+
+  // Stash / clear the desk name in BOTH state and sessionStorage (per-tab, so
+  // a reload keeps the attribution but a fresh tab starts clean).
+  const stashDeskName = (name) => {
+    setDeskName(name);
+    try {
+      if (name) sessionStorage.setItem(DESK_NAME_KEY, name);
+      else sessionStorage.removeItem(DESK_NAME_KEY);
+    } catch (error) {
+      console.warn("Failed to persist desk name:", error);
+    }
+  };
   // §6.5: the Done screen's recap ({name, verdict, paid, manuallyVerified}),
   // latched from formData BEFORE the routed reset (resetAfterSubmit /
   // clearForm) wipes it — the recap is display-local, like §2 #30's
@@ -348,6 +388,25 @@ function App() {
         setSearchAutoFocus(false); // next session's Search is a cold load
         setDoneRecap(null);
         clearVerdictUndo(); // sign-out leaves the done/payment context
+        // Desk anonymous session ended: drop the stashed name so the next
+        // sign-in (Google, or a fresh desk code) starts clean.
+        setDeskName("");
+        try {
+          sessionStorage.removeItem(DESK_NAME_KEY);
+        } catch (error) {
+          console.warn("Failed to clear desk name:", error);
+        }
+        setAuthResolved(true);
+        return;
+      }
+
+      // Anonymous check-in-desk session (owner feature 2026-07-20): no email,
+      // no interviewer registration, no heartbeat — its identity is the stashed
+      // desk name (validated at sign-in). An anonymous session only ever
+      // reaches the Desk; the role gate below keeps it out of the interviewer
+      // machine even in the brief window before the name resolves.
+      if (firebaseUser.isAnonymous) {
+        setUser(firebaseUser);
         setAuthResolved(true);
         return;
       }
@@ -477,7 +536,9 @@ function App() {
   // `user` goes null (logout) or the app unmounts. The old per-press search
   // onSnapshot and the broken first-10-docs debounced search are deleted.
   useEffect(() => {
-    if (!user || !user.email) {
+    // `user` (not user.email): an anonymous desk session has no email but
+    // must still read the candidate list (rule-scoped read for isDesk()).
+    if (!user) {
       setCandidates([]);
       setCandidatesLoaded(false);
       return;
@@ -506,7 +567,11 @@ function App() {
   // is exactly today's behavior for every existing account. Emails compare
   // case-insensitively.
   useEffect(() => {
-    if (!user || !user.email) {
+    // `user` (not user.email): an anonymous desk session runs this too so the
+    // role gate resolves (deskRoleLoaded flips); the allowlist it reads is
+    // unused for anon routing (the stashed name is the role), and a denied
+    // read still resolves via the error fallback below.
+    if (!user) {
       setDeskEmails([]);
       setDeskRoleLoaded(false);
       return;
@@ -1162,6 +1227,67 @@ function App() {
       setLoginError(errorMessage);
     } finally {
       setIsLoggingIn(false);
+    }
+  };
+
+  // ---------- Check-in desk name+code sign-in (owner feature 2026-07-20) ----
+  // The quiet path off the Login screen: the operator types a name + the
+  // shared desk code. The NARROW firestore rules only let an anonymous session
+  // (isDesk()) read config/checkinDesk, so we sign in anonymously FIRST, then
+  // read + compare the code:
+  //   - match → stash the name (state + sessionStorage); the auth listener +
+  //             role gate route to the Desk screen.
+  //   - miss  → sign the anonymous session back out, inline "didn't match".
+  // signInAnonymously throws until the owner enables Anonymous auth in the
+  // Firebase console — that surfaces as the "not enabled yet" Banner, so the
+  // whole path fails gracefully until the console + rules are live.
+  const handleDeskLogin = async ({ name, code }) => {
+    const trimmedName = (name || "").trim();
+    const trimmedCode = (code || "").trim();
+    setDeskAuthError("");
+    if (!trimmedName || !trimmedCode) {
+      setDeskAuthError("Enter your name and the desk code.");
+      return;
+    }
+    setDeskAuthPending(true);
+    try {
+      // 1) Become an anonymous session (the only role the rules let read the
+      //    code doc). This is the call that throws when anon auth is off.
+      try {
+        await signInAnonymously(auth);
+      } catch (authErr) {
+        console.error("Anonymous desk sign-in failed:", authErr);
+        setDeskAuthError(
+          "Check-in desk sign-in is not enabled yet. Ask the coordinator."
+        );
+        return;
+      }
+
+      // 2) Read + validate the current code (allowed now as isDesk()).
+      let currentCode = null;
+      try {
+        const snap = await getDoc(doc(db, "config", "checkinDesk"));
+        currentCode = snap.exists() ? snap.data().deskCode : null;
+      } catch (readErr) {
+        console.error("Desk code read failed:", readErr);
+        await auth.signOut();
+        setDeskAuthError("Couldn't verify the code — try again in a moment.");
+        return;
+      }
+
+      if (!codesMatch(trimmedCode, currentCode)) {
+        // Wrong (or unset) code: retire the anonymous session so no half-open
+        // desk session lingers, and report inline.
+        await auth.signOut();
+        setDeskAuthError("That code didn't match. Check with the coordinator.");
+        return;
+      }
+
+      // 3) Valid: stash the name. onAuthStateChanged's anon branch already set
+      //    `user`; stashing the name flips isAnonDesk → the Desk renders.
+      stashDeskName(trimmedName);
+    } finally {
+      setDeskAuthPending(false);
     }
   };
 
@@ -1997,12 +2123,23 @@ function App() {
   };
 
   // ---------- Check-in desk writes (owner feature 2026-07-20) ----------
-  // The SAME additive update path the admin check-in uses (merge setDoc on
-  // the candidate doc): activated:true PLUS the new additive activatedAt
-  // server timestamp — the ONLY record fields the desk can ever touch,
-  // beyond the shared updated-meta. Doc key = the snapshot doc id (landmine
-  // #2: never assume regNo IS the key). Desk.jsx is presentational; both
-  // writes live here.
+  // The SAME additive update path the admin check-in uses (merge setDoc on the
+  // candidate doc): activated + activatedAt + the additive attribution
+  // activatedBy — the ONLY record fields the desk can ever touch, beyond the
+  // shared updated-meta. This set is now RULE-ENFORCED (firestore.rules
+  // isDesk() update scope: affectedKeys().hasOnly([activated, activatedAt,
+  // activatedBy, lastUpdatedBy, lastUpdatedAt])), not just UI. Doc key = the
+  // snapshot doc id (landmine #2: never assume regNo IS the key). Desk.jsx is
+  // presentational; both writes live here.
+
+  // The desk operator's name for attribution: the typed anonymous-session name
+  // first (an anonymous desk session has no email), else a Google desk
+  // account's identity, else a neutral label. Feeds the additive `activatedBy`
+  // AND the shared `lastUpdatedBy`, so the admin activity feed shows who worked
+  // the door even for the email-less anonymous sessions.
+  const deskActor = () =>
+    deskName || user?.displayName || user?.email || "Check-in desk";
+
   const deskCheckIn = async (cand) => {
     const key = cand.id || cand.regNo;
     // Same-person double-taps are already impossible (the row swaps to the
@@ -2016,7 +2153,10 @@ function App() {
         {
           activated: true,
           activatedAt: serverTimestamp(),
-          lastUpdatedBy: user?.displayName || user?.email || "Check-in desk",
+          // Additive attribution (owner feature 2026-07-20): who checked them
+          // in — the typed desk name for anonymous sessions.
+          activatedBy: deskActor(),
+          lastUpdatedBy: deskActor(),
           lastUpdatedAt: new Date().toISOString(),
         },
         { merge: true }
@@ -2050,7 +2190,10 @@ function App() {
         {
           activated: false,
           activatedAt: deleteField(),
-          lastUpdatedBy: user?.displayName || user?.email || "Check-in desk",
+          // Attribution of the revert (owner feature 2026-07-20): who marked
+          // them not-arrived. Same rule-enforced desk write scope.
+          activatedBy: deskActor(),
+          lastUpdatedBy: deskActor(),
           lastUpdatedAt: new Date().toISOString(),
         },
         { merge: true }
@@ -2069,6 +2212,12 @@ function App() {
 
   // ---------- Render: the §6 screen state machine ----------
 
+  // A VALIDATED anonymous check-in-desk session: anonymous auth AND a stashed
+  // (code-validated) desk name. This is the ONLY thing that turns an
+  // email-less anonymous session into a desk user — an anonymous session
+  // without it never reaches any portal.
+  const isAnonDesk = !!(user && user.isAnonymous && deskName.trim());
+
   // Boot splash (§6.1): while onAuthStateChanged resolves on cold load, "/"
   // shows the black stage with the six-dot loader — restored sessions go
   // splash → Search and never see the Login form.
@@ -2076,11 +2225,22 @@ function App() {
     return <Login booting />;
   }
 
-  // Signed out → the §6.1 Login stage.
-  if (!user) {
+  // Signed out — OR an anonymous session not yet resolved into a desk (mid
+  // code-validation, or an orphaned anon session in a fresh tab): the §6.1
+  // Login stage. An anonymous session is NEVER an interviewer, so this keeps
+  // it out of the interviewer machine entirely; the desk form stays mounted
+  // (its view state persists) through the sign-in round-trip.
+  if (!user || (user.isAnonymous && !isAnonDesk)) {
     return (
       <>
-        <Login onLogin={login} loading={isLoggingIn} error={loginError} />
+        <Login
+          onLogin={login}
+          loading={isLoggingIn}
+          error={loginError}
+          onDeskLogin={handleDeskLogin}
+          deskLoading={deskAuthPending}
+          deskError={deskAuthError}
+        />
         <ToastHost position="bottom-center" />
       </>
     );
@@ -2097,13 +2257,20 @@ function App() {
     return <Login booting />;
   }
 
-  const isDeskUser = deskEmails.includes((user.email || "").toLowerCase());
+  // A desk user is EITHER a validated anonymous name+code session OR a
+  // Google account whose verified email is on the config/checkinDesk
+  // allowlist. Google interviewers are unaffected.
+  const isDeskUser =
+    isAnonDesk || deskEmails.includes((user.email || "").toLowerCase());
 
   if (isDeskUser) {
+    // Anonymous sessions have no email/displayName — surface the typed desk
+    // name in the chrome (Avatar initials + account sheet) instead of a blank.
+    const deskChromeUser = isAnonDesk ? { displayName: deskName } : user;
     return (
       <div className="iv-app">
         <InterviewerChrome
-          user={user}
+          user={deskChromeUser}
           isOnline={isOnline}
           onSignOut={logout}
           stage

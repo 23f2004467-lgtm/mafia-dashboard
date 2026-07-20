@@ -227,6 +227,54 @@
   text-align: left;
 }
 
+/* ---------- Check-in desk path (owner feature 2026-07-20) ----------
+   The quiet secondary act: a name + code form in place of the Google CTA.
+   Fields are the shared Input under the panel's data-theme="dark" (dark
+   surface, light ink — AA), left-aligned like the error slot. */
+.iv-login__desk-form {
+  width: 100%;
+  margin-top: var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  text-align: left;
+}
+
+/* The "I'm at the check-in desk" / "Back to sign-in" link: a quiet text
+   button, full touch target, muted stage ink — never competes with the
+   primary Google CTA. */
+.iv-login__desk-switch {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-4);
+}
+
+.iv-login__desk-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--touch-min);
+  padding: 0 var(--space-3);
+  background: none;
+  border: 0;
+  font-size: var(--text-14);
+  font-weight: 500;
+  color: var(--text-2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  border-radius: var(--radius-input);
+}
+
+.iv-login__desk-link:hover {
+  color: var(--text-1);
+}
+
+.iv-login__desk-link:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
 /* ---------- Footer credit: rule + mono help line ---------- */
 
 .iv-login__credit {

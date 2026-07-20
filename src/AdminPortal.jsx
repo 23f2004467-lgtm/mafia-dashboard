@@ -12,6 +12,7 @@ import AdminInterviewers from './screens/admin/AdminInterviewers';
 import AdminActivity from './screens/admin/AdminActivity';
 import { canUndo } from './undoGuard';
 import { deriveJourneyState, isCheckedIn } from './candidateState';
+import { generateDeskCode } from './deskCode';
 import './AdminPortal.css';
 import {
   collection,
@@ -163,12 +164,18 @@ function AdminPortal() {
   const [showForceLogoutModal, setShowForceLogoutModal] = useState(false);
 
   // Check-in desk allowlist (desk feature 2026-07-20): live mirror of
-  // config/checkinDesk { emails: [...] } + the management Dialog's state.
+  // config/checkinDesk { emails: [...], deskCode } + the management Dialog's
+  // state. `deskCode` is the shared code the name+code desk sign-in validates
+  // against; the admin rotates it here (a second, code-based entry path
+  // alongside the email allowlist).
   const [deskEmails, setDeskEmails] = useState([]);
+  const [deskCode, setDeskCode] = useState(null);
   const [showDeskModal, setShowDeskModal] = useState(false);
   const [deskInput, setDeskInput] = useState("");
   const [deskInputError, setDeskInputError] = useState(null);
   const [deskWorking, setDeskWorking] = useState(false);
+  // Rotate-code in flight (separate spinner from the email add/remove writes).
+  const [deskCodeWorking, setDeskCodeWorking] = useState(false);
 
   // Import time slots (stage B, 2026-07-20): the picked file's parse
   // result drives the preview; NOTHING is written until Apply. All the
@@ -348,19 +355,25 @@ function AdminPortal() {
     }
   };
 
-  // ---------- Check-in desk allowlist writes (desk feature 2026-07-20) ----
-  // The whole doc IS the list: every mutation writes the full { emails }
-  // array to config/checkinDesk (additive schema — no other collection is
-  // touched; App.js role-resolves from this doc live). Emails are stored
-  // trimmed + lowercased; the desk portal compares case-insensitively.
+  // ---------- Check-in desk allowlist + code writes (desk feature 2026-07-20)
+  // config/checkinDesk carries BOTH the { emails } allowlist and the { deskCode }
+  // shared code (additive schema — no other collection is touched; App.js
+  // role-resolves and the desk sign-in validates from this doc live). Writes
+  // MERGE so the email edits and the code rotate never clobber each other.
+  // Emails are stored trimmed + lowercased; the desk portal compares
+  // case-insensitively.
   const writeDeskEmails = async (nextEmails) => {
     setDeskWorking(true);
     try {
-      await setDoc(doc(db, "config", "checkinDesk"), {
-        emails: nextEmails,
-        updatedBy: email || "Admin",
-        updatedAt: new Date().toISOString(),
-      });
+      await setDoc(
+        doc(db, "config", "checkinDesk"),
+        {
+          emails: nextEmails,
+          updatedBy: email || "Admin",
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true } // preserve deskCode on the same doc
+      );
       FirebaseSecurity.auditLogger.logEvent('admin_checkin_desk_updated', {
         timestamp: new Date().toISOString(),
         adminEmail: email,
@@ -373,6 +386,37 @@ function AdminPortal() {
       return false;
     } finally {
       setDeskWorking(false);
+    }
+  };
+
+  // Rotate the shared desk code: generate a fresh unambiguous 6-char code and
+  // merge it onto config/checkinDesk (preserving the email allowlist). Every
+  // rotation invalidates the previous code — in-flight desk sessions already
+  // validated stay signed in (the code gates sign-IN, not the live session).
+  const rotateDeskCode = async () => {
+    if (deskCodeWorking) return;
+    setDeskCodeWorking(true);
+    try {
+      const nextCode = generateDeskCode();
+      await setDoc(
+        doc(db, "config", "checkinDesk"),
+        {
+          deskCode: nextCode,
+          updatedBy: email || "Admin",
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true } // preserve the emails array on the same doc
+      );
+      FirebaseSecurity.auditLogger.logEvent('admin_checkin_desk_code_rotated', {
+        timestamp: new Date().toISOString(),
+        adminEmail: email,
+      });
+      toast({ tone: 'success', message: 'Desk code rotated' });
+    } catch (error) {
+      console.error('Error rotating desk code:', error);
+      toast({ tone: 'error', message: 'Could not rotate the code: ' + error.message });
+    } finally {
+      setDeskCodeWorking(false);
     }
   };
 
@@ -959,6 +1003,9 @@ function AdminPortal() {
             .filter((e) => typeof e === "string")
             .map((e) => e.trim().toLowerCase())
         );
+        setDeskCode(
+          data && typeof data.deskCode === "string" ? data.deskCode : null
+        );
       },
       (error) => {
         console.error("Check-in desk config listener error:", error);
@@ -1367,13 +1414,13 @@ function AdminPortal() {
         open={showDeskModal}
         onClose={() => setShowDeskModal(false)}
         title="Check-in desk"
-        busy={deskWorking}
+        busy={deskWorking || deskCodeWorking}
         className="admin-desk-dialog"
         actions={
           <Button
             size="sm"
             variant="secondary"
-            disabled={deskWorking}
+            disabled={deskWorking || deskCodeWorking}
             onClick={() => setShowDeskModal(false)}
           >
             Done
@@ -1381,10 +1428,39 @@ function AdminPortal() {
         }
       >
         <p className="admin-desk__intro">
-          These Google accounts open the check-in desk instead of the
-          interviewer tools — the live candidate list with one action:
-          mark arrivals. Changes apply immediately.
+          Two ways in to the check-in desk — the live candidate list with one
+          action, mark arrivals. Sign in with the shared code below, or add a
+          Google account to the allowlist. Changes apply immediately.
         </p>
+
+        {/* Shared desk code — the name + code sign-in path. Rotating writes a
+            fresh code to config/checkinDesk (the allowlist is preserved). */}
+        <div className="admin-desk__code">
+          <div className="admin-desk__code-head">
+            <span className="admin-desk__code-label">Desk code</span>
+            <Button
+              size="sm"
+              variant="secondary"
+              loading={deskCodeWorking}
+              disabled={deskWorking}
+              onClick={rotateDeskCode}
+            >
+              {deskCode ? "Rotate code" : "Generate code"}
+            </Button>
+          </div>
+          {deskCode ? (
+            <code className="admin-desk__code-value">{deskCode}</code>
+          ) : (
+            <p className="admin-desk__code-empty">
+              No code yet — generate one to open the name + code sign-in.
+            </p>
+          )}
+          <p className="admin-desk__code-hint">
+            Share it with the front desk. Rotating retires the old code.
+          </p>
+        </div>
+
+        <h3 className="admin-desk__subhead">Allowlisted accounts</h3>
 
         {deskEmails.length > 0 ? (
           <ul className="admin-desk__list">

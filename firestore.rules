@@ -19,11 +19,22 @@ service cloud.firestore {
     }
     
     function isInterviewer() {
-      return isAuthenticated() && 
+      return isAuthenticated() &&
              isEmailVerified() &&
              request.auth.token.email_verified == true;
     }
-    
+
+    // Check-in desk (desk feature 2026-07-20): a signed-in ANONYMOUS session.
+    // The desk operator opens one via the Login name+code path (App.js
+    // handleDeskLogin → signInAnonymously). isDesk() is the narrow, non-email
+    // role — it grants candidate READ, the diff-scoped check-in UPDATE below,
+    // and config READ (to validate the shared code). It is NEVER an
+    // interviewer/admin: create, delete, verdict and payment writes stay shut.
+    function isDesk() {
+      return request.auth != null &&
+             request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+
     function isValidEmail(email) {
       return email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
     }
@@ -75,17 +86,29 @@ service cloud.firestore {
     
     // Candidates collection - Interviewer and Admin access with strict validation
     match /candidates/{candidateId} {
-      allow read: if isInterviewer() || isAdmin();
-      allow create: if isInterviewer() && 
+      // Read: interviewers, admins, and the check-in desk (an anonymous
+      // session needs the live roster to work the door — owner-accepted; the
+      // roster is thus readable by any anonymous session, same trade the
+      // config code doc makes below).
+      allow read: if isInterviewer() || isAdmin() || isDesk();
+      allow create: if isInterviewer() &&
                        isValidCandidateData(request.resource.data) &&
                        request.resource.data.regNo == candidateId;
-      allow update: if isInterviewer() && 
-                       (isValidCandidateData(request.resource.data) || 
+      allow update: if isInterviewer() &&
+                       (isValidCandidateData(request.resource.data) ||
                         (request.resource.data.keys().hasAll(['paid', 'paymentDetails', 'lastUpdatedBy', 'lastUpdatedAt']) &&
                          isValidAmount(request.resource.data.paymentDetails.amount))) ||
-                    isAdmin() && 
+                    isAdmin() &&
                        (request.resource.data.keys().hasAll(['manuallyVerified', 'manualVerificationDetails', 'lastUpdatedBy', 'lastUpdatedAt']) ||
-                        request.resource.data.keys().hasAll(['paid', 'paymentDetails', 'manuallyVerified', 'lastUpdatedBy', 'lastUpdatedAt']));
+                        request.resource.data.keys().hasAll(['paid', 'paymentDetails', 'manuallyVerified', 'lastUpdatedBy', 'lastUpdatedAt'])) ||
+                    // Check-in desk (2026-07-20): an anonymous desk session may
+                    // touch ONLY the check-in fields — activation + attribution
+                    // + updated-meta — and nothing else. This RULE-ENFORCES the
+                    // desk write scope (verdict, payment, identity are all
+                    // unreachable because they would widen affectedKeys).
+                    isDesk() &&
+                       request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['activated', 'activatedAt', 'activatedBy', 'lastUpdatedBy', 'lastUpdatedAt']);
       allow delete: if isAdmin();
     }
     
@@ -141,13 +164,18 @@ service cloud.firestore {
 
     
     // App config (additive, 2026-07-20): config/checkinDesk holds the
-    // check-in desk email allowlist. Any signed-in verified account may
-    // read it (App.js resolves the desk role from it live); only admins
-    // write it (the /admin overflow Dialog). NOTE: this is role ROUTING,
-    // not security — candidate writes are still interviewer-wide (honesty
-    // note in DESIGN.md §8; rules hardening is future work).
+    // check-in desk email allowlist AND the shared deskCode. Any signed-in
+    // verified account may read it (App.js resolves the desk role from it
+    // live); the check-in desk ALSO reads it — an anonymous session must read
+    // the code doc to validate the code it was given, so the code is readable
+    // by any anonymous session (owner-accepted: it gates the check-in UI, not
+    // the data — the candidates/{id} isDesk() UPDATE scope above is what
+    // actually RULE-ENFORCES what a desk session may write). Only admins write
+    // it (the /admin overflow Dialog rotates the code + edits the allowlist).
+    // The interviewer/desk ROUTING split remains UI-level for the allowlist;
+    // for the check-in fields it is now rules-enforced (DESIGN.md §8 note).
     match /config/{configId} {
-      allow read: if isInterviewer();
+      allow read: if isInterviewer() || isDesk();
       allow write: if isAdmin();
     }
 

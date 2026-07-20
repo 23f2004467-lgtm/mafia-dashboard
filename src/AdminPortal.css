@@ -73,6 +73,63 @@
   color: var(--text-2);
 }
 
+/* Shared desk-code block: a sunken well with the mono code + rotate action. */
+.admin-desk__code {
+  margin-bottom: var(--space-5);
+  padding: var(--space-3);
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-input);
+}
+
+.admin-desk__code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+
+.admin-desk__code-label {
+  font-size: var(--text-12);
+  font-weight: 600;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+/* The code itself — the truth channel (§4): large mono, letterspaced to read
+   character-by-character off a screen. */
+.admin-desk__code-value {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-24);
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--text-1);
+}
+
+.admin-desk__code-empty {
+  margin: 0;
+  color: var(--text-3);
+}
+
+.admin-desk__code-hint {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-13);
+  color: var(--text-3);
+}
+
+/* Sub-heading separating the code path from the allowlist path. */
+.admin-desk__subhead {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-12);
+  font-weight: 600;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
 .admin-desk__list {
   list-style: none;
   display: flex;

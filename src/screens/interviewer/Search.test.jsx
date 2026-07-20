@@ -139,6 +139,30 @@ describe("My recent — both placements (inline + >= 900px sidebar)", () => {
     expect(localStorage.getItem("mafia.recentsSidebar")).toBe("open");
   });
 
+  // A11y (2026-07-20): the collapse/reopen control announces its state via
+  // aria-expanded (only one is exposed at a time in the browser via the CSS
+  // visibility swap — in jsdom both are present, so both are asserted).
+  test("the sidebar toggle carries aria-expanded reflecting the state", () => {
+    renderSearch({ recents: [RECENT] });
+
+    // Open by default → expanded.
+    expect(
+      screen.getByRole("button", { name: "Hide my recent" })
+    ).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByRole("button", { name: "Show my recent" })
+    ).toHaveAttribute("aria-expanded", "true");
+
+    // Collapse → the toggle now announces collapsed.
+    fireEvent.click(screen.getByRole("button", { name: "Hide my recent" }));
+    expect(
+      screen.getByRole("button", { name: "Hide my recent" })
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.getByRole("button", { name: "Show my recent" })
+    ).toHaveAttribute("aria-expanded", "false");
+  });
+
   test("a persisted collapse renders the sidebar collapsed from first paint", () => {
     localStorage.setItem("mafia.recentsSidebar", "collapsed");
     renderSearch({ recents: [RECENT] });
