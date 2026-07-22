@@ -1,218 +1,88 @@
 # MAFIA Recruitment Dashboard
 
-**Streamlining large-scale club recruitments with real-time coordination and payment tracking**
+**Live:** https://mafia-recruitments.web.app
+
+The recruitment tool for **MAFIA — the Music and Fine Arts Club** (MIT Manipal). It runs the club's annual auditions: ~600 candidates interviewed over a few days by 30+ student interviewers working at once, plus a small board overseeing it all and collecting the membership fee. It replaced a chaotic pile of Google Forms and Excel sheets with one live, real-time app.
+
+Built with **React + Firebase (Firestore, Auth, Hosting)**. Everything syncs in real time — a change on one phone shows up on every other instantly.
 
 ---
 
-## Overview
+## Who uses it (three roles, one app)
 
-A web-based recruitment management platform I built to transform how my university's largest student-led club — the Music and Arts Association (MAFIA) — conducts annual recruitments.
+| Role | Signs in with | Their job |
+|---|---|---|
+| **Interviewer** | Google (college account) | Find a candidate → read their preferences & questions → record a verdict (which committees selected them, or *not selected*) → if selected, show a payment QR or take cash and confirm it |
+| **Board / Admin** | Email + password | Watch everything live: who's checked in, who's paid, verify payments against the club account, monitor interviewer activity, export to Excel, manage the desk |
+| **Check-in desk** | Name + a shared code | Call candidates by their time slot and mark them present as they arrive — nothing else |
 
-As Vice President and acting President of the club, I built this system to solve a real operational problem: managing 1000+ interviews across 50+ concurrent interviewers over three days, while maintaining data integrity, real-time coordination, and payment transparency.
+**The flow:** register → checked in at the desk → interviewed (verdict recorded) → if selected, pays ₹300 (interviewer confirms it) → board verifies the payment → member.
 
----
-
-## The Problem
-
-The club conducts recruitments for the incoming first-year batch across:
-- Music (Vocal, Instrumental, Sound)
-- Art (Digital, Traditional, Design)
-- Dance (Classical, Western, Choreography)
-- PR & HR (Management domains)
-
-**The previous workflow:**
-
-1. Application forms through Google Forms
-2. Responses exported to Excel sheets
-3. Manual interview scheduling
-4. Interviewers record feedback in spreadsheets
-5. Selected candidates pay membership fee
-
-**Key issues:**
-
-- **Data Management**: With 30+ interviewers and 500+ candidates, Excel sheets led to incomplete fields, overwritten rows, and lost information
-- **No Real-time Coordination**: Interviewers working simultaneously had zero visibility into each other's actions
-- **Payment Tracking**: Cash payments to individual interviewers with no centralized tracking
-- **Monitoring Challenges**: Small board team (5–6 people) couldn't effectively track activity across 15+ interview rooms
-- **Scalability**: Process became chaotic at scale, limiting how many candidates we could process
+A core idea: **interviewers *claim* a payment, only the board makes it *true*.** That amber-to-green gap is where the old cash-leakage problem lived.
 
 ---
 
-## The Solution
+## Quick start
 
-I built a full-stack web application that replaces spreadsheets with a structured, real-time system:
+```bash
+npm install
+npm start          # dev server → http://localhost:3000
+```
 
-**Tech Stack:**
-- **Frontend**: React
-- **Authentication**: Google OAuth (college email restriction)
-- **Database**: Firebase (real-time NoSQL)
-- **Hosting**: Vercel
-- **Deployment**: CI/CD pipeline
+The Firebase project config is baked into `src/firebaseConfig.js` (the web API key is not a secret — access is controlled by Firestore security rules), so it connects to the live backend out of the box. No `.env` needed to run.
 
-**Core Features:**
-- Interviewer authentication via college email
-- Admin portal for board oversight
-- Real-time candidate activation and tracking
-- Domain-specific interview questions
-- QR-based payment generation with traceable identifiers
-- Live monitoring of interviewer activity
+```bash
+npm test           # 185 tests (CI=true npm test -- --watchAll=false to run once)
+npm run build      # production bundle → build/
+firebase deploy --only hosting     # publish build/ to the live site (needs `firebase login`)
+```
+
+**Note:** `firebase deploy` uploads your local `build/` folder straight to Firebase — it does **not** deploy from GitHub. GitHub is just the source backup.
 
 ---
 
-## System Workflow
+## Design
+
+The whole look is the **"House Lights"** design system — bright warm-paper working screens (readable on a phone under venue glare), a dark violet "stage" for the admin board and the login, the club's own drone footage and jacket-violet brand throughout.
+
+- **[`DESIGN.md`](DESIGN.md)** — the complete design system as shipped: tokens, typography, the candidate-state colour language, motion, accessibility.
+- **[`design-handoff/`](design-handoff/)** — everything a Figma designer needs to redesign the look *without touching functionality*: the tokens as an importable Figma file (`mafia-tokens.json`) and a guide (`HANDOFF.md`).
+
+The app is built so the **look** (CSS tokens + per-component CSS) and the **behaviour** (`.jsx` files) live apart — you can reskin it entirely by changing token values, and the functionality can't break.
+
+---
+
+## Project structure
 
 ```
-1. Candidate Application
-   ↓
-2. Board Approval (Admin Portal)
-   → Mark candidate as present
-   → Activate profile for interviewers
-   ↓
-3. Interview
-   → Interviewer searches candidate
-   → Views preferences and domain-specific questions
-   → Records verdict (Selected/Not Selected)
-   ↓
-4. Payment (if Selected)
-   → Generate payment QR code
-   → QR redirects to club payment page
-   → Transaction includes structured comment (Student ID | Interviewer Code | Timestamp)
-   ↓
-5. Verification
-   → Cross-reference payment comments with system records
-   → Board marks candidates as fully onboarded
+src/
+  App.js                 interviewer + desk logic, routing, all Firebase reads/writes
+  AdminPortal.jsx        admin logic + Firebase
+  firebaseConfig.js      Firebase init
+  candidateState.js      the single source of truth for candidate-state pills (§5)
+  ui/                    the component library (Button, Pill, Ticket, Sheet, …) + tokens.css + base.css
+  screens/
+    interviewer/         Login, Search, Candidate, Payment, Done, Chrome (presentational)
+    desk/                the check-in desk screen
+    admin/               admin login, stats, table, drawer, interviewers, activity
+  content/questions.js   interview questions per domain (placeholder — board fills in)
+  __fixtures__/          Jest fixtures that guard the Firestore payload & Excel export byte-for-byte
+firestore.rules          Firestore security rules
+DESIGN.md                the design system
+REDESIGN_PROMPT.md       the original redesign spec (historical)
+design-handoff/          Figma designer package
+CLAUDE.md                guide for AI agents working on this codebase
 ```
 
 ---
 
-## Impact
+## Still to do (owner actions)
 
-**Metrics:**
-
-| Metric | Before | After | Improvement |
-|--------|--------|-------|-------------|
-| Candidates processed | 300–400 | 500–600 | +50% capacity |
-| Concurrent interviews | 10–15 | 30+ | 2x capacity |
-| Data errors per day | 15–20 | 0 | Eliminated |
-| Payment tracking | Manual | Traceable | 100% transparent |
-| Board oversight | Impossible | Real-time | Full visibility |
-
-**Key improvements:**
-- Enabled 30+ simultaneous interviews without data loss
-- Eliminated reliance on error-prone spreadsheets
-- Created auditable, traceable payment records
-- Real-time monitoring of all interviewer activity
-- Increased total processing capacity by 50%
+- **Enable Anonymous sign-in** in the Firebase console (Authentication → Sign-in method) — activates the check-in desk's name+code login.
+- **Deploy the Firestore rules:** `firebase deploy --only firestore:rules` — enforces that a desk session can only write check-in fields.
+- **Rotate the old admin password** if the pre-redesign account is still in use (the old `/setup` page hardcoded it; it's gone from the current code but lives in old git history).
+- Feed the parser a real **time-slot Excel** and, later, **bank statements** (for the planned statement-reconciliation feature).
 
 ---
 
-## Key Features
-
-### Authentication & Access Control
-- Google OAuth restricted to college email IDs
-- Admin portal for interviewer approval and access management
-- Session tracking and automatic timeout
-
-### Candidate Management
-- Real-time candidate activation at venue check-in
-- Search by name or registration number
-- View domain preferences and management interest
-- Access board-reviewed interview questions
-
-### Interview Coordination
-- Real-time updates across all active interviewers
-- Conflict prevention for concurrent interviews
-- Activity logging and monitoring
-
-### Payment & Verification
-- QR code generation for selected candidates
-- Structured payment comments for traceability
-- Cross-verification system for board members
-- Automated payment tracking
-
-### Admin Oversight
-- Live monitoring of interviewer activity
-- Export candidate data to Excel
-- Payment verification dashboard
-- Bulk operations for data management
-
----
-
-## Technical Implementation
-
-### Real-time Synchronization
-```javascript
-// All interviewers see updates instantly
-onSnapshot(collection(db, "candidates"), (snapshot) => {
-  const candidates = snapshot.docs.map(doc => doc.data());
-  setCandidates(candidates);
-});
-```
-
-### Secure Payment Tracking
-```javascript
-// Generate traceable payment identifier
-const paymentComment = `${studentId}|${interviewerCode}|${timestamp}`;
-const qrUrl = `upi://pay?pa=<CLUB_UPI_ID>&pn=MAFIA&am=300&tr=${paymentComment}`;
-```
-
-### Performance Optimizations
-- LRU cache to reduce database reads
-- Debounced search to prevent excessive queries
-- Connection pooling for Firebase
-- Optimistic UI updates for instant feedback
-
-### Security Measures
-- Role-based access control (RBAC)
-- Input validation and sanitization
-- Rate limiting on API endpoints
-- Audit logging for all sensitive operations
-- Firestore security rules for server-side validation
-
----
-
-## Motivation
-
-The inspiration for this project came from personal experience:
-
-- **Year 1**: As a first-year student, I participated in MAFIA recruitment and experienced the chaos firsthand — lost forms, confused interviewers, no coordination
-- **Year 3**: As Vice President (and acting President), I had the opportunity and skills to fix these operational issues using my CS background
-
-I built this system to solve a real problem I had lived through, with the goal of creating something that future recruitment teams could rely on.
-
----
-
-## Future Improvements
-
-While the current system significantly improved the workflow, there are several opportunities for future enhancement:
-
-**WhatsApp Automation**
-- Auto-add selected members to WhatsApp communities using WhatsApp Business API
-- Automated interview reminders and notifications
-
-**Payment Gateway Integration**
-- Direct payment gateway integration for automatic verification
-- Real-time payment confirmation without manual cross-checking
-
-**Interview Scheduling**
-- Automated interview slot allocation
-- Calendar integration for interviewers and candidates
-- Conflict detection and resolution
-
-**Advanced Analytics**
-- Year-over-year comparison of recruitment metrics
-- Domain-wise acceptance trends
-- Interviewer performance analytics
-
----
-
-## Contact
-
-**Built by Dheeraj**
-- Vice President & Acting President, MAFIA (Music and Arts Association)
-- Computer Science, [Your College Name]
-- [dheera1312@gmail.com](mailto:dheera1312@gmail.com) | [9591185310](tel:9591185310)
-
----
-
-*Built to solve a real problem, at scale, with real users.*
+*Built for MAFIA, MIT Manipal. Contact: [dheera1312@gmail.com](mailto:dheera1312@gmail.com) · 9591185310.*
